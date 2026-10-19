@@ -27,13 +27,19 @@
 
     <!--
       Logback — required by iec61850bean server-side code (slf4j binding).
-      Keep the version aligned with the transitive dependency declared by
-      iec61850bean 1.9.0 so Maven does not upgrade it unexpectedly.
+      iec61850bean 1.9.0 declares logback-classic 1.2.3 and slf4j-api 1.7.25,
+      which carry known CVEs. Pin a current logback and the slf4j-api 2.0 it
+      is built against; slf4j 2.0 keeps the 1.7 API iec61850bean calls.
     -->
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
-      <version>1.2.3</version>
+      <version>1.6.5</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>2.0.19</version>
     </dependency>
 
     <!-- Jackson — for parsing values.json without rolling a custom parser. -->
