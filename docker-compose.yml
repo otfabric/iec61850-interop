@@ -24,7 +24,7 @@ services:
     platform: linux/amd64
     environment:
       MMS_INTEROP_ADDRESS: "0.0.0.0"
-      MMS_INTEROP_PORT: "102"
+      MMS_INTEROP_PORT: "1102"
     ports:
       - "1102:1102"
     volumes:
@@ -39,7 +39,7 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/102"]
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/1102"]
       interval: 2s
       timeout: 2s
       retries: 15
