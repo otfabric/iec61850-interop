@@ -16,6 +16,9 @@ jobs:
       - name: Validate fixture syntax and cross-references
         run: python3 scripts/validate-fixtures.py
 
+      - name: RELEASE.md has the notes of the newest version
+        run: scripts/release-notes.sh > /dev/null
+
   build-and-smoke:
     name: Build and smoke-test adapter images
     runs-on: ubuntu-latest
