@@ -62,8 +62,9 @@ publish-iec61850bean: build-iec61850bean ## Tag and push the iec61850bean adapte
 # Fixture validation (no Docker required)
 # ---------------------------------------------------------------------------
 
-validate-fixtures: ## JSON/XML syntax + cross-reference checks (no Docker, no network).
+validate-fixtures: ## JSON/XML syntax + cross-reference checks, and the notes of the newest version in RELEASE.md (no Docker, no network).
 	python3 scripts/validate-fixtures.py
+	@scripts/release-notes.sh > /dev/null && echo "ok   RELEASE.md has the notes of the newest version"
 
 clone-libiec61850: ## Clone libiec61850 at the pinned SHA into $(LIBIEC61850_CLONE).
 	$(eval LIBIEC61850_SHA := $(shell grep 'LIBIEC61850_SHA=' adapters/libiec61850/Dockerfile | head -1 | cut -d= -f2))

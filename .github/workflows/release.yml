@@ -21,8 +21,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Validate fixtures before release
-        run: python3 scripts/validate-fixtures.py
+      - name: Validate fixtures and release notes before release
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          python3 scripts/validate-fixtures.py
+          # The notes of this version become the body of the GitHub release.
+          scripts/release-notes.sh "${VERSION}" > /dev/null || { echo "::error::RELEASE.md has no notes for ${VERSION}"; exit 1; }
 
       - name: Set up QEMU (multi-platform emulation)
         uses: docker/setup-qemu-action@v4
@@ -114,25 +119,39 @@ jobs:
           sha256sum manifest.json > checksums.txt
           cat checksums.txt
 
+      # The body is the section of this version in RELEASE.md (up to its
+      # "---", as in every otfabric repository), followed by the images.
+      - name: Write the release body
+        env:
+          VERSION: ${{ github.ref_name }}
+          LIBIEC61850_DIGEST: ${{ steps.push-libiec61850.outputs.digest }}
+          IEC61850BEAN_DIGEST: ${{ steps.push-iec61850bean.outputs.digest }}
+        run: |
+          {
+            scripts/release-notes.sh "${VERSION}"
+            echo
+            echo "## Adapter images"
+            echo
+            echo "| Image | Digest |"
+            echo "|-------|--------|"
+            echo "| \`ghcr.io/otfabric/mms-interop-libiec61850:${VERSION}\` | \`${LIBIEC61850_DIGEST}\` |"
+            echo "| \`ghcr.io/otfabric/mms-interop-iec61850bean:${VERSION}\` | \`${IEC61850BEAN_DIGEST}\` |"
+            echo
+            echo "## Pinning in consumer repositories"
+            echo
+            echo '```bash'
+            echo "LIBIEC61850_IMAGE=ghcr.io/otfabric/mms-interop-libiec61850@${LIBIEC61850_DIGEST}"
+            echo "IEC61850BEAN_IMAGE=ghcr.io/otfabric/mms-interop-iec61850bean@${IEC61850BEAN_DIGEST}"
+            echo '```'
+            echo
+            echo "See \`manifest.json\` for full provenance (libiec61850 commit SHA, iec61850bean version, fixture revision)."
+          } > "${RUNNER_TEMP}/release-body.md"
+          cat "${RUNNER_TEMP}/release-body.md"
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v3
         with:
-          body: |
-            ## Adapter images
-
-            | Image | Digest |
-            |-------|--------|
-            | `ghcr.io/otfabric/mms-interop-libiec61850:${{ github.ref_name }}` | `${{ steps.push-libiec61850.outputs.digest }}` |
-            | `ghcr.io/otfabric/mms-interop-iec61850bean:${{ github.ref_name }}` | `${{ steps.push-iec61850bean.outputs.digest }}` |
-
-            ## Pinning in consumer repositories
-
-            ```bash
-            LIBIEC61850_IMAGE=ghcr.io/otfabric/mms-interop-libiec61850@${{ steps.push-libiec61850.outputs.digest }}
-            IEC61850BEAN_IMAGE=ghcr.io/otfabric/mms-interop-iec61850bean@${{ steps.push-iec61850bean.outputs.digest }}
-            ```
-
-            See `manifest.json` for full provenance (libiec61850 commit SHA, iec61850bean version, fixture revision).
+          body_path: ${{ runner.temp }}/release-body.md
           files: |
             manifest.json
             checksums.txt
