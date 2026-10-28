@@ -17,8 +17,8 @@ ARG DEBIAN_DIGEST=sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca
 FROM debian:bookworm-slim@${DEBIAN_DIGEST} AS libiec61850-build
 
 ARG LIBIEC61850_REPO=https://github.com/mz-automation/libiec61850.git
-# v1.6.1 tag
-ARG LIBIEC61850_SHA=a13961110b8238d2d8ea577c1fb7592ba3017ad8
+# mz-automation/libiec61850 HEAD (v1.6.2.1-89-g6e265c54)
+ARG LIBIEC61850_SHA=6e265c54af66ea686453b6d31c4dcce1cf7ad2bd
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates \
@@ -35,6 +35,12 @@ RUN git clone "${LIBIEC61850_REPO}" libiec61850 \
     && cd libiec61850 \
     && git checkout --detach "${LIBIEC61850_SHA}" \
     && test "$(git rev-parse HEAD)" = "${LIBIEC61850_SHA}"
+
+# The default profile compiles out the FileRename service; the MMS server
+# adapter serves it (fixture files RENAME.ME). Fail if the line moves.
+RUN sed -i 's/^#define MMS_RENAME_FILE_SERVICE 0$/#define MMS_RENAME_FILE_SERVICE 1/' \
+      libiec61850/config/stack_config.h.cmake \
+    && grep -q '^#define MMS_RENAME_FILE_SERVICE 1$' libiec61850/config/stack_config.h.cmake
 
 WORKDIR /src/libiec61850/build
 # -fvisibility=default overrides libiec61850's -fvisibility=hidden so that

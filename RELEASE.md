@@ -18,6 +18,39 @@ Tags are immutable. A fix is a new version.
 
 ---
 
+## v0.2.0
+
+**Date:** 2026-10-28
+
+## Summary
+
+The libiec61850 MMS adapters cover every MMS service a Go client or server
+exposes, not only Identify, GetNameList, Read, Write and named variable
+lists. FileDirectory, journals, reports, Status, alternate access and
+abort were not exercised before; go-mms issue #2 (FileDirectory against
+conforming servers) went unnoticed because of that.
+
+## Changes
+
+### Added
+
+- Fixture revision `mms-v2` (`fixtures/mms/interop.json`): VMD `status`, `informationReports` (listOfVariable and VMD named-list form), domain `journals` with entry IDs, occurrence times and reason codes, a file store (`files`, with text, hex or generated content, including a subdirectory and a file larger than one PDU), named structure components, and the writable `array-rw`, `structure-rw` and `report-trigger` variables.
+- `libiec61850-mms-server` serves Status from the fixture, the file store (FileDirectory, FileOpen/Read/Close, FileDelete, FileRename, ObtainFile), ReadJournal, writes with alternate access, and sends the fixture reports plus an UnsolicitedStatus when `interop/report-trigger` is written.
+- `libiec61850-mms-client` runs a service sequence after the existing phases (`mms_client_services.c`): Status, GetNameList for journals, VMD variables and an unknown domain, GetVariableAccessAttributes of composites, array element and component read/write, named variable lists in domain, VMD and association scope (including a server-registered list), FileDirectory, FileRead with initial position and multi-chunk reads, FileDelete, FileRename, ObtainFile, ReadJournal by time range and start-after, InformationReport reception, client abort and server-initiated abort. Each step emits one JSON line (`op`, `target`, `ok`, `value`/`names`/`error`).
+- Fixture file `NOTIME.TXT` without `lastModified` (the field is optional in the fixture as in MMS), and client steps that list `COMTRADE\` (the per-level name of a subdirectory) and read `NOTIME.TXT`.
+- `scripts/validate-fixtures.py` checks the `mms-v2` sections: revision, status range, report variables, journal entry IDs, order, tags and reason codes, the file content forms and the `lastModified` format.
+- `fixtures/capabilities.json` gains `mmsFixtureRevision` and five libiec61850 known limitations: listOfVariable InformationReports (wrong length encoding), FileOpen `initialPosition` (not seeked), bulk DeleteNamedVariableList, ObtainFile (the server fetches the file from the client), and an uninitialised `lastModified` in the client when a FileOpen response omits it.
+
+### Changed
+
+- The libiec61850 build enables `MMS_RENAME_FILE_SERVICE`, which the default profile compiles out.
+- `mms_server.c` defines `_XOPEN_SOURCE 500` so `nftw`/`FTW_DEPTH` compile against glibc (Debian in the adapter image).
+- `make build-libiec61850` forwards `ADAPTER_VERSION` into the image (CI and local builds can set `ADAPTER_VERSION=v0.2.0` so the ready event is not `dev`).
+- The Dockerfile pins libiec61850 at upstream HEAD `6e265c54af66` (`v1.6.2.1-89-g6e265c54`), up from v1.6.1. `fixtures/capabilities.json` records that version. FileOpen `initialPosition` is now rejected when it is past EOF (LIB61850-557) but the server still does not seek, so that known limitation remains.
+- COVERAGE.md lists both fixture revisions.
+
+---
+
 ## v0.1.4
 
 **Date:** 2026-07-26

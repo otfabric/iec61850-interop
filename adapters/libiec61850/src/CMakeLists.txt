@@ -69,10 +69,11 @@ target_link_libraries(libiec61850-mms-server
 )
 
 # ---------------------------------------------------------------------------
-# libiec61850-mms-client   (Phase 1B Step 3 — placeholder, compiled empty)
+# libiec61850-mms-client
 # ---------------------------------------------------------------------------
 add_executable(libiec61850-mms-client
     mms_client.c
+    mms_client_services.c
     ${COMMON_SRCS}
 )
 target_link_libraries(libiec61850-mms-client

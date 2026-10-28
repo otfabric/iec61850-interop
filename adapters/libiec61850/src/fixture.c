@@ -268,11 +268,16 @@ static MmsVariableSpecification* build_structure_spec(const char* name,
             free(comps);
             return NULL;
         }
-        /* Assign synthetic component names required by libiec61850's flattened
-         * name-space support (CONFIG_MMS_SUPPORT_FLATTED_NAME_SPACE=1). */
+        /* libiec61850's flattened name-space support
+         * (CONFIG_MMS_SUPPORT_FLATTED_NAME_SPACE=1) requires component
+         * names; components without a "name" get comp0, comp1, ... */
+        struct json_object* jn = NULL;
         char name_buf[16];
         snprintf(name_buf, sizeof(name_buf), "comp%d", i);
-        comps[i]->name = strdup(name_buf);
+        if (json_object_object_get_ex(jc, "name", &jn))
+            comps[i]->name = strdup(json_object_get_string(jn));
+        else
+            comps[i]->name = strdup(name_buf);
         if (!comps[i]->name) {
             for (int j = 0; j <= i; j++) { free(comps[j]->name); free(comps[j]); }
             free(comps);
@@ -319,6 +324,99 @@ static MmsValue* build_structure_value(struct json_object* jcomps)
     return sv;
 }
 
+static int json_count_keys(struct json_object* obj)
+{
+    int n = 0;
+    json_object_object_foreach(obj, k, v) { (void)k; (void)v; n++; }
+    return n;
+}
+
+static bool load_journal(JournalDef* j, const char* name, struct json_object* jobj)
+{
+    j->name = strdup(name);
+    struct json_object* jentries = NULL;
+    if (!json_object_object_get_ex(jobj, "entries", &jentries) ||
+        !json_object_is_type(jentries, json_type_array)) {
+        fprintf(stderr, "fixture: journal '%s' missing 'entries' array\n", name);
+        return false;
+    }
+    int n = (int)json_object_array_length(jentries);
+    j->entries = (JournalEntryDef*)calloc(n ? n : 1, sizeof(JournalEntryDef));
+    for (int i = 0; i < n; i++) {
+        struct json_object* je = json_object_array_get_idx(jentries, i);
+        struct json_object *jid = NULL, *jt = NULL, *jtag = NULL, *jtype = NULL, *jv = NULL, *jrc = NULL;
+        if (!json_object_object_get_ex(je, "entryId", &jid) ||
+            !json_object_object_get_ex(je, "occurrenceTime", &jt) ||
+            !json_object_object_get_ex(je, "tag", &jtag) ||
+            !json_object_object_get_ex(je, "type", &jtype) ||
+            !json_object_object_get_ex(je, "value", &jv)) {
+            fprintf(stderr, "fixture: journal '%s' entry %d incomplete\n", name, i);
+            return false;
+        }
+        JournalEntryDef* e = &j->entries[j->entry_count];
+        e->entry_id = (uint64_t)json_object_get_int64(jid);
+        e->time_ms  = parse_utc_ms(json_object_get_string(jt));
+        e->tag      = strdup(json_object_get_string(jtag));
+        e->value    = make_value(json_object_get_string(jtype), jv);
+        if (json_object_object_get_ex(je, "reasonCode", &jrc))
+            e->reason_code = (uint8_t)json_object_get_int(jrc);
+        if (!e->value) {
+            fprintf(stderr, "fixture: journal '%s' entry %d: bad value\n", name, i);
+            free(e->tag);
+            return false;
+        }
+        j->entry_count++;
+    }
+    return true;
+}
+
+static bool load_file(FileDef* fd, const char* name, struct json_object* jobj)
+{
+    struct json_object *jc = NULL, *jhex = NULL, *jsize = NULL, *jlm = NULL;
+    fd->name = strdup(name);
+    if (json_object_object_get_ex(jobj, "content", &jc)) {
+        const char* s = json_object_get_string(jc);
+        fd->size = (int)strlen(s);
+        fd->data = (uint8_t*)malloc(fd->size ? fd->size : 1);
+        memcpy(fd->data, s, fd->size);
+    } else if (json_object_object_get_ex(jobj, "hex", &jhex)) {
+        fd->data = hex_decode(json_object_get_string(jhex), &fd->size);
+        if (!fd->data) {
+            fprintf(stderr, "fixture: file '%s': bad hex\n", name);
+            return false;
+        }
+    } else if (json_object_object_get_ex(jobj, "size", &jsize)) {
+        fd->size = json_object_get_int(jsize);
+        fd->data = (uint8_t*)malloc(fd->size ? fd->size : 1);
+        for (int i = 0; i < fd->size; i++)
+            fd->data[i] = (uint8_t)(i % 251);
+    } else {
+        fprintf(stderr, "fixture: file '%s' needs content, hex or size\n", name);
+        return false;
+    }
+    if (json_object_object_get_ex(jobj, "lastModified", &jlm))
+        fd->last_modified_ms = parse_utc_ms(json_object_get_string(jlm));
+    return true;
+}
+
+static bool load_report(ReportDef* r, struct json_object* jobj)
+{
+    struct json_object *jl = NULL, *jvars = NULL;
+    if (json_object_object_get_ex(jobj, "vmdList", &jl))
+        r->vmd_list = strdup(json_object_get_string(jl));
+    if (!json_object_object_get_ex(jobj, "variables", &jvars) ||
+        !json_object_is_type(jvars, json_type_array)) {
+        fprintf(stderr, "fixture: informationReport missing 'variables'\n");
+        return false;
+    }
+    int n = (int)json_object_array_length(jvars);
+    r->variables = (char**)calloc(n ? n : 1, sizeof(char*));
+    for (int i = 0; i < n; i++)
+        r->variables[i] = strdup(json_object_get_string(json_object_array_get_idx(jvars, i)));
+    r->var_count = n;
+    return true;
+}
+
 FixtureDef* fixture_load(const char* path)
 {
     struct json_object* root = json_object_from_file(path);
@@ -343,6 +441,47 @@ FixtureDef* fixture_load(const char* path)
     if (!f->model)    f->model    = strdup("mms-interop");
     if (!f->revision) f->revision = strdup("1.0");
 
+    struct json_object* jrev = NULL;
+    if (json_object_object_get_ex(root, "revision", &jrev))
+        f->fixture_revision = strdup(json_object_get_string(jrev));
+    else
+        f->fixture_revision = strdup("mms-v1");
+
+    struct json_object* jstatus = NULL;
+    if (json_object_object_get_ex(root, "status", &jstatus)) {
+        struct json_object* jv = NULL;
+        if (json_object_object_get_ex(jstatus, "logical", &jv))  f->status_logical  = json_object_get_int(jv);
+        if (json_object_object_get_ex(jstatus, "physical", &jv)) f->status_physical = json_object_get_int(jv);
+    }
+
+    struct json_object* jfiles = NULL;
+    if (json_object_object_get_ex(root, "files", &jfiles)) {
+        f->files = (FileDef*)calloc(json_count_keys(jfiles) + 1, sizeof(FileDef));
+        json_object_object_foreach(jfiles, fname, fobj) {
+            if (!load_file(&f->files[f->file_count], fname, fobj)) {
+                json_object_put(root);
+                fixture_free(f);
+                return NULL;
+            }
+            f->file_count++;
+        }
+    }
+
+    struct json_object* jreports = NULL;
+    if (json_object_object_get_ex(root, "informationReports", &jreports) &&
+        json_object_is_type(jreports, json_type_array)) {
+        int n = (int)json_object_array_length(jreports);
+        f->reports = (ReportDef*)calloc(n ? n : 1, sizeof(ReportDef));
+        for (int i = 0; i < n; i++) {
+            if (!load_report(&f->reports[i], json_object_array_get_idx(jreports, i))) {
+                json_object_put(root);
+                fixture_free(f);
+                return NULL;
+            }
+            f->report_count++;
+        }
+    }
+
     /* domains */
     struct json_object* jdoms = NULL;
     if (!json_object_object_get_ex(root, "domains", &jdoms)) {
@@ -365,6 +504,19 @@ FixtureDef* fixture_load(const char* path)
     json_object_object_foreach(jdoms, dom_name, dom_obj) {
         DomainDef* d = &f->domains[di++];
         d->name = strdup(dom_name);
+
+        struct json_object* jjournals = NULL;
+        if (json_object_object_get_ex(dom_obj, "journals", &jjournals)) {
+            d->journals = (JournalDef*)calloc(json_count_keys(jjournals) + 1, sizeof(JournalDef));
+            json_object_object_foreach(jjournals, jname, jobj) {
+                if (!load_journal(&d->journals[d->journal_count], jname, jobj)) {
+                    json_object_put(root);
+                    fixture_free(f);
+                    return NULL;
+                }
+                d->journal_count++;
+            }
+        }
 
         struct json_object* jvars = NULL;
         if (!json_object_object_get_ex(dom_obj, "variables", &jvars)) continue;
@@ -472,12 +624,35 @@ FixtureDef* fixture_load(const char* path)
 void fixture_free(FixtureDef* f)
 {
     if (!f) return;
+    free(f->fixture_revision);
     free(f->vendor);
     free(f->model);
     free(f->revision);
+    for (int i = 0; i < f->file_count; i++) {
+        free(f->files[i].name);
+        free(f->files[i].data);
+    }
+    free(f->files);
+    for (int i = 0; i < f->report_count; i++) {
+        free(f->reports[i].vmd_list);
+        for (int k = 0; k < f->reports[i].var_count; k++)
+            free(f->reports[i].variables[k]);
+        free(f->reports[i].variables);
+    }
+    free(f->reports);
     for (int di = 0; di < f->domain_count; di++) {
         DomainDef* d = &f->domains[di];
         free(d->name);
+        for (int ji = 0; ji < d->journal_count; ji++) {
+            JournalDef* j = &d->journals[ji];
+            free(j->name);
+            for (int ei = 0; ei < j->entry_count; ei++) {
+                free(j->entries[ei].tag);
+                MmsValue_delete(j->entries[ei].value);
+            }
+            free(j->entries);
+        }
+        free(d->journals);
         for (int vi = 0; vi < d->var_count; vi++) {
             VarDef* v = &d->vars[vi];
             free(v->name);

@@ -15,6 +15,7 @@ Exit code: 0 if all checks pass, 1 if any check fails.
 
 import json
 import sys
+from datetime import datetime
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -69,8 +70,83 @@ def validate_mms_fixture() -> dict:
         ok(f"interop.json — 'domains' key present ({len(data['domains'])} domain(s))")
     else:
         err("interop.json — missing or empty 'domains' key")
+        return data
 
+    if isinstance(data.get("revision"), str) and data["revision"]:
+        ok(f"interop.json — revision {data['revision']}")
+    else:
+        err("interop.json — missing 'revision' (adapters report it in the ready event)")
+
+    validate_mms_sections(data)
     return data
+
+
+def validate_mms_sections(data: dict) -> None:
+    """Cross-reference the status, report, journal and file sections."""
+    variables = {
+        f"{dom}/{name}": spec
+        for dom, d in data["domains"].items()
+        for name, spec in (d.get("variables") or {}).items()
+    }
+
+    status = data.get("status")
+    if status is not None:
+        if status.get("logical") in (0, 1, 2) and status.get("physical") in (0, 1, 2, 3):
+            ok("interop.json — status logical/physical in range")
+        else:
+            err(f"interop.json — status out of range: {status}")
+
+    for i, rep in enumerate(data.get("informationReports") or []):
+        refs = rep.get("variables") or []
+        missing = [r for r in refs if r not in variables]
+        if not refs or missing:
+            err(f"interop.json — informationReports[{i}]: unknown or no variables {missing or refs}")
+        else:
+            form = f"vmdList {rep['vmdList']}" if rep.get("vmdList") else "listOfVariable"
+            ok(f"interop.json — informationReports[{i}] ({form}) references {len(refs)} variable(s)")
+
+    for dom, d in data["domains"].items():
+        for jname, journal in (d.get("journals") or {}).items():
+            entries = journal.get("entries") or []
+            ids = [e.get("entryId") for e in entries]
+            times = [e.get("occurrenceTime") for e in entries]
+            problems = []
+            if len(set(ids)) != len(ids) or not all(isinstance(x, int) and x >= 0 for x in ids):
+                problems.append("entryId values must be unique non-negative integers")
+            if times != sorted(times):
+                problems.append("entries must be in occurrenceTime order")
+            for e in entries:
+                if e.get("tag") not in variables:
+                    problems.append(f"tag {e.get('tag')!r} is not a fixture variable")
+                if not 0 <= e.get("reasonCode", -1) < 128:
+                    problems.append(f"reasonCode {e.get('reasonCode')!r} is not a 7-bit value")
+            if problems:
+                for p in problems:
+                    err(f"interop.json — journal {dom}/{jname}: {p}")
+            else:
+                ok(f"interop.json — journal {dom}/{jname}: {len(entries)} entries")
+
+    for name, f in (data.get("files") or {}).items():
+        forms = [k for k in ("content", "hex", "size") if k in f]
+        if len(forms) != 1:
+            err(f"interop.json — file {name}: exactly one of content/hex/size required, got {forms}")
+            continue
+        if "hex" in f:
+            try:
+                bytes.fromhex(f["hex"])
+            except ValueError:
+                err(f"interop.json — file {name}: invalid hex")
+                continue
+        if "size" in f and not (isinstance(f["size"], int) and f["size"] >= 0):
+            err(f"interop.json — file {name}: size must be a non-negative integer")
+            continue
+        if "lastModified" in f:
+            try:
+                datetime.strptime(f["lastModified"], "%Y-%m-%dT%H:%M:%SZ")
+            except (TypeError, ValueError):
+                err(f"interop.json — file {name}: lastModified must be YYYY-MM-DDTHH:MM:SSZ")
+                continue
+        ok(f"interop.json — file {name} ({forms[0]}{'' if 'lastModified' in f else ', no lastModified'})")
 
 
 # ---------------------------------------------------------------------------

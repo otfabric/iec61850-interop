@@ -4,7 +4,7 @@ Availability of adapter commands across the two images. Compatibility matrices f
 
 This file is generated from `fixtures/capabilities.json`; do not edit manually. Run `./scripts/gen-coverage.sh`.
 
-Adapter version: `0.1.4` · Fixture revision: `iec61850-v2`
+Adapter version: `0.2.0` · Fixture revisions: `mms-v2`, `iec61850-v2`
 
 | Adapter command | Image | Available |
 |----------------|-------|:---------:|
@@ -23,6 +23,11 @@ Adapter version: `0.1.4` · Fixture revision: `iec61850-v2`
 
 | Stack | Version | Direction | Capability | Expected skip |
 |-------|---------|-----------|------------|---------------|
+| `libiec61850` | 1.6.2.1-89-g6e265c54 | libiec61850-server → go-client | InformationReport, listOfVariable form | `TestClient_InformationReport` |
+| `libiec61850` | 1.6.2.1-89-g6e265c54 | go-client → libiec61850-server | FileOpen initialPosition | `TestClient_FileOpen_InitialPosition` |
+| `libiec61850` | 1.6.2.1-89-g6e265c54 | go-client → libiec61850-server | DeleteNamedVariableList scopeOfDelete domain/vmd (DeleteAll*NVLs) | `TestClient_DeleteAllNVLs_UnsupportedByPeer` |
+| `libiec61850` | 1.6.2.1-89-g6e265c54 | go-client → libiec61850-server | ObtainFile | `TestClient_ObtainFile` |
+| `libiec61850` | 1.6.2.1-89-g6e265c54 | libiec61850-client → go-server | FileOpen response without lastModified | `TestServer_FileOpen_NoLastModified` |
 | `iec61850bean` | 1.x | go-client → iec61850bean-server | SBOw SelectWithValue | `TestBeanClient_Control_SBOwOperate` |
 
 **Notes:**

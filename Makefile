@@ -9,6 +9,7 @@
 PLATFORM            ?= linux/amd64
 LIBIEC61850_IMAGE   ?= mms-interop-libiec61850:local
 IEC61850BEAN_IMAGE  ?= mms-interop-iec61850bean:local
+ADAPTER_VERSION     ?= dev
 FIXTURE             ?= fixtures/mms/interop.json
 PORT                ?= 1102
 REGISTRY            ?= ghcr.io/otfabric
@@ -31,6 +32,7 @@ build-libiec61850: ## Build the libiec61850 adapter image (server + client).
 	docker buildx build \
 	  --platform=$(PLATFORM) \
 	  --load \
+	  --build-arg ADAPTER_VERSION=$(ADAPTER_VERSION) \
 	  -f adapters/libiec61850/Dockerfile \
 	  -t $(LIBIEC61850_IMAGE) \
 	  .
