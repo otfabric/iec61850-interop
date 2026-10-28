@@ -1,6 +1,6 @@
 # Adapter Command Coverage
 
-Availability of adapter commands across the three images. Compatibility matrices for the Go libraries live in [`go-mms/INTEROP.md`](https://github.com/otfabric/go-mms/blob/main/INTEROP.md) and [`go-iec61850/INTEROP.md`](https://github.com/otfabric/go-iec61850/blob/main/INTEROP.md).
+Availability of adapter commands across the four images. Compatibility matrices for the Go libraries live in [`go-mms/INTEROP.md`](https://github.com/otfabric/go-mms/blob/main/INTEROP.md) and [`go-iec61850/INTEROP.md`](https://github.com/otfabric/go-iec61850/blob/main/INTEROP.md).
 
 This file is generated from `fixtures/capabilities.json`; do not edit manually. Run `./scripts/gen-coverage.sh`.
 
@@ -28,6 +28,14 @@ Adapter version: `0.3.0` · Fixture revisions: `mms-v2`, `iec61850-v2`, `goose-v
 | `dscsystems-ied-reporter` | `mms-interop-dscsystems` | ✓ |
 | `dscsystems-goose-publisher` | `mms-interop-dscsystems` | ✓ |
 | `dscsystems-goose-subscriber` | `mms-interop-dscsystems` | ✓ |
+| `iec61850-rust-mms-server` | `mms-interop-iec61850-rust` | ✓ |
+| `iec61850-rust-mms-client` | `mms-interop-iec61850-rust` | ✓ |
+| `iec61850-rust-ied-server` | `mms-interop-iec61850-rust` | ✓ |
+| `iec61850-rust-ied-client` | `mms-interop-iec61850-rust` | ✓ |
+| `iec61850-rust-ied-controller` | `mms-interop-iec61850-rust` | ✓ |
+| `iec61850-rust-ied-reporter` | `mms-interop-iec61850-rust` | ✓ |
+| `iec61850-rust-goose-publisher` | `mms-interop-iec61850-rust` | ✓ |
+| `iec61850-rust-goose-subscriber` | `mms-interop-iec61850-rust` | ✓ |
 
 **Known limitations (verified upstream gaps):**
 
@@ -46,6 +54,11 @@ Adapter version: `0.3.0` · Fixture revisions: `mms-v2`, `iec61850-v2`, `goose-v
 | `dscsystems` | v0.6.5-1-g6bf3f37 | dscsystems-client → go-server | FileOpen lastModified | `TestServer_FileOpenReadClose, TestServer_FileOpen_InitialPosition, TestServer_FileRead_MultiChunk` |
 | `dscsystems` | v0.6.5-1-g6bf3f37 | iec61850bean-client → dscsystems-ied-server | GetVariableAccessAttributes type of Enum (read LLN0.Mod.ctlModel[CF]) | — |
 | `dscsystems` | v0.6.5-1-g6bf3f37 | go-client → dscsystems-ied-server | Write of FC ST (and the dchg report it would trigger) | — |
+| `iec61850-rust` | v0.2.0-0-gd4e8952 | libiec61850-client → iec61850-rust-ied-server | SetURCBValues RptEna=true without prior Resv (implicit URCB reservation) | — |
+| `iec61850-rust` | v0.2.0-0-gd4e8952 | go-client → iec61850-rust-ied-server | Write of FC ST (and the dchg report it would trigger) | — |
+| `iec61850-rust` | v0.2.0-0-gd4e8952 | iec61850-rust-client → go-server | Abort (A-ABORT) | — |
+| `iec61850-rust` | v0.2.0-0-gd4e8952 | go-client → iec61850-rust-server | ObtainFile | `TestClient_ObtainFile` |
+| `iec61850-rust` | v0.2.0-0-gd4e8952 | go-client → iec61850-rust-server | DeleteNamedVariableList with domain/VMD scope | `TestClient_DeleteAllNVLs_UnsupportedByPeer` |
 
 **Notes:**
 

@@ -122,6 +122,16 @@ jobs:
             platform: linux/arm64
             runner: ubuntu-24.04-arm
             slug: dscsystems-linux-arm64
+          - image: iec61850-rust
+            file: adapters/iec61850-rust/Dockerfile
+            platform: linux/amd64
+            runner: ubuntu-24.04
+            slug: iec61850-rust-linux-amd64
+          - image: iec61850-rust
+            file: adapters/iec61850-rust/Dockerfile
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            slug: iec61850-rust-linux-arm64
     steps:
       - uses: actions/checkout@v7
 
@@ -180,6 +190,7 @@ jobs:
       libiec61850-digest: ${{ steps.manifests.outputs.libiec61850 }}
       iec61850bean-digest: ${{ steps.manifests.outputs.iec61850bean }}
       dscsystems-digest: ${{ steps.manifests.outputs.dscsystems }}
+      iec61850-rust-digest: ${{ steps.manifests.outputs.iec61850-rust }}
     steps:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -237,6 +248,7 @@ jobs:
           publish libiec61850
           publish iec61850bean
           publish dscsystems
+          publish iec61850-rust
 
   release:
     name: GitHub release
@@ -251,6 +263,7 @@ jobs:
           LIBIEC61850_DIGEST: ${{ needs.merge.outputs.libiec61850-digest }}
           IEC61850BEAN_DIGEST: ${{ needs.merge.outputs.iec61850bean-digest }}
           DSCSYSTEMS_DIGEST: ${{ needs.merge.outputs.dscsystems-digest }}
+          IEC61850RUST_DIGEST: ${{ needs.merge.outputs.iec61850-rust-digest }}
         run: |
           set -euo pipefail
           python3 - <<'PY' > manifest.json
@@ -263,6 +276,8 @@ jobs:
           caps = json.loads(pathlib.Path("fixtures/capabilities.json").read_text())
           dsc = pathlib.Path("adapters/dscsystems/Dockerfile").read_text()
           dsc_match = re.search(r"^ARG DSCSYSTEMS_SHA=(\S+)", dsc, re.M)
+          rust = pathlib.Path("adapters/iec61850-rust/Dockerfile").read_text()
+          rust_match = re.search(r"^ARG IEC61850_RUST_SHA=(\S+)", rust, re.M)
 
           print(json.dumps({
               "version": __import__("os").environ["VERSION"],
@@ -272,10 +287,12 @@ jobs:
               "libiec61850": sha_match.group(1) if sha_match else "",
               "iec61850bean": pom_match.group(1) if pom_match else "1.9.0",
               "dscsystems": dsc_match.group(1) if dsc_match else "",
+              "iec61850-rust": rust_match.group(1) if rust_match else "",
               "images": {
                   "libiec61850": __import__("os").environ["LIBIEC61850_DIGEST"],
                   "iec61850bean": __import__("os").environ["IEC61850BEAN_DIGEST"],
                   "dscsystems": __import__("os").environ["DSCSYSTEMS_DIGEST"],
+                  "iec61850-rust": __import__("os").environ["IEC61850RUST_DIGEST"],
               },
           }, indent=2))
           PY
@@ -288,6 +305,7 @@ jobs:
           LIBIEC61850_DIGEST: ${{ needs.merge.outputs.libiec61850-digest }}
           IEC61850BEAN_DIGEST: ${{ needs.merge.outputs.iec61850bean-digest }}
           DSCSYSTEMS_DIGEST: ${{ needs.merge.outputs.dscsystems-digest }}
+          IEC61850RUST_DIGEST: ${{ needs.merge.outputs.iec61850-rust-digest }}
         run: |
           {
             scripts/release-notes.sh "${VERSION}"
@@ -299,6 +317,7 @@ jobs:
             echo "| \`ghcr.io/otfabric/mms-interop-libiec61850:${VERSION}\` | \`${LIBIEC61850_DIGEST}\` |"
             echo "| \`ghcr.io/otfabric/mms-interop-iec61850bean:${VERSION}\` | \`${IEC61850BEAN_DIGEST}\` |"
             echo "| \`ghcr.io/otfabric/mms-interop-dscsystems:${VERSION}\` (GPL-3.0) | \`${DSCSYSTEMS_DIGEST}\` |"
+            echo "| \`ghcr.io/otfabric/mms-interop-iec61850-rust:${VERSION}\` | \`${IEC61850RUST_DIGEST}\` |"
             echo
             echo "## Pinning in consumer repositories"
             echo
@@ -306,9 +325,10 @@ jobs:
             echo "LIBIEC61850_IMAGE=ghcr.io/otfabric/mms-interop-libiec61850@${LIBIEC61850_DIGEST}"
             echo "IEC61850BEAN_IMAGE=ghcr.io/otfabric/mms-interop-iec61850bean@${IEC61850BEAN_DIGEST}"
             echo "DSCSYSTEMS_IMAGE=ghcr.io/otfabric/mms-interop-dscsystems@${DSCSYSTEMS_DIGEST}"
+            echo "IEC61850RUST_IMAGE=ghcr.io/otfabric/mms-interop-iec61850-rust@${IEC61850RUST_DIGEST}"
             echo '```'
             echo
-            echo "See \`manifest.json\` for full provenance (libiec61850 commit SHA, iec61850bean version, dscsystems/go-iec61850 commit SHA, fixture revisions)."
+            echo "See \`manifest.json\` for full provenance (libiec61850 commit SHA, iec61850bean version, dscsystems/go-iec61850 and iec61850-rust commit SHAs, fixture revisions)."
           } > "${RUNNER_TEMP}/release-body.md"
           cat "${RUNNER_TEMP}/release-body.md"
 

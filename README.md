@@ -16,7 +16,7 @@ This repository provides adapter images, fixture files and the adapter output co
 
 ## Purpose
 
-- Publish reproducible adapter images for libiec61850, iec61850bean and dscsystems/go-iec61850.
+- Publish reproducible adapter images for libiec61850, iec61850bean, dscsystems/go-iec61850 and csp0924/iec61850-rust.
 - Define the canonical fixture models and runtime values that all interop tests rely on.
 - Specify the JSON Lines adapter output contract that adapters must implement.
 - Keep the adapter implementations simple and auditable against upstream library examples.
@@ -51,7 +51,8 @@ mms-interop/
     ├── iec61850bean/
     │   ├── Dockerfile
     │   └── src/
-    └── dscsystems/            # GPL-3.0 (LICENSE, NOTICE in this directory)
+    ├── dscsystems/            # GPL-3.0 (LICENSE, NOTICE in this directory)
+    └── iec61850-rust/         # Rust adapter (LICENSE-MIT, LICENSE-APACHE, NOTICE)
         ├── Dockerfile
         ├── cmd/
         └── internal/
@@ -116,9 +117,21 @@ Where the library behaves differently, the gap is a known limitation in `fixture
 
 **Licensing boundary.** dscsystems code lives only in `adapters/dscsystems/` and the `mms-interop-dscsystems` image. That directory is GPL-3.0 (`LICENSE`, `NOTICE`); the rest of the repository stays MIT. Nothing from it may be copied or vendored into the MIT-licensed `go-mms` or `go-iec61850`: they talk to the adapter only over the network and its JSON Lines, as a separate program.
 
+### iec61850-rust
+
+[csp0924/iec61850-rust](https://github.com/csp0924/iec61850-rust) (MIT OR Apache-2.0) is a fourth, independent stack in Rust. The adapter is pinned to upstream commit `d4e8952` (`v0.2.0`, the `rev` in `adapters/iec61850-rust/Cargo.toml`, locked in `Cargo.lock`) and built with Rust 1.95.0 (upstream's `rust-toolchain.toml` asks for stable).
+
+It offers the same command set under the `iec61850-rust-` prefix:
+
+- `iec61850-rust-mms-server`, `iec61850-rust-mms-client`
+- `iec61850-rust-ied-server`, `iec61850-rust-ied-client`, `iec61850-rust-ied-controller`, `iec61850-rust-ied-reporter`
+- `iec61850-rust-goose-publisher`, `iec61850-rust-goose-subscriber`
+
+Upstream has no generic MMS server and a partial MMS client, so the adapter runs the association with upstream's ISO layers and encodes the remaining services itself. All eight commands are supported; a command that a stack cannot provide answers `{"event":"error","code":"unsupported","command":...,"reason":...}` and exits 4. Gaps are known limitations in `fixtures/capabilities.json`. `adapters/iec61850-rust/` keeps upstream's `LICENSE-MIT`, `LICENSE-APACHE` and a `NOTICE`.
+
 ## GOOSE
 
-GOOSE is layer 2. The publisher and subscriber commands of libiec61850 and dscsystems share one contract and one fixture (`fixtures/goose/`). They need `CAP_NET_RAW` and a Docker bridge network shared with the peer; a Go test on a Linux host joins through the bridge device, on macOS it has to run in a container. [`docs/goose.md`](docs/goose.md) has the contract, the fixture and the networking recipes.
+GOOSE is layer 2. The publisher and subscriber commands of libiec61850, dscsystems and iec61850-rust share one contract and one fixture (`fixtures/goose/`). They need `CAP_NET_RAW` and a Docker bridge network shared with the peer; a Go test on a Linux host joins through the bridge device, on macOS it has to run in a container. [`docs/goose.md`](docs/goose.md) has the contract, the fixture and the networking recipes.
 
 ## Fixtures
 
@@ -156,6 +169,7 @@ Consumer repositories pin a specific adapter image version tag for local use and
 # Local development — version tag
 LIBIEC61850_IMAGE=ghcr.io/otfabric/mms-interop-libiec61850:v0.3.0 make interop
 DSCSYSTEMS_IMAGE=ghcr.io/otfabric/mms-interop-dscsystems:v0.3.0 make interop
+IEC61850RUST_IMAGE=ghcr.io/otfabric/mms-interop-iec61850-rust:v0.3.0 make interop
 
 # CI — digest-pinned for full reproducibility
 LIBIEC61850_IMAGE=ghcr.io/otfabric/mms-interop-libiec61850@sha256:<digest> make interop
@@ -208,18 +222,20 @@ Primary directions (tests live in `go-mms`, `go-iec61850`, and consumer CLIs suc
 | iec61850bean client/controller/reporter → go-iec61850 / CLI server | IEC 61850 | Server | `iec61850bean-ied-client`, `-controller`, `-reporter` | 2B / 3A / 3B |
 | go-mms client ↔ dscsystems MMS server / client | MMS | Client / Server | `dscsystems-mms-server`, `dscsystems-mms-client` | 4 |
 | go-iec61850 ↔ dscsystems IED server / clients | IEC 61850 | Client / Server | `dscsystems-ied-server`, `-client`, `-controller`, `-reporter` | 4 |
-| go-iec61850 GOOSE publisher → libiec61850 / dscsystems subscriber | GOOSE | Publisher | `*-goose-subscriber` | 5 |
-| libiec61850 / dscsystems publisher → go-iec61850 GOOSE subscriber | GOOSE | Subscriber | `*-goose-publisher` | 5 |
+| go-mms client ↔ iec61850-rust MMS server / client | MMS | Client / Server | `iec61850-rust-mms-server`, `iec61850-rust-mms-client` | 4 |
+| go-iec61850 ↔ iec61850-rust IED server / clients | IEC 61850 | Client / Server | `iec61850-rust-ied-server`, `-client`, `-controller`, `-reporter` | 4 |
+| go-iec61850 GOOSE publisher → libiec61850 / dscsystems / iec61850-rust subscriber | GOOSE | Publisher | `*-goose-subscriber` | 5 |
+| libiec61850 / dscsystems / iec61850-rust publisher → go-iec61850 GOOSE subscriber | GOOSE | Subscriber | `*-goose-publisher` | 5 |
 
 Fixed-sequence `*-ied-client` adapters exit `3` when any operation emits `ok:false` (after attempting conclude). Connection failure remains exit `2`.
 
 ## Building and publishing adapter images
 
 ```bash
-# Build all three adapter images locally
+# Build all four adapter images locally
 make build
 
-# GOOSE publisher -> subscriber, libiec61850 <-> dscsystems
+# GOOSE publisher -> subscriber, every pair of libiec61850, dscsystems, iec61850-rust
 make goose-crosscheck
 
 # Publish to registry (requires REGISTRY and VERSION or defaults)
@@ -245,6 +261,7 @@ LIBIEC61850_IMAGE=mms-interop-libiec61850:local make interop
 LIBIEC61850_IMAGE=mms-interop-libiec61850:local \
 IEC61850BEAN_IMAGE=mms-interop-iec61850bean:local \
 DSCSYSTEMS_IMAGE=mms-interop-dscsystems:local \
+IEC61850RUST_IMAGE=mms-interop-iec61850-rust:local \
 make interop
 ```
 
@@ -257,4 +274,4 @@ make interop
 
 The repository's original code and documentation are MIT-licensed unless otherwise noted.
 
-Third-party source code, Docker images and generated artifacts retain their respective upstream licenses. libiec61850 is GPLv3; iec61850bean is Apache-2.0; dscsystems/go-iec61850 is GPLv3. `adapters/dscsystems/` links dscsystems/go-iec61850 and is therefore GPL-3.0 itself (see its `LICENSE` and `NOTICE`). Distribution of images containing any of these libraries must preserve the applicable upstream notices and source obligations.
+Third-party source code, Docker images and generated artifacts retain their respective upstream licenses. libiec61850 is GPLv3; iec61850bean is Apache-2.0; dscsystems/go-iec61850 is GPLv3; csp0924/iec61850-rust is MIT OR Apache-2.0. `adapters/dscsystems/` links dscsystems/go-iec61850 and is therefore GPL-3.0 itself (see its `LICENSE` and `NOTICE`). Distribution of images containing any of these libraries must preserve the applicable upstream notices and source obligations.

@@ -9,8 +9,9 @@ a layer-2 segment shared with the peer under test.
 |---|---|
 | `libiec61850-goose-publisher`, `libiec61850-goose-subscriber` | `mms-interop-libiec61850` |
 | `dscsystems-goose-publisher`, `dscsystems-goose-subscriber` | `mms-interop-dscsystems` |
+| `iec61850-rust-goose-publisher`, `iec61850-rust-goose-subscriber` | `mms-interop-iec61850-rust` |
 
-Both stacks implement the same command line and JSON Lines contract, so a
+All three stacks implement the same command line and JSON Lines contract, so a
 test switches peer by image and command name only.
 
 ## Fixture — `fixtures/goose/`
@@ -197,7 +198,7 @@ Two options, both used by CI:
 
 `scripts/goose-crosscheck.sh PUB_IMAGE PUB_CMD SUB_IMAGE SUB_CMD [CB]`
 is the reference for driving a publisher/subscriber pair: it is what CI
-runs between libiec61850 and dscsystems.
+runs between every pair of libiec61850, dscsystems and iec61850-rust.
 
 ### macOS (and Windows) hosts
 

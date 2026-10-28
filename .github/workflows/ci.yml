@@ -58,6 +58,9 @@ jobs:
       - name: Build dscsystems adapter image
         run: make build-dscsystems
 
+      - name: Build iec61850-rust adapter image
+        run: make build-iec61850-rust
+
       - name: Verify required binaries
         run: make verify-binaries
 
@@ -65,15 +68,17 @@ jobs:
         run: make verify-fixtures
 
       # Run the full smoke suite: server ready events, client JSON Lines
-      # output (same stack and libiec61850 <-> dscsystems in both
-      # directions), and GOOSE publisher -> subscriber between libiec61850
-      # and dscsystems in all four directions, including the host side of
-      # the bridge network as a Go test on a Linux host uses it.
+      # output (same stack, and libiec61850 <-> dscsystems / iec61850-rust in
+      # both directions), and GOOSE publisher -> subscriber between
+      # libiec61850, dscsystems and iec61850-rust for every pair, including
+      # the host side of the bridge network as a Go test on a Linux host
+      # uses it.
       - name: Run adapter smoke tests
         run: |
           LIBIEC61850_IMAGE=mms-interop-libiec61850:local \
           IEC61850BEAN_IMAGE=mms-interop-iec61850bean:local \
           DSCSYSTEMS_IMAGE=mms-interop-dscsystems:local \
+          IEC61850RUST_IMAGE=mms-interop-iec61850-rust:local \
           ./scripts/smoke-test.sh
 
       - name: Record build provenance
@@ -87,4 +92,5 @@ jobs:
           echo "libiec61850 SHA : ${LIBIEC61850_SHA}"
           echo "iec61850bean    : ${IEC61850BEAN_VERSION:-1.9.0}"
           echo "dscsystems      : $(grep 'ARG DSCSYSTEMS_SHA=' adapters/dscsystems/Dockerfile | cut -d= -f2)"
+          echo "iec61850-rust   : $(grep 'ARG IEC61850_RUST_SHA=' adapters/iec61850-rust/Dockerfile | cut -d= -f2)"
           echo "platform        : linux/amd64"

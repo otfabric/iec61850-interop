@@ -12,6 +12,7 @@
 #   LIBIEC61850_IMAGE=mms-interop-libiec61850:local \
 #   IEC61850BEAN_IMAGE=mms-interop-iec61850bean:local \
 #   DSCSYSTEMS_IMAGE=mms-interop-dscsystems:local \
+#   IEC61850RUST_IMAGE=mms-interop-iec61850-rust:local \
 #   ./scripts/smoke-test.sh
 #
 # Exit code: 0 if all checks pass, 1 if any check fails.
@@ -21,6 +22,7 @@ set -euo pipefail
 LIBIEC61850_IMAGE="${LIBIEC61850_IMAGE:-mms-interop-libiec61850:local}"
 IEC61850BEAN_IMAGE="${IEC61850BEAN_IMAGE:-mms-interop-iec61850bean:local}"
 DSCSYSTEMS_IMAGE="${DSCSYSTEMS_IMAGE:-mms-interop-dscsystems:local}"
+IEC61850RUST_IMAGE="${IEC61850RUST_IMAGE:-mms-interop-iec61850-rust:local}"
 SCRIPTS="$(cd "$(dirname "$0")" && pwd)"
 
 PASS=0
@@ -257,10 +259,10 @@ check_binary "$IEC61850BEAN_IMAGE" iec61850bean-ied-server
 check_binary "$IEC61850BEAN_IMAGE" iec61850bean-ied-client
 check_binary "$LIBIEC61850_IMAGE" libiec61850-goose-publisher
 check_binary "$LIBIEC61850_IMAGE" libiec61850-goose-subscriber
-for bin in dscsystems-mms-server dscsystems-mms-client dscsystems-ied-server \
-           dscsystems-ied-client dscsystems-ied-controller dscsystems-ied-reporter \
-           dscsystems-goose-publisher dscsystems-goose-subscriber; do
-    check_binary "$DSCSYSTEMS_IMAGE" "$bin"
+for cmd in mms-server mms-client ied-server ied-client ied-controller ied-reporter \
+           goose-publisher goose-subscriber; do
+    check_binary "$DSCSYSTEMS_IMAGE" "dscsystems-$cmd"
+    check_binary "$IEC61850RUST_IMAGE" "iec61850-rust-$cmd"
 done
 
 info ""
@@ -280,6 +282,8 @@ check_capabilities_command "$IEC61850BEAN_IMAGE" iec61850bean-ied-client iec6185
 check_capabilities_command "$LIBIEC61850_IMAGE" libiec61850-goose-publisher libiec61850-goose-subscriber
 check_capabilities_command "$DSCSYSTEMS_IMAGE" dscsystems-ied-client dscsystems-ied-client
 check_capabilities_command "$DSCSYSTEMS_IMAGE" dscsystems-goose-subscriber dscsystems-goose-publisher
+check_capabilities_command "$IEC61850RUST_IMAGE" iec61850-rust-ied-client iec61850-rust-ied-client
+check_capabilities_command "$IEC61850RUST_IMAGE" iec61850-rust-goose-subscriber iec61850-rust-goose-publisher
 
 info ""
 info "=== Fixture files ==="
@@ -290,10 +294,11 @@ check_fixture_file "$IEC61850BEAN_IMAGE" /fixtures/iec61850/interop.icd
 check_fixture_file "$IEC61850BEAN_IMAGE" /fixtures/iec61850/values.json
 for f in /fixtures/goose/goose.json /fixtures/goose/interop-goose.cid; do
     check_fixture_file "$LIBIEC61850_IMAGE" "$f"
-    check_fixture_file "$DSCSYSTEMS_IMAGE" "$f"
 done
-for f in /fixtures/mms/interop.json /fixtures/iec61850/interop.icd /fixtures/iec61850/values.json; do
+for f in /fixtures/mms/interop.json /fixtures/iec61850/interop.icd /fixtures/iec61850/values.json \
+         /fixtures/goose/goose.json /fixtures/goose/interop-goose.cid; do
     check_fixture_file "$DSCSYSTEMS_IMAGE" "$f"
+    check_fixture_file "$IEC61850RUST_IMAGE" "$f"
 done
 
 info ""
@@ -314,6 +319,12 @@ check_ready_event "dscsystems-mms-server" "$ready"
 
 ready=$(start_server "$DSCSYSTEMS_IMAGE" dscsystems-ied-server 19005)
 check_ready_event "dscsystems-ied-server" "$ready"
+
+ready=$(start_server "$IEC61850RUST_IMAGE" iec61850-rust-mms-server 19006)
+check_ready_event "iec61850-rust-mms-server" "$ready"
+
+ready=$(start_server "$IEC61850RUST_IMAGE" iec61850-rust-ied-server 19007)
+check_ready_event "iec61850-rust-ied-server" "$ready"
 
 info ""
 info "=== Client JSON Lines output ==="
@@ -340,38 +351,31 @@ output=$(run_client_pair \
 check_json_lines "iec61850bean-ied-client" "$output"
 check_ied_client_ops "iec61850bean-ied-client" "$output"
 
-# dscsystems against libiec61850, both directions.
-output=$(run_client_pair \
-    "$LIBIEC61850_IMAGE" libiec61850-mms-server \
-    "$DSCSYSTEMS_IMAGE" dscsystems-mms-client)
-check_json_lines "dscsystems-mms-client -> libiec61850-mms-server" "$output"
+# dscsystems and iec61850-rust against libiec61850, both directions.
+for stack in "$DSCSYSTEMS_IMAGE dscsystems" "$IEC61850RUST_IMAGE iec61850-rust"; do
+    set -- $stack
+    img="$1"; p="$2"
 
-output=$(run_client_pair \
-    "$DSCSYSTEMS_IMAGE" dscsystems-mms-server \
-    "$LIBIEC61850_IMAGE" libiec61850-mms-client)
-check_json_lines "libiec61850-mms-client -> dscsystems-mms-server" "$output"
+    output=$(run_client_pair "$LIBIEC61850_IMAGE" libiec61850-mms-server "$img" "$p-mms-client")
+    check_json_lines "$p-mms-client -> libiec61850-mms-server" "$output"
 
-output=$(run_client_pair \
-    "$LIBIEC61850_IMAGE" libiec61850-ied-server \
-    "$DSCSYSTEMS_IMAGE" dscsystems-ied-client)
-check_json_lines "dscsystems-ied-client -> libiec61850-ied-server" "$output"
-check_ied_client_ops "dscsystems-ied-client -> libiec61850-ied-server" "$output"
+    output=$(run_client_pair "$img" "$p-mms-server" "$LIBIEC61850_IMAGE" libiec61850-mms-client)
+    check_json_lines "libiec61850-mms-client -> $p-mms-server" "$output"
 
-output=$(run_client_pair \
-    "$DSCSYSTEMS_IMAGE" dscsystems-ied-server \
-    "$LIBIEC61850_IMAGE" libiec61850-ied-client)
-check_json_lines "libiec61850-ied-client -> dscsystems-ied-server" "$output"
-check_ied_client_ops "libiec61850-ied-client -> dscsystems-ied-server" "$output"
+    output=$(run_client_pair "$LIBIEC61850_IMAGE" libiec61850-ied-server "$img" "$p-ied-client")
+    check_json_lines "$p-ied-client -> libiec61850-ied-server" "$output"
+    check_ied_client_ops "$p-ied-client -> libiec61850-ied-server" "$output"
 
-output=$(run_client_pair \
-    "$LIBIEC61850_IMAGE" libiec61850-ied-server \
-    "$DSCSYSTEMS_IMAGE" dscsystems-ied-reporter)
-check_json_lines "dscsystems-ied-reporter -> libiec61850-ied-server" "$output"
+    output=$(run_client_pair "$img" "$p-ied-server" "$LIBIEC61850_IMAGE" libiec61850-ied-client)
+    check_json_lines "libiec61850-ied-client -> $p-ied-server" "$output"
+    check_ied_client_ops "libiec61850-ied-client -> $p-ied-server" "$output"
 
-output=$(run_client_pair \
-    "$LIBIEC61850_IMAGE" libiec61850-ied-server \
-    "$DSCSYSTEMS_IMAGE" dscsystems-ied-controller)
-check_json_lines "dscsystems-ied-controller -> libiec61850-ied-server" "$output"
+    output=$(run_client_pair "$LIBIEC61850_IMAGE" libiec61850-ied-server "$img" "$p-ied-reporter")
+    check_json_lines "$p-ied-reporter -> libiec61850-ied-server" "$output"
+
+    output=$(run_client_pair "$LIBIEC61850_IMAGE" libiec61850-ied-server "$img" "$p-ied-controller")
+    check_json_lines "$p-ied-controller -> libiec61850-ied-server" "$output"
+done
 
 info ""
 info "=== GOOSE publisher -> subscriber (L2, Docker bridge) ==="
@@ -384,21 +388,21 @@ goose_check() {
         fail "$out"
     fi
 }
-for pub in "$LIBIEC61850_IMAGE libiec61850" "$DSCSYSTEMS_IMAGE dscsystems"; do
-    for sub in "$LIBIEC61850_IMAGE libiec61850" "$DSCSYSTEMS_IMAGE dscsystems"; do
+STACKS=("$LIBIEC61850_IMAGE libiec61850" "$DSCSYSTEMS_IMAGE dscsystems" "$IEC61850RUST_IMAGE iec61850-rust")
+# Every publisher -> every subscriber, all flags set.
+for pub in "${STACKS[@]}"; do
+    for sub in "${STACKS[@]}"; do
         set -- $pub $sub
         goose_check "$1" "$2-goose-publisher" "$3" "$4-goose-subscriber" gcbAll
     done
 done
-FLAGS=plain goose_check "$LIBIEC61850_IMAGE" libiec61850-goose-publisher \
-    "$DSCSYSTEMS_IMAGE" dscsystems-goose-subscriber gcbBool
-FLAGS=plain goose_check "$DSCSYSTEMS_IMAGE" dscsystems-goose-publisher \
-    "$LIBIEC61850_IMAGE" libiec61850-goose-subscriber gcbBool
-# The host side of the bridge, as a Go test on a Linux host sees it.
-HOST_SIDE=1 goose_check "$LIBIEC61850_IMAGE" libiec61850-goose-publisher \
-    "$DSCSYSTEMS_IMAGE" dscsystems-goose-subscriber gcbAll
-HOST_SIDE=1 goose_check "$DSCSYSTEMS_IMAGE" dscsystems-goose-publisher \
-    "$LIBIEC61850_IMAGE" libiec61850-goose-subscriber gcbAll
+# No flags, and from the host side of the bridge (a Go test on a Linux
+# host), each stack once as publisher and once as subscriber.
+for i in 0 1 2; do
+    set -- ${STACKS[$i]} ${STACKS[$(( (i + 1) % 3 ))]}
+    FLAGS=plain goose_check "$1" "$2-goose-publisher" "$3" "$4-goose-subscriber" gcbBool
+    HOST_SIDE=1 goose_check "$1" "$2-goose-publisher" "$3" "$4-goose-subscriber" gcbAll
+done
 
 # ===========================================================================
 # Summary

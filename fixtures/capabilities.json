@@ -23,7 +23,15 @@
     "dscsystems-ied-controller": true,
     "dscsystems-ied-reporter": true,
     "dscsystems-goose-publisher": true,
-    "dscsystems-goose-subscriber": true
+    "dscsystems-goose-subscriber": true,
+    "iec61850-rust-mms-server": true,
+    "iec61850-rust-mms-client": true,
+    "iec61850-rust-ied-server": true,
+    "iec61850-rust-ied-client": true,
+    "iec61850-rust-ied-controller": true,
+    "iec61850-rust-ied-reporter": true,
+    "iec61850-rust-goose-publisher": true,
+    "iec61850-rust-goose-subscriber": true
   },
   "knownLimitations": [
     {
@@ -129,6 +137,46 @@
       "capability": "Write of FC ST (and the dchg report it would trigger)",
       "reason": "server.WithWritableFCs ignores ST/MX/OR/EX/SG by design (status is read-only in IEC 61850-7-2), so the write is always object-access-denied; the libiec61850 server denies it as well today",
       "reproducedBy": ""
+    },
+    {
+      "stack": "iec61850-rust",
+      "version": "v0.2.0-0-gd4e8952",
+      "direction": "libiec61850-client → iec61850-rust-ied-server",
+      "capability": "SetURCBValues RptEna=true without prior Resv (implicit URCB reservation)",
+      "reason": "the upstream reporting service follows Edition 2.1 strictly: RptEna on an unreserved URCB is refused with object-access-denied, so enable-only clients (libiec61850 style) get access-denied",
+      "reproducedBy": ""
+    },
+    {
+      "stack": "iec61850-rust",
+      "version": "v0.2.0-0-gd4e8952",
+      "direction": "go-client → iec61850-rust-ied-server",
+      "capability": "Write of FC ST (and the dchg report it would trigger)",
+      "reason": "the upstream server always denies ST writes (object-access-denied); the libiec61850 and dscsystems servers deny it as well",
+      "reproducedBy": ""
+    },
+    {
+      "stack": "iec61850-rust",
+      "version": "v0.2.0-0-gd4e8952",
+      "direction": "iec61850-rust-client → go-server",
+      "capability": "Abort (A-ABORT)",
+      "reason": "the upstream MMS client has no abort primitive; the adapter's abort step only closes the transport (output line unchanged)",
+      "reproducedBy": ""
+    },
+    {
+      "stack": "iec61850-rust",
+      "version": "v0.2.0-0-gd4e8952",
+      "direction": "go-client → iec61850-rust-server",
+      "capability": "ObtainFile",
+      "reason": "role reversal: go-mms does not serve files, so the server answers a File-class error (file-other) after 5 s, as libiec61850 does",
+      "reproducedBy": "TestClient_ObtainFile"
+    },
+    {
+      "stack": "iec61850-rust",
+      "version": "v0.2.0-0-gd4e8952",
+      "direction": "go-client → iec61850-rust-server",
+      "capability": "DeleteNamedVariableList with domain/VMD scope",
+      "reason": "answered object-access-unsupported, as libiec61850 does",
+      "reproducedBy": "TestClient_DeleteAllNVLs_UnsupportedByPeer"
     }
   ],
   "upstreams": {
@@ -142,6 +190,11 @@
       "version": "v0.6.5-1-g6bf3f37",
       "commit": "6bf3f370c6fb95d3835e34d9d1539f313e00b157",
       "license": "GPL-3.0"
+    },
+    "iec61850-rust": {
+      "version": "v0.2.0-0-gd4e8952",
+      "commit": "d4e895217f367ed4caebf21611d2c16ee46035c0",
+      "license": "MIT OR Apache-2.0"
     }
   },
   "gooseFixtureRevision": "goose-v1"

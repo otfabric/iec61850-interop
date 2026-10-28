@@ -20,12 +20,14 @@ def image_for(cmd: str) -> str:
         return "mms-interop-iec61850bean"
     if cmd.startswith("dscsystems-"):
         return "mms-interop-dscsystems"
+    if cmd.startswith("iec61850-rust-"):
+        return "mms-interop-iec61850-rust"
     return "?"
 
 lines = [
     "# Adapter Command Coverage",
     "",
-    "Availability of adapter commands across the three images. Compatibility matrices for the Go libraries live in [`go-mms/INTEROP.md`](https://github.com/otfabric/go-mms/blob/main/INTEROP.md) and [`go-iec61850/INTEROP.md`](https://github.com/otfabric/go-iec61850/blob/main/INTEROP.md).",
+    "Availability of adapter commands across the four images. Compatibility matrices for the Go libraries live in [`go-mms/INTEROP.md`](https://github.com/otfabric/go-mms/blob/main/INTEROP.md) and [`go-iec61850/INTEROP.md`](https://github.com/otfabric/go-iec61850/blob/main/INTEROP.md).",
     "",
     "This file is generated from `fixtures/capabilities.json`; do not edit manually. Run `./scripts/gen-coverage.sh`.",
     "",
