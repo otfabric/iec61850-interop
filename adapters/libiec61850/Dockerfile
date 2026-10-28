@@ -122,10 +122,22 @@ COPY --from=adapter-build /src/adapter/build/libiec61850-ied-server   /usr/local
 COPY --from=adapter-build /src/adapter/build/libiec61850-ied-client   /usr/local/bin/
 COPY --from=adapter-build /src/adapter/build/libiec61850-ied-reporter    /usr/local/bin/
 COPY --from=adapter-build /src/adapter/build/libiec61850-ied-controller /usr/local/bin/
+COPY --from=adapter-build /src/adapter/build/libiec61850-goose-publisher  /usr/local/bin/
+COPY --from=adapter-build /src/adapter/build/libiec61850-goose-subscriber /usr/local/bin/
+
+# GOOSE needs a raw AF_PACKET socket. File capabilities let the non-root
+# adapter user open one when the container has CAP_NET_RAW (Docker's
+# default set includes it). Run with --user 0 when no-new-privileges is set.
+RUN apt-get update && apt-get install -y --no-install-recommends libcap2-bin \
+    && setcap cap_net_raw+ep /usr/local/bin/libiec61850-goose-publisher \
+    && setcap cap_net_raw+ep /usr/local/bin/libiec61850-goose-subscriber \
+    && apt-get purge -y libcap2-bin && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY fixtures/mms/interop.json      /fixtures/mms/interop.json
 COPY fixtures/iec61850/interop.icd  /fixtures/iec61850/interop.icd
 COPY fixtures/iec61850/values.json  /fixtures/iec61850/values.json
+COPY fixtures/goose/                /fixtures/goose/
 
 USER adapter
 

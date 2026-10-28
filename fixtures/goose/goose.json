@@ -1,0 +1,83 @@
+{
+  "revision": "goose-v1",
+  "scl": "interop-goose.cid",
+  "comment": "GOOSE control blocks of InteropIED (fixtures/iec61850/interop.icd plus GSEControl/GSE in interop-goose.cid). gocbRef and datSet are the on-wire references (IED name + LD inst). 'values' is the initial state a publisher announces (stNum 1); 'update' is the state of the first {\"cmd\":\"set\"} in tests. Value JSON is the typed form of the MMS value contract.",
+  "iedName": "InteropIED",
+  "ldName": "InteropIEDInteropLD",
+  "controlBlocks": {
+    "gcbAll": {
+      "gocbRef": "InteropIEDInteropLD/LLN0$GO$gcbAll",
+      "goID": "InteropGooseAll",
+      "datSet": "InteropIEDInteropLD/LLN0$dsGooseAll",
+      "appID": "0x1001",
+      "dst": "01:0c:cd:01:00:01",
+      "vlanId": 0,
+      "vlanPrio": 4,
+      "confRev": 1,
+      "minTime": 10,
+      "maxTime": 1000,
+      "members": [
+        { "ref": "InteropLD/GGIO1.SPS1.stVal",       "fc": "ST", "type": "boolean" },
+        { "ref": "InteropLD/LLN0.Mod.stVal",         "fc": "ST", "type": "integer" },
+        { "ref": "InteropLD/MMTR1.TotVAh.actVal",    "fc": "ST", "type": "unsigned" },
+        { "ref": "InteropLD/MMXU1.TotW.mag.f",       "fc": "MX", "type": "float32" },
+        { "ref": "InteropLD/GGIO1.SPS1.q",           "fc": "ST", "type": "bit-string", "comment": "quality, 13 bits" },
+        { "ref": "InteropLD/GGIO1.SPS1.t",           "fc": "ST", "type": "utc-time" },
+        { "ref": "InteropLD/GGIO1.DPS1.stVal",       "fc": "ST", "type": "bit-string", "comment": "Dbpos, 2 bits: 10 = on" },
+        { "ref": "InteropLD/MMXU1.TotW",             "fc": "MX", "type": "structure", "comment": "nested: { mag { f }, q, t }" }
+      ],
+      "values": [
+        { "type": "boolean",    "value": false },
+        { "type": "integer",    "value": 1 },
+        { "type": "unsigned",   "value": 42 },
+        { "type": "float32",    "value": 1234.5 },
+        { "type": "bit-string", "value": "0000000000000" },
+        { "type": "utc-time",   "value": "2024-01-01T00:00:00.000Z" },
+        { "type": "bit-string", "value": "10" },
+        { "type": "structure",  "value": [
+          { "type": "structure",  "value": [ { "type": "float32", "value": 1234.5 } ] },
+          { "type": "bit-string", "value": "0000000000000" },
+          { "type": "utc-time",   "value": "2024-01-01T00:00:00.000Z" }
+        ] }
+      ],
+      "update": [
+        { "type": "boolean",    "value": true },
+        { "type": "integer",    "value": 5 },
+        { "type": "unsigned",   "value": 43 },
+        { "type": "float32",    "value": -0.25 },
+        { "type": "bit-string", "value": "0000000000010" },
+        { "type": "utc-time",   "value": "2024-01-01T00:00:01.500Z" },
+        { "type": "bit-string", "value": "01" },
+        { "type": "structure",  "value": [
+          { "type": "structure",  "value": [ { "type": "float32", "value": -0.25 } ] },
+          { "type": "bit-string", "value": "0000000000010" },
+          { "type": "utc-time",   "value": "2024-01-01T00:00:01.500Z" }
+        ] }
+      ]
+    },
+    "gcbBool": {
+      "gocbRef": "InteropIEDInteropLD/LLN0$GO$gcbBool",
+      "goID": "InteropGooseBool",
+      "datSet": "InteropIEDInteropLD/LLN0$dsGooseBool",
+      "appID": "0x1002",
+      "dst": "01:0c:cd:01:00:02",
+      "vlanId": 0,
+      "vlanPrio": 4,
+      "confRev": 1,
+      "minTime": 10,
+      "maxTime": 1000,
+      "members": [
+        { "ref": "InteropLD/GGIO1.SPS1.stVal", "fc": "ST", "type": "boolean" },
+        { "ref": "InteropLD/GGIO1.SPS1.q",     "fc": "ST", "type": "bit-string" }
+      ],
+      "values": [
+        { "type": "boolean",    "value": false },
+        { "type": "bit-string", "value": "0000000000000" }
+      ],
+      "update": [
+        { "type": "boolean",    "value": true },
+        { "type": "bit-string", "value": "0000000000000" }
+      ]
+    }
+  }
+}

@@ -112,6 +112,16 @@ jobs:
             platform: linux/arm64
             runner: ubuntu-24.04-arm
             slug: iec61850bean-linux-arm64
+          - image: dscsystems
+            file: adapters/dscsystems/Dockerfile
+            platform: linux/amd64
+            runner: ubuntu-24.04
+            slug: dscsystems-linux-amd64
+          - image: dscsystems
+            file: adapters/dscsystems/Dockerfile
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            slug: dscsystems-linux-arm64
     steps:
       - uses: actions/checkout@v7
 
@@ -169,6 +179,7 @@ jobs:
     outputs:
       libiec61850-digest: ${{ steps.manifests.outputs.libiec61850 }}
       iec61850bean-digest: ${{ steps.manifests.outputs.iec61850bean }}
+      dscsystems-digest: ${{ steps.manifests.outputs.dscsystems }}
     steps:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -225,6 +236,7 @@ jobs:
           }
           publish libiec61850
           publish iec61850bean
+          publish dscsystems
 
   release:
     name: GitHub release
@@ -238,6 +250,7 @@ jobs:
           VERSION: ${{ needs.version.outputs.tag }}
           LIBIEC61850_DIGEST: ${{ needs.merge.outputs.libiec61850-digest }}
           IEC61850BEAN_DIGEST: ${{ needs.merge.outputs.iec61850bean-digest }}
+          DSCSYSTEMS_DIGEST: ${{ needs.merge.outputs.dscsystems-digest }}
         run: |
           set -euo pipefail
           python3 - <<'PY' > manifest.json
@@ -248,15 +261,21 @@ jobs:
           pom = pathlib.Path("adapters/iec61850bean/pom.xml").read_text()
           pom_match = re.search(r"<version>([^<]+)</version>", pom)
           caps = json.loads(pathlib.Path("fixtures/capabilities.json").read_text())
+          dsc = pathlib.Path("adapters/dscsystems/Dockerfile").read_text()
+          dsc_match = re.search(r"^ARG DSCSYSTEMS_SHA=(\S+)", dsc, re.M)
 
           print(json.dumps({
               "version": __import__("os").environ["VERSION"],
               "fixture": caps.get("fixtureRevision", ""),
+              "mmsFixture": caps.get("mmsFixtureRevision", ""),
+              "gooseFixture": caps.get("gooseFixtureRevision", ""),
               "libiec61850": sha_match.group(1) if sha_match else "",
               "iec61850bean": pom_match.group(1) if pom_match else "1.9.0",
+              "dscsystems": dsc_match.group(1) if dsc_match else "",
               "images": {
                   "libiec61850": __import__("os").environ["LIBIEC61850_DIGEST"],
                   "iec61850bean": __import__("os").environ["IEC61850BEAN_DIGEST"],
+                  "dscsystems": __import__("os").environ["DSCSYSTEMS_DIGEST"],
               },
           }, indent=2))
           PY
@@ -268,6 +287,7 @@ jobs:
           VERSION: ${{ needs.version.outputs.tag }}
           LIBIEC61850_DIGEST: ${{ needs.merge.outputs.libiec61850-digest }}
           IEC61850BEAN_DIGEST: ${{ needs.merge.outputs.iec61850bean-digest }}
+          DSCSYSTEMS_DIGEST: ${{ needs.merge.outputs.dscsystems-digest }}
         run: |
           {
             scripts/release-notes.sh "${VERSION}"
@@ -278,15 +298,17 @@ jobs:
             echo "|-------|--------|"
             echo "| \`ghcr.io/otfabric/mms-interop-libiec61850:${VERSION}\` | \`${LIBIEC61850_DIGEST}\` |"
             echo "| \`ghcr.io/otfabric/mms-interop-iec61850bean:${VERSION}\` | \`${IEC61850BEAN_DIGEST}\` |"
+            echo "| \`ghcr.io/otfabric/mms-interop-dscsystems:${VERSION}\` (GPL-3.0) | \`${DSCSYSTEMS_DIGEST}\` |"
             echo
             echo "## Pinning in consumer repositories"
             echo
             echo '```bash'
             echo "LIBIEC61850_IMAGE=ghcr.io/otfabric/mms-interop-libiec61850@${LIBIEC61850_DIGEST}"
             echo "IEC61850BEAN_IMAGE=ghcr.io/otfabric/mms-interop-iec61850bean@${IEC61850BEAN_DIGEST}"
+            echo "DSCSYSTEMS_IMAGE=ghcr.io/otfabric/mms-interop-dscsystems@${DSCSYSTEMS_DIGEST}"
             echo '```'
             echo
-            echo "See \`manifest.json\` for full provenance (libiec61850 commit SHA, iec61850bean version, fixture revision)."
+            echo "See \`manifest.json\` for full provenance (libiec61850 commit SHA, iec61850bean version, dscsystems/go-iec61850 commit SHA, fixture revisions)."
           } > "${RUNNER_TEMP}/release-body.md"
           cat "${RUNNER_TEMP}/release-body.md"
 

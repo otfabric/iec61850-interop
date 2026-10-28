@@ -1,10 +1,10 @@
 # Adapter Command Coverage
 
-Availability of adapter commands across the two images. Compatibility matrices for the Go libraries live in [`go-mms/INTEROP.md`](https://github.com/otfabric/go-mms/blob/main/INTEROP.md) and [`go-iec61850/INTEROP.md`](https://github.com/otfabric/go-iec61850/blob/main/INTEROP.md).
+Availability of adapter commands across the three images. Compatibility matrices for the Go libraries live in [`go-mms/INTEROP.md`](https://github.com/otfabric/go-mms/blob/main/INTEROP.md) and [`go-iec61850/INTEROP.md`](https://github.com/otfabric/go-iec61850/blob/main/INTEROP.md).
 
 This file is generated from `fixtures/capabilities.json`; do not edit manually. Run `./scripts/gen-coverage.sh`.
 
-Adapter version: `0.2.0` · Fixture revisions: `mms-v2`, `iec61850-v2`
+Adapter version: `0.3.0` · Fixture revisions: `mms-v2`, `iec61850-v2`, `goose-v1`
 
 | Adapter command | Image | Available |
 |----------------|-------|:---------:|
@@ -18,6 +18,16 @@ Adapter version: `0.2.0` · Fixture revisions: `mms-v2`, `iec61850-v2`
 | `iec61850bean-ied-client` | `mms-interop-iec61850bean` | ✓ |
 | `iec61850bean-ied-controller` | `mms-interop-iec61850bean` | ✓ |
 | `iec61850bean-ied-reporter` | `mms-interop-iec61850bean` | ✓ |
+| `libiec61850-goose-publisher` | `mms-interop-libiec61850` | ✓ |
+| `libiec61850-goose-subscriber` | `mms-interop-libiec61850` | ✓ |
+| `dscsystems-mms-server` | `mms-interop-dscsystems` | ✓ |
+| `dscsystems-mms-client` | `mms-interop-dscsystems` | ✓ |
+| `dscsystems-ied-server` | `mms-interop-dscsystems` | ✓ |
+| `dscsystems-ied-client` | `mms-interop-dscsystems` | ✓ |
+| `dscsystems-ied-controller` | `mms-interop-dscsystems` | ✓ |
+| `dscsystems-ied-reporter` | `mms-interop-dscsystems` | ✓ |
+| `dscsystems-goose-publisher` | `mms-interop-dscsystems` | ✓ |
+| `dscsystems-goose-subscriber` | `mms-interop-dscsystems` | ✓ |
 
 **Known limitations (verified upstream gaps):**
 
@@ -29,6 +39,13 @@ Adapter version: `0.2.0` · Fixture revisions: `mms-v2`, `iec61850-v2`
 | `libiec61850` | 1.6.2.1-89-g6e265c54 | go-client → libiec61850-server | ObtainFile | `TestClient_ObtainFile` |
 | `libiec61850` | 1.6.2.1-89-g6e265c54 | libiec61850-client → go-server | FileOpen response without lastModified | `TestServer_FileOpen_NoLastModified` |
 | `iec61850bean` | 1.x | go-client → iec61850bean-server | SBOw SelectWithValue | `TestBeanClient_Control_SBOwOperate` |
+| `dscsystems` | v0.6.5-1-g6bf3f37 | go-client → dscsystems-server | Alternate access indexRange (read and write) | `TestClient_ReadArrayRange, TestClient_ReadVariables_WriteVariables_AlternateAccess` |
+| `dscsystems` | v0.6.5-1-g6bf3f37 | dscsystems-client → go-server | Alternate access read/write (array element, index range, component) | `TestServer_ReadArrayElements, TestServer_ReadComponent, TestServer_WriteArrayElements, TestServer_WriteComponent` |
+| `dscsystems` | v0.6.5-1-g6bf3f37 | dscsystems-client → go-server | Write to a named variable list | `TestServer_NVL_DomainScope, TestServer_NVL_VMDScope, TestServer_InformationReport` |
+| `dscsystems` | v0.6.5-1-g6bf3f37 | dscsystems-client → go-server | Association-specific named variable lists | `TestServer_NVL_AssociationScope` |
+| `dscsystems` | v0.6.5-1-g6bf3f37 | dscsystems-client → go-server | FileOpen lastModified | `TestServer_FileOpenReadClose, TestServer_FileOpen_InitialPosition, TestServer_FileRead_MultiChunk` |
+| `dscsystems` | v0.6.5-1-g6bf3f37 | iec61850bean-client → dscsystems-ied-server | GetVariableAccessAttributes type of Enum (read LLN0.Mod.ctlModel[CF]) | — |
+| `dscsystems` | v0.6.5-1-g6bf3f37 | go-client → dscsystems-ied-server | Write of FC ST (and the dchg report it would trigger) | — |
 
 **Notes:**
 
@@ -36,4 +53,6 @@ Adapter version: `0.2.0` · Fixture revisions: `mms-v2`, `iec61850-v2`
 - All commands emit JSON Lines to stdout; diagnostics go to stderr.
 - Each adapter command supports `--capabilities` (emit JSON and exit) and `--version` (emit version JSON and exit).
 - Fixed-sequence IED clients exit non-zero when any operation emits `ok:false` (connection failures remain exit 2).
+- GOOSE commands (`*-goose-publisher`, `*-goose-subscriber`) need a raw socket: run them with `--cap-add NET_RAW` on a shared Docker network; see [`docs/goose.md`](docs/goose.md).
+- `mms-interop-dscsystems` is built from GPL-3.0 code (dscsystems/go-iec61850); see `adapters/dscsystems/NOTICE`.
 - A skipped test without a registered limitation in this table must fail CI.

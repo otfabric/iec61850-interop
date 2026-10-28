@@ -11,6 +11,7 @@
 # Usage:
 #   LIBIEC61850_IMAGE=mms-interop-libiec61850:local \
 #   IEC61850BEAN_IMAGE=mms-interop-iec61850bean:local \
+#   DSCSYSTEMS_IMAGE=mms-interop-dscsystems:local \
 #   ./scripts/smoke-test.sh
 #
 # Exit code: 0 if all checks pass, 1 if any check fails.
@@ -19,6 +20,8 @@ set -euo pipefail
 
 LIBIEC61850_IMAGE="${LIBIEC61850_IMAGE:-mms-interop-libiec61850:local}"
 IEC61850BEAN_IMAGE="${IEC61850BEAN_IMAGE:-mms-interop-iec61850bean:local}"
+DSCSYSTEMS_IMAGE="${DSCSYSTEMS_IMAGE:-mms-interop-dscsystems:local}"
+SCRIPTS="$(cd "$(dirname "$0")" && pwd)"
 
 PASS=0
 FAIL=0
@@ -252,6 +255,13 @@ check_binary "$LIBIEC61850_IMAGE" libiec61850-ied-client
 check_binary "$LIBIEC61850_IMAGE" libiec61850-ied-reporter
 check_binary "$IEC61850BEAN_IMAGE" iec61850bean-ied-server
 check_binary "$IEC61850BEAN_IMAGE" iec61850bean-ied-client
+check_binary "$LIBIEC61850_IMAGE" libiec61850-goose-publisher
+check_binary "$LIBIEC61850_IMAGE" libiec61850-goose-subscriber
+for bin in dscsystems-mms-server dscsystems-mms-client dscsystems-ied-server \
+           dscsystems-ied-client dscsystems-ied-controller dscsystems-ied-reporter \
+           dscsystems-goose-publisher dscsystems-goose-subscriber; do
+    check_binary "$DSCSYSTEMS_IMAGE" "$bin"
+done
 
 info ""
 info "=== Capabilities declare IED clients ==="
@@ -267,6 +277,9 @@ check_capabilities_command() {
 }
 check_capabilities_command "$LIBIEC61850_IMAGE" libiec61850-ied-client libiec61850-ied-client
 check_capabilities_command "$IEC61850BEAN_IMAGE" iec61850bean-ied-client iec61850bean-ied-client
+check_capabilities_command "$LIBIEC61850_IMAGE" libiec61850-goose-publisher libiec61850-goose-subscriber
+check_capabilities_command "$DSCSYSTEMS_IMAGE" dscsystems-ied-client dscsystems-ied-client
+check_capabilities_command "$DSCSYSTEMS_IMAGE" dscsystems-goose-subscriber dscsystems-goose-publisher
 
 info ""
 info "=== Fixture files ==="
@@ -275,6 +288,13 @@ check_fixture_file "$LIBIEC61850_IMAGE" /fixtures/iec61850/interop.icd
 check_fixture_file "$LIBIEC61850_IMAGE" /fixtures/iec61850/values.json
 check_fixture_file "$IEC61850BEAN_IMAGE" /fixtures/iec61850/interop.icd
 check_fixture_file "$IEC61850BEAN_IMAGE" /fixtures/iec61850/values.json
+for f in /fixtures/goose/goose.json /fixtures/goose/interop-goose.cid; do
+    check_fixture_file "$LIBIEC61850_IMAGE" "$f"
+    check_fixture_file "$DSCSYSTEMS_IMAGE" "$f"
+done
+for f in /fixtures/mms/interop.json /fixtures/iec61850/interop.icd /fixtures/iec61850/values.json; do
+    check_fixture_file "$DSCSYSTEMS_IMAGE" "$f"
+done
 
 info ""
 info "=== Server ready events ==="
@@ -288,6 +308,12 @@ check_ready_event "libiec61850-ied-server" "$ready"
 
 ready=$(start_server "$IEC61850BEAN_IMAGE" iec61850bean-ied-server 19003)
 check_ready_event "iec61850bean-ied-server" "$ready"
+
+ready=$(start_server "$DSCSYSTEMS_IMAGE" dscsystems-mms-server 19004)
+check_ready_event "dscsystems-mms-server" "$ready"
+
+ready=$(start_server "$DSCSYSTEMS_IMAGE" dscsystems-ied-server 19005)
+check_ready_event "dscsystems-ied-server" "$ready"
 
 info ""
 info "=== Client JSON Lines output ==="
@@ -313,6 +339,66 @@ output=$(run_client_pair \
     "$IEC61850BEAN_IMAGE" iec61850bean-ied-client)
 check_json_lines "iec61850bean-ied-client" "$output"
 check_ied_client_ops "iec61850bean-ied-client" "$output"
+
+# dscsystems against libiec61850, both directions.
+output=$(run_client_pair \
+    "$LIBIEC61850_IMAGE" libiec61850-mms-server \
+    "$DSCSYSTEMS_IMAGE" dscsystems-mms-client)
+check_json_lines "dscsystems-mms-client -> libiec61850-mms-server" "$output"
+
+output=$(run_client_pair \
+    "$DSCSYSTEMS_IMAGE" dscsystems-mms-server \
+    "$LIBIEC61850_IMAGE" libiec61850-mms-client)
+check_json_lines "libiec61850-mms-client -> dscsystems-mms-server" "$output"
+
+output=$(run_client_pair \
+    "$LIBIEC61850_IMAGE" libiec61850-ied-server \
+    "$DSCSYSTEMS_IMAGE" dscsystems-ied-client)
+check_json_lines "dscsystems-ied-client -> libiec61850-ied-server" "$output"
+check_ied_client_ops "dscsystems-ied-client -> libiec61850-ied-server" "$output"
+
+output=$(run_client_pair \
+    "$DSCSYSTEMS_IMAGE" dscsystems-ied-server \
+    "$LIBIEC61850_IMAGE" libiec61850-ied-client)
+check_json_lines "libiec61850-ied-client -> dscsystems-ied-server" "$output"
+check_ied_client_ops "libiec61850-ied-client -> dscsystems-ied-server" "$output"
+
+output=$(run_client_pair \
+    "$LIBIEC61850_IMAGE" libiec61850-ied-server \
+    "$DSCSYSTEMS_IMAGE" dscsystems-ied-reporter)
+check_json_lines "dscsystems-ied-reporter -> libiec61850-ied-server" "$output"
+
+output=$(run_client_pair \
+    "$LIBIEC61850_IMAGE" libiec61850-ied-server \
+    "$DSCSYSTEMS_IMAGE" dscsystems-ied-controller)
+check_json_lines "dscsystems-ied-controller -> libiec61850-ied-server" "$output"
+
+info ""
+info "=== GOOSE publisher -> subscriber (L2, Docker bridge) ==="
+
+goose_check() {
+    local out
+    if out=$("$SCRIPTS/goose-crosscheck.sh" "$@" 2>&1); then
+        pass "${out#PASS }"
+    else
+        fail "$out"
+    fi
+}
+for pub in "$LIBIEC61850_IMAGE libiec61850" "$DSCSYSTEMS_IMAGE dscsystems"; do
+    for sub in "$LIBIEC61850_IMAGE libiec61850" "$DSCSYSTEMS_IMAGE dscsystems"; do
+        set -- $pub $sub
+        goose_check "$1" "$2-goose-publisher" "$3" "$4-goose-subscriber" gcbAll
+    done
+done
+FLAGS=plain goose_check "$LIBIEC61850_IMAGE" libiec61850-goose-publisher \
+    "$DSCSYSTEMS_IMAGE" dscsystems-goose-subscriber gcbBool
+FLAGS=plain goose_check "$DSCSYSTEMS_IMAGE" dscsystems-goose-publisher \
+    "$LIBIEC61850_IMAGE" libiec61850-goose-subscriber gcbBool
+# The host side of the bridge, as a Go test on a Linux host sees it.
+HOST_SIDE=1 goose_check "$LIBIEC61850_IMAGE" libiec61850-goose-publisher \
+    "$DSCSYSTEMS_IMAGE" dscsystems-goose-subscriber gcbAll
+HOST_SIDE=1 goose_check "$DSCSYSTEMS_IMAGE" dscsystems-goose-publisher \
+    "$LIBIEC61850_IMAGE" libiec61850-goose-subscriber gcbAll
 
 # ===========================================================================
 # Summary

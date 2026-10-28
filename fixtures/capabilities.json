@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "adapterVersion": "0.2.0",
+  "adapterVersion": "0.3.0",
   "fixtureRevision": "iec61850-v2",
   "mmsFixtureRevision": "mms-v2",
   "commands": {
@@ -13,7 +13,17 @@
     "iec61850bean-ied-server": true,
     "iec61850bean-ied-client": true,
     "iec61850bean-ied-controller": true,
-    "iec61850bean-ied-reporter": true
+    "iec61850bean-ied-reporter": true,
+    "libiec61850-goose-publisher": true,
+    "libiec61850-goose-subscriber": true,
+    "dscsystems-mms-server": true,
+    "dscsystems-mms-client": true,
+    "dscsystems-ied-server": true,
+    "dscsystems-ied-client": true,
+    "dscsystems-ied-controller": true,
+    "dscsystems-ied-reporter": true,
+    "dscsystems-goose-publisher": true,
+    "dscsystems-goose-subscriber": true
   },
   "knownLimitations": [
     {
@@ -63,6 +73,62 @@
       "capability": "SBOw SelectWithValue",
       "reason": "iec61850bean server does not expose SBOw[CO] as a writable MMS attribute",
       "reproducedBy": "TestBeanClient_Control_SBOwOperate"
+    },
+    {
+      "stack": "dscsystems",
+      "version": "v0.6.5-1-g6bf3f37",
+      "direction": "go-client → dscsystems-server",
+      "capability": "Alternate access indexRange (read and write)",
+      "reason": "mms.ParseAlternateAccess refuses a selection of more than one element (ErrAlternateAccessUnsupported); the adapter answers DataAccessError object-access-unsupported. Single elements and components work",
+      "reproducedBy": "TestClient_ReadArrayRange, TestClient_ReadVariables_WriteVariables_AlternateAccess"
+    },
+    {
+      "stack": "dscsystems",
+      "version": "v0.6.5-1-g6bf3f37",
+      "direction": "dscsystems-client → go-server",
+      "capability": "Alternate access read/write (array element, index range, component)",
+      "reason": "mms.Conn Read and Write take whole variables only; the client emits ok:false error unsupported for these steps",
+      "reproducedBy": "TestServer_ReadArrayElements, TestServer_ReadComponent, TestServer_WriteArrayElements, TestServer_WriteComponent"
+    },
+    {
+      "stack": "dscsystems",
+      "version": "v0.6.5-1-g6bf3f37",
+      "direction": "dscsystems-client → go-server",
+      "capability": "Write to a named variable list",
+      "reason": "mms.Conn Write takes a list of variables, not a variableListName; the step is unsupported and the reads that check its effect (including the InformationReport values) see the unwritten values",
+      "reproducedBy": "TestServer_NVL_DomainScope, TestServer_NVL_VMDScope, TestServer_InformationReport"
+    },
+    {
+      "stack": "dscsystems",
+      "version": "v0.6.5-1-g6bf3f37",
+      "direction": "dscsystems-client → go-server",
+      "capability": "Association-specific named variable lists",
+      "reason": "the client has no aa-specific ObjectName or name-list scope; define, attributes, read, write, delete and get-name-list in aa scope are unsupported",
+      "reproducedBy": "TestServer_NVL_AssociationScope"
+    },
+    {
+      "stack": "dscsystems",
+      "version": "v0.6.5-1-g6bf3f37",
+      "direction": "dscsystems-client → go-server",
+      "capability": "FileOpen lastModified",
+      "reason": "FileOpenAt drops the lastModified attribute of the response; the client reports 0",
+      "reproducedBy": "TestServer_FileOpenReadClose, TestServer_FileOpen_InitialPosition, TestServer_FileRead_MultiChunk"
+    },
+    {
+      "stack": "dscsystems",
+      "version": "v0.6.5-1-g6bf3f37",
+      "direction": "iec61850bean-client → dscsystems-ied-server",
+      "capability": "GetVariableAccessAttributes type of Enum (read LLN0.Mod.ctlModel[CF])",
+      "reason": "the server builds the type description from the value, so an Enum (INT8) is described as Integer(32) and iec61850bean cannot map the node; libiec61850 clients are not affected",
+      "reproducedBy": ""
+    },
+    {
+      "stack": "dscsystems",
+      "version": "v0.6.5-1-g6bf3f37",
+      "direction": "go-client → dscsystems-ied-server",
+      "capability": "Write of FC ST (and the dchg report it would trigger)",
+      "reason": "server.WithWritableFCs ignores ST/MX/OR/EX/SG by design (status is read-only in IEC 61850-7-2), so the write is always object-access-denied; the libiec61850 server denies it as well today",
+      "reproducedBy": ""
     }
   ],
   "upstreams": {
@@ -71,6 +137,12 @@
     },
     "iec61850bean": {
       "version": "1.x"
+    },
+    "dscsystems": {
+      "version": "v0.6.5-1-g6bf3f37",
+      "commit": "6bf3f370c6fb95d3835e34d9d1539f313e00b157",
+      "license": "GPL-3.0"
     }
-  }
+  },
+  "gooseFixtureRevision": "goose-v1"
 }

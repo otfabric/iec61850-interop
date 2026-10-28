@@ -41,6 +41,7 @@ include_directories(
     ${LIBIEC61850_PRIVATE_DIR}/mms/inc_private
     ${LIBIEC61850_PRIVATE_DIR}/common/inc
     ${LIBIEC61850_PRIVATE_DIR}/iec61850/inc_private
+    ${LIBIEC61850_PRIVATE_DIR}/goose
     ${JSONC_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
@@ -150,6 +151,37 @@ add_executable(libiec61850-ied-controller
 target_link_libraries(libiec61850-ied-controller
     ${LIBIEC61850_LIB}
     ${LIBIEC61850_HAL_LIB}
+    pthread
+    m
+)
+
+# ---------------------------------------------------------------------------
+# libiec61850-goose-publisher / libiec61850-goose-subscriber
+#
+# Raw-Ethernet GOOSE over the public GoosePublisher / GooseReceiver API.
+# The subscriber reads the private sGooseSubscriber timestamp for
+# nanosecond precision; goose_common.c reads the private float width.
+# ---------------------------------------------------------------------------
+add_executable(libiec61850-goose-publisher
+    goose_publisher.c
+    goose_common.c
+)
+target_link_libraries(libiec61850-goose-publisher
+    ${LIBIEC61850_LIB}
+    ${LIBIEC61850_HAL_LIB}
+    ${JSONC_LIBRARIES}
+    pthread
+    m
+)
+
+add_executable(libiec61850-goose-subscriber
+    goose_subscriber.c
+    goose_common.c
+)
+target_link_libraries(libiec61850-goose-subscriber
+    ${LIBIEC61850_LIB}
+    ${LIBIEC61850_HAL_LIB}
+    ${JSONC_LIBRARIES}
     pthread
     m
 )

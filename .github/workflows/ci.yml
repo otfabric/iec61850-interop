@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -18,6 +19,26 @@ jobs:
 
       - name: RELEASE.md has the notes of the newest version
         run: scripts/release-notes.sh > /dev/null
+
+  dscsystems-go:
+    name: dscsystems adapter (go vet, gofmt)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: adapters/dscsystems
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: adapters/dscsystems/go.mod
+          cache-dependency-path: adapters/dscsystems/go.sum
+
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+
+      - name: go vet and build
+        run: go mod verify && go vet ./... && go build ./...
 
   build-and-smoke:
     name: Build and smoke-test adapter images
@@ -34,22 +55,25 @@ jobs:
       - name: Build iec61850bean adapter image
         run: make build-iec61850bean
 
+      - name: Build dscsystems adapter image
+        run: make build-dscsystems
+
       - name: Verify required binaries
         run: make verify-binaries
 
       - name: Verify fixture files in images
         run: make verify-fixtures
 
-      # Run the full smoke suite: server ready events + client JSON Lines output.
-      # This validates every adapter command listed in COVERAGE.md:
-      #   libiec61850-mms-server, libiec61850-mms-client,
-      #   libiec61850-ied-server, libiec61850-ied-client,
-      #   libiec61850-ied-reporter,
-      #   iec61850bean-ied-server, iec61850bean-ied-client.
+      # Run the full smoke suite: server ready events, client JSON Lines
+      # output (same stack and libiec61850 <-> dscsystems in both
+      # directions), and GOOSE publisher -> subscriber between libiec61850
+      # and dscsystems in all four directions, including the host side of
+      # the bridge network as a Go test on a Linux host uses it.
       - name: Run adapter smoke tests
         run: |
           LIBIEC61850_IMAGE=mms-interop-libiec61850:local \
           IEC61850BEAN_IMAGE=mms-interop-iec61850bean:local \
+          DSCSYSTEMS_IMAGE=mms-interop-dscsystems:local \
           ./scripts/smoke-test.sh
 
       - name: Record build provenance
@@ -62,4 +86,5 @@ jobs:
           echo "mms-interop SHA : ${{ github.sha }}"
           echo "libiec61850 SHA : ${LIBIEC61850_SHA}"
           echo "iec61850bean    : ${IEC61850BEAN_VERSION:-1.9.0}"
+          echo "dscsystems      : $(grep 'ARG DSCSYSTEMS_SHA=' adapters/dscsystems/Dockerfile | cut -d= -f2)"
           echo "platform        : linux/amd64"

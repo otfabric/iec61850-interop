@@ -18,6 +18,43 @@ Tags are immutable. A fix is a new version.
 
 ---
 
+## v0.3.0
+
+**Date:** 2026-10-28
+
+## Summary
+
+A third interop stack and GOOSE. `mms-interop-dscsystems` runs
+dscsystems/go-iec61850 (pure Go, GPL-3.0) behind the same commands and
+JSON Lines as the libiec61850 adapter, and libiec61850 and dscsystems both
+gain a GOOSE publisher and subscriber with one shared contract, fixture
+and Docker L2 recipe.
+
+## Changes
+
+### Added
+
+- Image `ghcr.io/otfabric/mms-interop-dscsystems` (`adapters/dscsystems/`, GPL-3.0 with `LICENSE` and `NOTICE` in that directory), pinned to dscsystems/go-iec61850 commit `6bf3f37` (`v0.6.5-1-g6bf3f37`): `dscsystems-mms-server`, `-mms-client`, `-ied-server`, `-ied-client`, `-ied-controller`, `-ied-reporter`, `-goose-publisher`, `-goose-subscriber`. Flags, fixture defaults, ready events and output lines mirror the libiec61850 commands, so a harness switches stack by image and command prefix.
+- `libiec61850-goose-publisher` and `libiec61850-goose-subscriber` (raw GoosePublisher / GooseReceiver API).
+- GOOSE contract (`docs/goose.md`): the publisher announces `--values` as stNum 1, retransmits MinTime → doubling → MaxTime, takes `{"cmd":"set"}` / `{"cmd":"stop"}` on stdin and emits `published` per frame; the subscriber emits one `goose` event per frame (gocbRef, datSet, goID, appID, dst, src, stNum, sqNum, timeAllowedToLive, confRev, test, simulation, ndsCom, numDatSetEntries, t, values) and `supervision` timeout/ok per gocbRef. `test` is goosePdu field [7], `simulation` the Edition 2 S bit of Reserved1.
+- Fixture revision `goose-v1` (`fixtures/goose/`): `interop-goose.cid` (interop.icd plus datasets `dsGooseAll` — boolean, integer, unsigned, float32, quality, utc-time, Dbpos, nested MV structure — and `dsGooseBool`, `GSEControl` `gcbAll`/`gcbBool` and their `GSE` addresses) and `goose.json` (on-wire references, members, initial and update values). `scripts/validate-fixtures.py` checks both against each other and against `interop.icd`; the fixture workflow runs genmodel on the CID.
+- `scripts/goose-crosscheck.sh`: publisher → subscriber check between two images on a Docker bridge, optionally from the host side of the bridge. CI runs it libiec61850 ↔ dscsystems in all four directions, with and without the flags, and from the host side.
+- `docker compose --profile goose` (bridge `goose0`), `make build-dscsystems`, `make goose-crosscheck`.
+- `fixtures/capabilities.json`: the new commands, `gooseFixtureRevision`, the dscsystems upstream, and seven dscsystems known limitations (alternate access ranges in the server; alternate access, NVL writes, association-scope NVLs and FileOpen lastModified in the client; Enum type description and ST writes in the IED server).
+
+### Changed
+
+- CI runs on pull requests, builds and smoke-tests all three images (including libiec61850 ↔ dscsystems MMS and IED pairs) and vets the Go adapter; the release workflow builds and publishes the dscsystems image for linux/amd64 and linux/arm64 and records its digest and upstream commit in `manifest.json`.
+- The libiec61850 image ships `fixtures/goose/`; its GOOSE binaries carry `cap_net_raw+ep`, so they run as the non-root adapter user in a container with `NET_RAW`.
+
+### Notes
+
+- The dscsystems MMS server sends both InformationReport forms of the fixture, listOfVariable first; the libiec61850 server sends only the named-list form. It seeks FileOpen `initialPosition`, which libiec61850 does not.
+- The dscsystems IED server returns directory names in model order, libiec61850 sorted.
+- A Go test on macOS cannot reach the GOOSE adapters natively: run it in a container on the bridge network (`docs/goose.md`).
+
+---
+
 ## v0.2.0
 
 **Date:** 2026-10-28

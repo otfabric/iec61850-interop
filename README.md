@@ -16,7 +16,7 @@ This repository provides adapter images, fixture files and the adapter output co
 
 ## Purpose
 
-- Publish reproducible adapter images for libiec61850 and iec61850bean.
+- Publish reproducible adapter images for libiec61850, iec61850bean and dscsystems/go-iec61850.
 - Define the canonical fixture models and runtime values that all interop tests rely on.
 - Specify the JSON Lines adapter output contract that adapters must implement.
 - Keep the adapter implementations simple and auditable against upstream library examples.
@@ -30,22 +30,31 @@ mms-interop/
 ├── COVERAGE.md               # Adapter command availability
 ├── Makefile
 ├── docker-compose.yml
+├── docs/
+│   └── goose.md              # GOOSE contract and L2 networking
 │
 ├── fixtures/
 │   ├── mms/
 │   │   └── interop.json      # MMS server model and initial variable state
-│   └── iec61850/
-│       ├── interop.icd       # SCL model (logical devices, nodes, data objects)
-│       └── values.json       # Runtime values and writable attribute list
+│   ├── iec61850/
+│   │   ├── interop.icd       # SCL model (logical devices, nodes, data objects)
+│   │   └── values.json       # Runtime values and writable attribute list
+│   └── goose/
+│       ├── interop-goose.cid # interop.icd + GOOSE datasets, GSEControl, GSE addresses
+│       └── goose.json        # GOOSE control blocks, members, test values
 │
 └── adapters/
     ├── libiec61850/
     │   ├── Dockerfile
     │   ├── SPIKE.md           # Phase 0 findings
     │   └── src/
-    └── iec61850bean/
+    ├── iec61850bean/
+    │   ├── Dockerfile
+    │   └── src/
+    └── dscsystems/            # GPL-3.0 (LICENSE, NOTICE in this directory)
         ├── Dockerfile
-        └── src/
+        ├── cmd/
+        └── internal/
 ```
 
 ## Library boundary
@@ -77,6 +86,8 @@ Commands currently declared for libiec61850:
 - `libiec61850-ied-client` — IEC 61850 general browse/read/write/dataset client (fixed sequence)
 - `libiec61850-ied-controller` — IEC 61850 control client (direct / SBO / SBOw against SPCSO*)
 - `libiec61850-ied-reporter` — IEC 61850 client that subscribes to URCB and emits report fields as JSON Lines
+- `libiec61850-goose-publisher` — GOOSE publisher (raw Ethernet), state changes from stdin
+- `libiec61850-goose-subscriber` — GOOSE subscriber, one JSON line per frame plus TAL supervision
 
 ### iec61850bean
 
@@ -90,6 +101,24 @@ Commands currently declared for iec61850bean (see `fixtures/capabilities.json`):
 - `iec61850bean-ied-client` — IEC 61850 general browse/read/write/dataset client (fixed sequence)
 - `iec61850bean-ied-controller` — IEC 61850 control client (direct / SBO / SBOw against SPCSO*)
 - `iec61850bean-ied-reporter` — IEC 61850 URCB reporter client (JSON Lines)
+
+### dscsystems
+
+[dscsystems/go-iec61850](https://github.com/dscsystems/go-iec61850) (GPL-3.0) is a third, independent stack: pure Go MMS, IEC 61850 and GOOSE, sharing no code with libiec61850, iec61850bean or the otfabric libraries. The adapter is pinned to upstream commit `6bf3f37` (`v0.6.5-1-g6bf3f37`, in `adapters/dscsystems/go.mod` and the Dockerfile).
+
+It offers the libiec61850 command set under the `dscsystems-` prefix, with the same flags, fixture defaults and JSON Lines, so a consumer harness switches stacks by image and command prefix alone:
+
+- `dscsystems-mms-server`, `dscsystems-mms-client`
+- `dscsystems-ied-server`, `dscsystems-ied-client`, `dscsystems-ied-controller`, `dscsystems-ied-reporter`
+- `dscsystems-goose-publisher`, `dscsystems-goose-subscriber`
+
+Where the library behaves differently, the gap is a known limitation in `fixtures/capabilities.json`.
+
+**Licensing boundary.** dscsystems code lives only in `adapters/dscsystems/` and the `mms-interop-dscsystems` image. That directory is GPL-3.0 (`LICENSE`, `NOTICE`); the rest of the repository stays MIT. Nothing from it may be copied or vendored into the MIT-licensed `go-mms` or `go-iec61850`: they talk to the adapter only over the network and its JSON Lines, as a separate program.
+
+## GOOSE
+
+GOOSE is layer 2. The publisher and subscriber commands of libiec61850 and dscsystems share one contract and one fixture (`fixtures/goose/`). They need `CAP_NET_RAW` and a Docker bridge network shared with the peer; a Go test on a Linux host joins through the bridge device, on macOS it has to run in a container. [`docs/goose.md`](docs/goose.md) has the contract, the fixture and the networking recipes.
 
 ## Fixtures
 
@@ -115,13 +144,18 @@ Do not treat `Mod.ctlModel` / `Mod.d` as assumed-success write targets.
 
 Consumer repositories (`go-iec61850`, `iec61850ctl`) carry synchronized copies in `interop/testdata/` / `e2e/testdata/`. The adapter image version and fixture revision must remain compatible — they are updated together.
 
+### GOOSE — `fixtures/goose/`
+
+Revision `goose-v1`. `interop-goose.cid` is `interop.icd` plus two GOOSE datasets (`dsGooseAll`: boolean, integer, unsigned, float32, quality, utc-time, Dbpos and a nested structure; `dsGooseBool`), their `GSEControl` blocks and `GSE` addresses. `goose.json` gives the same control blocks as on-wire references with initial and update values. `scripts/validate-fixtures.py` checks the two against each other and against `interop.icd`.
+
 ## Consuming the adapter images
 
 Consumer repositories pin a specific adapter image version tag for local use and a digest for CI:
 
 ```bash
 # Local development — version tag
-LIBIEC61850_IMAGE=ghcr.io/otfabric/mms-interop-libiec61850:v0.1.0 make interop
+LIBIEC61850_IMAGE=ghcr.io/otfabric/mms-interop-libiec61850:v0.3.0 make interop
+DSCSYSTEMS_IMAGE=ghcr.io/otfabric/mms-interop-dscsystems:v0.3.0 make interop
 
 # CI — digest-pinned for full reproducibility
 LIBIEC61850_IMAGE=ghcr.io/otfabric/mms-interop-libiec61850@sha256:<digest> make interop
@@ -158,6 +192,8 @@ Client adapter output (one JSON Line per operation):
 
 Diagnostics go to stderr. Stdout must contain only JSON Lines.
 
+GOOSE commands are long-running: after `ready` they emit `published` (publisher) or `goose` and `supervision` (subscriber) events, and the publisher reads `{"cmd":"set"}` / `{"cmd":"stop"}` on stdin. See [`docs/goose.md`](docs/goose.md).
+
 ## Test directions
 
 Primary directions (tests live in `go-mms`, `go-iec61850`, and consumer CLIs such as `iec61850ctl`):
@@ -170,14 +206,21 @@ Primary directions (tests live in `go-mms`, `go-iec61850`, and consumer CLIs suc
 | libiec61850 client/controller/reporter → go-iec61850 / CLI server | IEC 61850 | Server | `libiec61850-ied-client`, `-controller`, `-reporter` | 2A / 3A / 3B |
 | go-iec61850 / CLI client → iec61850bean IED server | IEC 61850 | Client | `iec61850bean-ied-server` | 2B |
 | iec61850bean client/controller/reporter → go-iec61850 / CLI server | IEC 61850 | Server | `iec61850bean-ied-client`, `-controller`, `-reporter` | 2B / 3A / 3B |
+| go-mms client ↔ dscsystems MMS server / client | MMS | Client / Server | `dscsystems-mms-server`, `dscsystems-mms-client` | 4 |
+| go-iec61850 ↔ dscsystems IED server / clients | IEC 61850 | Client / Server | `dscsystems-ied-server`, `-client`, `-controller`, `-reporter` | 4 |
+| go-iec61850 GOOSE publisher → libiec61850 / dscsystems subscriber | GOOSE | Publisher | `*-goose-subscriber` | 5 |
+| libiec61850 / dscsystems publisher → go-iec61850 GOOSE subscriber | GOOSE | Subscriber | `*-goose-publisher` | 5 |
 
 Fixed-sequence `*-ied-client` adapters exit `3` when any operation emits `ok:false` (after attempting conclude). Connection failure remains exit `2`.
 
 ## Building and publishing adapter images
 
 ```bash
-# Build both adapter images locally
+# Build all three adapter images locally
 make build
+
+# GOOSE publisher -> subscriber, libiec61850 <-> dscsystems
+make goose-crosscheck
 
 # Publish to registry (requires REGISTRY and VERSION or defaults)
 make publish
@@ -201,6 +244,7 @@ LIBIEC61850_IMAGE=mms-interop-libiec61850:local make interop
 # In go-iec61850
 LIBIEC61850_IMAGE=mms-interop-libiec61850:local \
 IEC61850BEAN_IMAGE=mms-interop-iec61850bean:local \
+DSCSYSTEMS_IMAGE=mms-interop-dscsystems:local \
 make interop
 ```
 
@@ -213,4 +257,4 @@ make interop
 
 The repository's original code and documentation are MIT-licensed unless otherwise noted.
 
-Third-party source code, Docker images and generated artifacts retain their respective upstream licenses. libiec61850 is GPLv3; iec61850bean is Apache-2.0. Distribution of images containing either library must preserve the applicable upstream notices and source obligations.
+Third-party source code, Docker images and generated artifacts retain their respective upstream licenses. libiec61850 is GPLv3; iec61850bean is Apache-2.0; dscsystems/go-iec61850 is GPLv3. `adapters/dscsystems/` links dscsystems/go-iec61850 and is therefore GPL-3.0 itself (see its `LICENSE` and `NOTICE`). Distribution of images containing any of these libraries must preserve the applicable upstream notices and source obligations.
