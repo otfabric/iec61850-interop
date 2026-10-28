@@ -20,3 +20,4 @@ adapters/*/dist/
 *.swp
 *.swo
 .DS_Store
+!adapters/iec61850-rust/src/bin/
