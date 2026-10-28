@@ -5,8 +5,8 @@
 # Usage:
 #   scripts/sv-crosscheck.sh PUB_IMAGE PUB_CMD SUB_IMAGE SUB_CMD [STREAM]
 #   e.g. scripts/sv-crosscheck.sh \
-#          mms-interop-libiec61850:local libiec61850-sv-publisher \
-#          mms-interop-dscsystems:local  dscsystems-sv-subscriber
+#          iec61850-interop-libiec61850:local libiec61850-sv-publisher \
+#          iec61850-interop-dscsystems:local  dscsystems-sv-subscriber
 #
 # STREAM is a stream of fixtures/sv/sv.json (default MSVCB01, 9-2LE).
 # FLAGS=all adds --simulation and --smp-synch 2 and expects them back

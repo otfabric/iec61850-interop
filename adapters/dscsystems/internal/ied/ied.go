@@ -20,7 +20,7 @@ import (
 
 	"github.com/dscsystems/go-iec61850/client"
 	"github.com/dscsystems/go-iec61850/mms"
-	"github.com/otfabric/mms-interop/adapters/dscsystems/internal/jl"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/jl"
 )
 
 // OpTimeout bounds one request of a fixed sequence.

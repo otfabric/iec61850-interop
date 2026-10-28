@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 // Command dscsystems-ied-server is the dscsystems/go-iec61850 IED server
-// adapter for mms-interop, the counterpart of libiec61850-ied-server.
+// adapter for iec61850-interop, the counterpart of libiec61850-ied-server.
 //
 // The model is loaded at start-up from the ICD (scl.LoadModel), not compiled
 // in; the logical device is named IED name + inst, InteropIEDInteropLD, as
@@ -32,7 +32,7 @@ import (
 	"github.com/dscsystems/go-iec61850/model"
 	"github.com/dscsystems/go-iec61850/scl"
 	"github.com/dscsystems/go-iec61850/server"
-	"github.com/otfabric/mms-interop/adapters/dscsystems/internal/jl"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/jl"
 )
 
 // controlled are the SPC objects of the fixture, by DO name: SPCSO1 direct,

@@ -4,7 +4,7 @@
 // C printf-style number formatting, the typed value JSON of the GOOSE
 // contract, the Sampled Values seqData encoding, and small time helpers.
 // The protocol work is done by the iec61850-rust crates; this crate only
-// adapts them to the mms-interop command line and output contract.
+// adapts them to the iec61850-interop command line and output contract.
 
 pub mod ber;
 pub mod cfmt;

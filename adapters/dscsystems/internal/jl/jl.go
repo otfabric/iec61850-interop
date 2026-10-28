@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-// Package jl writes the mms-interop adapter contract: JSON Lines on
+// Package jl writes the iec61850-interop adapter contract: JSON Lines on
 // stdout, human-readable diagnostics on stderr.
 package jl
 

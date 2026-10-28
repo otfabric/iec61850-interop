@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "adapterVersion": "0.4.1",
+  "adapterVersion": "1.0.0",
   "fixtureRevision": "iec61850-v3",
   "mmsFixtureRevision": "mms-v2",
   "commands": {

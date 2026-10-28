@@ -31,9 +31,9 @@ import (
 	"github.com/dscsystems/go-iec61850/ethernet"
 	"github.com/dscsystems/go-iec61850/goose"
 
-	"github.com/otfabric/mms-interop/adapters/dscsystems/internal/goosecli"
-	"github.com/otfabric/mms-interop/adapters/dscsystems/internal/jl"
-	"github.com/otfabric/mms-interop/adapters/dscsystems/internal/mmsjson"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/goosecli"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/jl"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/mmsjson"
 )
 
 // event is one received GOOSE frame.

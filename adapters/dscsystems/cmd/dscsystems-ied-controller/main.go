@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 // Command dscsystems-ied-controller is the dscsystems/go-iec61850 control
-// adapter for mms-interop, the counterpart of libiec61850-ied-controller.
+// adapter for iec61850-interop, the counterpart of libiec61850-ied-controller.
 //
 // It connects to --host/--port, runs the control sequence of the target DO
 // and reads stVal back:
@@ -27,8 +27,8 @@ import (
 	"github.com/dscsystems/go-iec61850/client"
 	"github.com/dscsystems/go-iec61850/mms"
 	"github.com/dscsystems/go-iec61850/model"
-	"github.com/otfabric/mms-interop/adapters/dscsystems/internal/ied"
-	"github.com/otfabric/mms-interop/adapters/dscsystems/internal/jl"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/ied"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/jl"
 )
 
 // expectedModel is each DO's ctlModel in the fixture; it picks the sequence.

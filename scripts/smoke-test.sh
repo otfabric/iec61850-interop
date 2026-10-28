@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# smoke-test.sh — adapter self-tests for mms-interop.
+# smoke-test.sh — adapter self-tests for iec61850-interop.
 #
 # Verifies that each adapter command:
 #   1. Starts without error.
@@ -9,20 +9,20 @@
 #   5. Ready event contains the expected fields: event, address, fixture, adapter, version.
 #
 # Usage:
-#   LIBIEC61850_IMAGE=mms-interop-libiec61850:local \
-#   IEC61850BEAN_IMAGE=mms-interop-iec61850bean:local \
-#   DSCSYSTEMS_IMAGE=mms-interop-dscsystems:local \
-#   IEC61850RUST_IMAGE=mms-interop-iec61850-rust:local \
+#   LIBIEC61850_IMAGE=iec61850-interop-libiec61850:local \
+#   IEC61850BEAN_IMAGE=iec61850-interop-iec61850bean:local \
+#   DSCSYSTEMS_IMAGE=iec61850-interop-dscsystems:local \
+#   IEC61850RUST_IMAGE=iec61850-interop-iec61850-rust:local \
 #   ./scripts/smoke-test.sh
 #
 # Exit code: 0 if all checks pass, 1 if any check fails.
 
 set -euo pipefail
 
-LIBIEC61850_IMAGE="${LIBIEC61850_IMAGE:-mms-interop-libiec61850:local}"
-IEC61850BEAN_IMAGE="${IEC61850BEAN_IMAGE:-mms-interop-iec61850bean:local}"
-DSCSYSTEMS_IMAGE="${DSCSYSTEMS_IMAGE:-mms-interop-dscsystems:local}"
-IEC61850RUST_IMAGE="${IEC61850RUST_IMAGE:-mms-interop-iec61850-rust:local}"
+LIBIEC61850_IMAGE="${LIBIEC61850_IMAGE:-iec61850-interop-libiec61850:local}"
+IEC61850BEAN_IMAGE="${IEC61850BEAN_IMAGE:-iec61850-interop-iec61850bean:local}"
+DSCSYSTEMS_IMAGE="${DSCSYSTEMS_IMAGE:-iec61850-interop-dscsystems:local}"
+IEC61850RUST_IMAGE="${IEC61850RUST_IMAGE:-iec61850-interop-iec61850-rust:local}"
 SCRIPTS="$(cd "$(dirname "$0")" && pwd)"
 
 PASS=0

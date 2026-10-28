@@ -10,7 +10,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
- * iec61850bean IED reporter adapter for mms-interop Phase 2D.
+ * iec61850bean IED reporter adapter for iec61850-interop Phase 2D.
  *
  * <p>Mirrors the operation sequence of {@code libiec61850-ied-reporter}:
  * <ol>

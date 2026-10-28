@@ -1,4 +1,10 @@
-# mms-interop Releases
+# iec61850-interop Releases
+
+> **Renamed from `mms-interop`.** Up to v0.4.1 this repository was
+> `otfabric/mms-interop` and published `ghcr.io/otfabric/mms-interop-<stack>`.
+> The entries below v1.0.0 keep the image names they were published under:
+> those images are still pullable by tag and digest, but get no new versions.
+> From v1.0.0 the images are `ghcr.io/otfabric/iec61850-interop-<stack>`.
 
 ## How a release is made
 
@@ -15,6 +21,78 @@ release workflow, so: one section per version, newest first, each ending with
 a `---` line, and no `---` line inside a section.
 
 Tags are immutable. A fix is a new version.
+
+---
+
+## v1.0.0
+
+**Date:** 2026-10-28
+
+## Summary
+
+The repository is renamed from `mms-interop` to **iec61850-interop**, since it
+covers MMS, IEC 61850 IED services, GOOSE and Sampled Values, and the
+adapter contract becomes stable. The adapters, commands, fixtures and event
+shapes are those of v0.4.1; what changes is where they are published and the
+promise that comes with them.
+
+## Breaking changes
+
+- Images move to new names. Pull `ghcr.io/otfabric/iec61850-interop-<stack>`
+  instead of `ghcr.io/otfabric/mms-interop-<stack>`:
+  - `ghcr.io/otfabric/iec61850-interop-libiec61850`
+  - `ghcr.io/otfabric/iec61850-interop-iec61850bean`
+  - `ghcr.io/otfabric/iec61850-interop-dscsystems` (GPL-3.0)
+  - `ghcr.io/otfabric/iec61850-interop-iec61850-rust`
+- Local builds are tagged `iec61850-interop-<stack>:local`; the Compose
+  project and the GOOSE/SV bridge network are `iec61850-interop` and
+  `iec61850-interop-goose`.
+- The Go module paths are `github.com/otfabric/iec61850-interop` and
+  `github.com/otfabric/iec61850-interop/adapters/dscsystems`; the Rust crate is
+  `iec61850-interop-iec61850-rust`.
+- A fixture without `identity.model` now identifies as `iec61850-interop`
+  (was `mms-interop`). `fixtures/mms/interop.json` sets the model, so the
+  published images answer as before.
+
+Unchanged, so consumers only swap the image references: the command names
+(`libiec61850-ied-server`, ...), their flags and output, the consumer
+environment variables (`LIBIEC61850_IMAGE`, `IEC61850BEAN_IMAGE`,
+`DSCSYSTEMS_IMAGE`, `IEC61850RUST_IMAGE`), and the fixture revisions
+`mms-v2`, `iec61850-v3`, `goose-v1`, `sv-v1`.
+
+## Compatibility promise
+
+From v1.0.0 the repository follows semantic versioning. The image names,
+command names and flags, event and operation shapes, exit codes, fixture
+revisions, and the schemas of `capabilities.json` and `manifest.json` change
+incompatibly only in a new major version. Minor versions add (commands,
+optional fields, event types, fixture revisions next to the old ones); patch
+versions fix adapters to match the contract and update known limitations.
+Consumers ignore fields and events they do not know. The full statement is
+in `docs/contract.md`.
+
+## Changes
+
+### Added
+
+- `docs/contract.md`: the shared adapter contract (ready, version and
+  capabilities events, fixed-sequence client output, exit codes) and the
+  stability promise; `docs/goose.md` and `docs/sv.md` refer to it.
+- A stack × capability matrix in `README.md` and `COVERAGE.md`, generated
+  from `fixtures/capabilities.json` by `scripts/gen-coverage.sh`;
+  `--check` mode runs in CI and in `make validate-fixtures`.
+- `manifest.json` gains `repository` and `svFixture`.
+- `org.opencontainers.image.source` and `description` labels on the
+  libiec61850 and iec61850bean images (the other two had them), pointing at
+  `https://github.com/otfabric/iec61850-interop`.
+
+### Changed
+
+- README rewritten around the four stacks and four profiles: capability
+  matrix, image names and digest pinning, quick starts for MMS, IED, GOOSE
+  and SV, L2 networking on Linux and macOS, licensing per image, consumer
+  repositories.
+- `capabilities.json` `adapterVersion` is `1.0.0`.
 
 ---
 

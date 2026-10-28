@@ -5,8 +5,8 @@
 # Usage:
 #   scripts/goose-crosscheck.sh PUB_IMAGE PUB_CMD SUB_IMAGE SUB_CMD [CB]
 #   e.g. scripts/goose-crosscheck.sh \
-#          mms-interop-libiec61850:local libiec61850-goose-publisher \
-#          mms-interop-dscsystems:local  dscsystems-goose-subscriber
+#          iec61850-interop-libiec61850:local libiec61850-goose-publisher \
+#          iec61850-interop-dscsystems:local  dscsystems-goose-subscriber
 #
 # CB is a control block of fixtures/goose/goose.json (default gcbAll).
 # FLAGS=plain runs the publisher without --test --simulation --nds-com

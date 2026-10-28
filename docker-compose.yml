@@ -10,7 +10,7 @@
 # Connect with a raw MMS client:
 #   nc -z localhost 1102 && echo "port open"
 
-name: mms-interop
+name: iec61850-interop
 
 services:
   libiec61850-mms-server:
@@ -20,7 +20,7 @@ services:
       dockerfile: adapters/libiec61850/Dockerfile
       platforms:
         - linux/amd64
-    image: mms-interop-libiec61850:local
+    image: iec61850-interop-libiec61850:local
     platform: linux/amd64
     environment:
       MMS_INTEROP_ADDRESS: "0.0.0.0"
@@ -63,7 +63,7 @@ services:
   # -------------------------------------------------------------------------
   libiec61850-goose-publisher:
     profiles: ["goose"]
-    image: mms-interop-libiec61850:local
+    image: iec61850-interop-libiec61850:local
     platform: linux/amd64
     networks: [goose]
     cap_drop: [ALL]
@@ -88,7 +88,7 @@ services:
 
   dscsystems-goose-subscriber:
     profiles: ["goose"]
-    image: mms-interop-dscsystems:local
+    image: iec61850-interop-dscsystems:local
     platform: linux/amd64
     networks: [goose]
     cap_drop: [ALL]
@@ -98,7 +98,7 @@ services:
 
 networks:
   goose:
-    name: mms-interop-goose
+    name: iec61850-interop-goose
     driver: bridge
     driver_opts:
       com.docker.network.bridge.name: goose0

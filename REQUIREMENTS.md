@@ -1,6 +1,6 @@
 # Requirements
 
-Requirements for the `mms-interop` repository. These requirements constrain the design and implementation choices made in [PLAN.md](PLAN.md).
+Requirements for the `iec61850-interop` repository. These requirements constrain the design and implementation choices made in [PLAN.md](PLAN.md).
 
 ---
 

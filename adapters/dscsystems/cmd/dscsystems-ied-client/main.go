@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 // Command dscsystems-ied-client is the dscsystems/go-iec61850 IED client
-// adapter for mms-interop, the counterpart of libiec61850-ied-client.
+// adapter for iec61850-interop, the counterpart of libiec61850-ied-client.
 //
 // It runs the fixed sequence against --host/--port and emits one JSON Line
 // per operation:
@@ -31,8 +31,8 @@ import (
 	"github.com/dscsystems/go-iec61850/client"
 	"github.com/dscsystems/go-iec61850/mms"
 	"github.com/dscsystems/go-iec61850/model"
-	"github.com/otfabric/mms-interop/adapters/dscsystems/internal/ied"
-	"github.com/otfabric/mms-interop/adapters/dscsystems/internal/jl"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/ied"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/jl"
 )
 
 func main() {

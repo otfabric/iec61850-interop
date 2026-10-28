@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 /**
- * iec61850bean IED server adapter for mms-interop Phase 2B.
+ * iec61850bean IED server adapter for iec61850-interop Phase 2B.
  *
  * <p>Loads {@code interop.icd} via {@link SclParser}, applies initial values
  * from {@code values.json}, starts a non-blocking server, and emits the

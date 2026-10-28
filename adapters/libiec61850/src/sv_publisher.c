@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 /*
  * sv_publisher.c — libIEC61850 Sampled Values publisher adapter for
- * mms-interop (contract: docs/sv.md).
+ * iec61850-interop (contract: docs/sv.md).
  *
  * Usage:
  *   libiec61850-sv-publisher --iface IF --app-id 0xNNNN --dst MAC

@@ -9,7 +9,7 @@
   <artifactId>iec61850bean-adapter</artifactId>
   <version>1.0.0</version>
   <packaging>jar</packaging>
-  <description>mms-interop Phase 2B iec61850bean IED adapter</description>
+  <description>iec61850-interop Phase 2B iec61850bean IED adapter</description>
 
   <properties>
     <maven.compiler.source>21</maven.compiler.source>

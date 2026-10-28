@@ -160,7 +160,7 @@ jobs:
           sbom: false
           build-args: |
             ADAPTER_VERSION=${{ needs.version.outputs.tag }}
-          outputs: type=image,name=${{ env.REGISTRY }}/mms-interop-${{ matrix.image }},push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=${{ env.REGISTRY }}/iec61850-interop-${{ matrix.image }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ matrix.slug }}
           cache-to: type=gha,mode=max,scope=${{ matrix.slug }}
 
@@ -220,7 +220,7 @@ jobs:
           set -euo pipefail
           publish() {
             local image="$1"
-            local dest="${REGISTRY}/mms-interop-${image}"
+            local dest="${REGISTRY}/iec61850-interop-${image}"
             local refs=()
             local f
             for f in "${RUNNER_TEMP}/digests/${image}-linux-"*; do
@@ -280,10 +280,12 @@ jobs:
           rust_match = re.search(r"^ARG IEC61850_RUST_SHA=(\S+)", rust, re.M)
 
           print(json.dumps({
+              "repository": "github.com/otfabric/iec61850-interop",
               "version": __import__("os").environ["VERSION"],
               "fixture": caps.get("fixtureRevision", ""),
               "mmsFixture": caps.get("mmsFixtureRevision", ""),
               "gooseFixture": caps.get("gooseFixtureRevision", ""),
+              "svFixture": caps.get("svFixtureRevision", ""),
               "libiec61850": sha_match.group(1) if sha_match else "",
               "iec61850bean": pom_match.group(1) if pom_match else "1.9.0",
               "dscsystems": dsc_match.group(1) if dsc_match else "",
@@ -314,18 +316,18 @@ jobs:
             echo
             echo "| Image | Digest |"
             echo "|-------|--------|"
-            echo "| \`ghcr.io/otfabric/mms-interop-libiec61850:${VERSION}\` | \`${LIBIEC61850_DIGEST}\` |"
-            echo "| \`ghcr.io/otfabric/mms-interop-iec61850bean:${VERSION}\` | \`${IEC61850BEAN_DIGEST}\` |"
-            echo "| \`ghcr.io/otfabric/mms-interop-dscsystems:${VERSION}\` (GPL-3.0) | \`${DSCSYSTEMS_DIGEST}\` |"
-            echo "| \`ghcr.io/otfabric/mms-interop-iec61850-rust:${VERSION}\` | \`${IEC61850RUST_DIGEST}\` |"
+            echo "| \`ghcr.io/otfabric/iec61850-interop-libiec61850:${VERSION}\` | \`${LIBIEC61850_DIGEST}\` |"
+            echo "| \`ghcr.io/otfabric/iec61850-interop-iec61850bean:${VERSION}\` | \`${IEC61850BEAN_DIGEST}\` |"
+            echo "| \`ghcr.io/otfabric/iec61850-interop-dscsystems:${VERSION}\` (GPL-3.0) | \`${DSCSYSTEMS_DIGEST}\` |"
+            echo "| \`ghcr.io/otfabric/iec61850-interop-iec61850-rust:${VERSION}\` | \`${IEC61850RUST_DIGEST}\` |"
             echo
             echo "## Pinning in consumer repositories"
             echo
             echo '```bash'
-            echo "LIBIEC61850_IMAGE=ghcr.io/otfabric/mms-interop-libiec61850@${LIBIEC61850_DIGEST}"
-            echo "IEC61850BEAN_IMAGE=ghcr.io/otfabric/mms-interop-iec61850bean@${IEC61850BEAN_DIGEST}"
-            echo "DSCSYSTEMS_IMAGE=ghcr.io/otfabric/mms-interop-dscsystems@${DSCSYSTEMS_DIGEST}"
-            echo "IEC61850RUST_IMAGE=ghcr.io/otfabric/mms-interop-iec61850-rust@${IEC61850RUST_DIGEST}"
+            echo "LIBIEC61850_IMAGE=ghcr.io/otfabric/iec61850-interop-libiec61850@${LIBIEC61850_DIGEST}"
+            echo "IEC61850BEAN_IMAGE=ghcr.io/otfabric/iec61850-interop-iec61850bean@${IEC61850BEAN_DIGEST}"
+            echo "DSCSYSTEMS_IMAGE=ghcr.io/otfabric/iec61850-interop-dscsystems@${DSCSYSTEMS_DIGEST}"
+            echo "IEC61850RUST_IMAGE=ghcr.io/otfabric/iec61850-interop-iec61850-rust@${IEC61850RUST_DIGEST}"
             echo '```'
             echo
             echo "See \`manifest.json\` for full provenance (libiec61850 commit SHA, iec61850bean version, dscsystems/go-iec61850 and iec61850-rust commit SHAs, fixture revisions)."

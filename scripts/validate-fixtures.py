@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-validate-fixtures.py — cross-validate mms-interop fixture files.
+validate-fixtures.py — cross-validate iec61850-interop fixture files.
 
 Checks:
   1. interop.json — valid JSON; required top-level keys present.

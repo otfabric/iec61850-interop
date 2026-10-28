@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * goose_publisher.c — libIEC61850 GOOSE publisher adapter for mms-interop.
+ * goose_publisher.c — libIEC61850 GOOSE publisher adapter for iec61850-interop.
  *
  * Usage:
  *   libiec61850-goose-publisher --iface IF --gocb-ref REF --go-id ID

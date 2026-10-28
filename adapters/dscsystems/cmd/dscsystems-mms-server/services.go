@@ -26,7 +26,7 @@ import (
 
 	"github.com/dscsystems/go-iec61850/asn1"
 	"github.com/dscsystems/go-iec61850/mms"
-	"github.com/otfabric/mms-interop/adapters/dscsystems/internal/jl"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/jl"
 )
 
 // Confirmed service CHOICE tags (ISO 9506-2).

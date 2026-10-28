@@ -95,7 +95,7 @@ jobs:
           docker buildx build --platform=linux/amd64 --load \
             -f adapters/libiec61850/Dockerfile \
             --build-arg "LIBIEC61850_SHA=${{ steps.resolve.outputs.tip_sha }}" \
-            -t mms-interop-libiec61850:candidate \
+            -t iec61850-interop-libiec61850:candidate \
             .
 
   candidate-iec61850bean:
@@ -171,7 +171,7 @@ jobs:
           PY
           docker buildx build --platform=linux/amd64 --load \
             -f adapters/iec61850bean/Dockerfile \
-            -t mms-interop-iec61850bean:candidate \
+            -t iec61850-interop-iec61850bean:candidate \
             .
           mv /tmp/pom.release adapters/iec61850bean/pom.xml
 

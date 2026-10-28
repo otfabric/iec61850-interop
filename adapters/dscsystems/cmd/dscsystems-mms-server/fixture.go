@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-// fixture.go — parse an mms-interop fixture JSON file (revision mms-v2)
+// fixture.go — parse an iec61850-interop fixture JSON file (revision mms-v2)
 // into type specifications and initial values for the generic MMS server.
 //
 // Port of adapters/libiec61850/src/fixture.c. Scalar values use the typed
@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/dscsystems/go-iec61850/mms"
-	"github.com/otfabric/mms-interop/adapters/dscsystems/internal/mmsjson"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/mmsjson"
 )
 
 // varDef is one domain variable: its type, initial value and writability.
@@ -146,7 +146,7 @@ func loadFixture(path string) (*fixtureDef, error) {
 	f := &fixtureDef{
 		revision:       orDefault(jf.Revision, "mms-v1"),
 		vendor:         orDefault(jf.Identity.Vendor, "OTFabric"),
-		model:          orDefault(jf.Identity.Model, "mms-interop"),
+		model:          orDefault(jf.Identity.Model, "iec61850-interop"),
 		revisionString: orDefault(jf.Identity.Revision, "1.0"),
 		logical:        jf.Status.Logical,
 		physical:       jf.Status.Physical,

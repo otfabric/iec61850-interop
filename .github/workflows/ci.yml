@@ -20,6 +20,9 @@ jobs:
       - name: RELEASE.md has the notes of the newest version
         run: scripts/release-notes.sh > /dev/null
 
+      - name: COVERAGE.md and the README matrix match capabilities.json
+        run: scripts/gen-coverage.sh --check
+
   dscsystems-go:
     name: dscsystems adapter (go vet, gofmt)
     runs-on: ubuntu-latest
@@ -76,10 +79,10 @@ jobs:
       # reported per pair, known-limitation pairs checked to still fail).
       - name: Run adapter smoke tests
         run: |
-          LIBIEC61850_IMAGE=mms-interop-libiec61850:local \
-          IEC61850BEAN_IMAGE=mms-interop-iec61850bean:local \
-          DSCSYSTEMS_IMAGE=mms-interop-dscsystems:local \
-          IEC61850RUST_IMAGE=mms-interop-iec61850-rust:local \
+          LIBIEC61850_IMAGE=iec61850-interop-libiec61850:local \
+          IEC61850BEAN_IMAGE=iec61850-interop-iec61850bean:local \
+          DSCSYSTEMS_IMAGE=iec61850-interop-dscsystems:local \
+          IEC61850RUST_IMAGE=iec61850-interop-iec61850-rust:local \
           ./scripts/smoke-test.sh
 
       - name: Record build provenance
@@ -89,7 +92,7 @@ jobs:
             | head -1 | cut -d= -f2)
           IEC61850BEAN_VERSION=$(grep 'iec61850bean:' adapters/iec61850bean/pom.xml \
             | head -1 | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
-          echo "mms-interop SHA : ${{ github.sha }}"
+          echo "iec61850-interop SHA : ${{ github.sha }}"
           echo "libiec61850 SHA : ${LIBIEC61850_SHA}"
           echo "iec61850bean    : ${IEC61850BEAN_VERSION:-1.9.0}"
           echo "dscsystems      : $(grep 'ARG DSCSYSTEMS_SHA=' adapters/dscsystems/Dockerfile | cut -d= -f2)"

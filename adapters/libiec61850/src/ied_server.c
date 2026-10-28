@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * ied_server.c — libIEC61850 IED server adapter for mms-interop.
+ * ied_server.c — libIEC61850 IED server adapter for iec61850-interop.
  *
  * Phase 2A Step 8: IED server direction
  *   go-iec61850 client ← libiec61850 IED server

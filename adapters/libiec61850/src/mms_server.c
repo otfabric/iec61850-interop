@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * mms_server.c — libIEC61850 generic MMS server for mms-interop.
+ * mms_server.c — libIEC61850 generic MMS server for iec61850-interop.
  *
  * Phase 0 finding: the generic MMS server requires private libiec61850
  * headers (see SPIKE.md).  Include paths are set by CMake.

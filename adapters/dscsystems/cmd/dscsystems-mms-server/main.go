@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-// dscsystems-mms-server — generic MMS server for mms-interop on
+// dscsystems-mms-server — generic MMS server for iec61850-interop on
 // github.com/dscsystems/go-iec61850.
 //
 // Port of adapters/libiec61850/src/mms_server.c. The library's server
@@ -47,7 +47,7 @@ import (
 	"time"
 
 	"github.com/dscsystems/go-iec61850/mms"
-	"github.com/otfabric/mms-interop/adapters/dscsystems/internal/jl"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/jl"
 )
 
 func main() {

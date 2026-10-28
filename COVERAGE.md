@@ -4,55 +4,59 @@ Availability of adapter commands across the four images. Compatibility matrices 
 
 This file is generated from `fixtures/capabilities.json`; do not edit manually. Run `./scripts/gen-coverage.sh`.
 
-Adapter version: `0.4.1` · Fixture revisions: `mms-v2`, `iec61850-v3`, `goose-v1`, `sv-v1`
+Adapter version: `1.0.0` · Fixture revisions: `mms-v2`, `iec61850-v3`, `goose-v1`, `sv-v1`
+
+## Stack × capability
+
+| Stack | Image | MMS server | MMS client | IED server | IED client | IED controller | IED reporter | GOOSE publisher | GOOSE subscriber | SV publisher | SV subscriber | SVCB over MMS |
+|-------|-------|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| libiec61850 | `iec61850-interop-libiec61850` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| iec61850bean | `iec61850-interop-iec61850bean` | — | — | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — |
+| dscsystems | `iec61850-interop-dscsystems` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| iec61850-rust | `iec61850-interop-iec61850-rust` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+
+SVCB over MMS: the IED server exposes `LLN0$MS$MSVCB02` of the IED fixture as MMS variables.
+
+## Commands
 
 | Adapter command | Image | Available |
 |----------------|-------|:---------:|
-| `libiec61850-mms-server` | `mms-interop-libiec61850` | ✓ |
-| `libiec61850-mms-client` | `mms-interop-libiec61850` | ✓ |
-| `libiec61850-ied-server` | `mms-interop-libiec61850` | ✓ |
-| `libiec61850-ied-client` | `mms-interop-libiec61850` | ✓ |
-| `libiec61850-ied-controller` | `mms-interop-libiec61850` | ✓ |
-| `libiec61850-ied-reporter` | `mms-interop-libiec61850` | ✓ |
-| `iec61850bean-ied-server` | `mms-interop-iec61850bean` | ✓ |
-| `iec61850bean-ied-client` | `mms-interop-iec61850bean` | ✓ |
-| `iec61850bean-ied-controller` | `mms-interop-iec61850bean` | ✓ |
-| `iec61850bean-ied-reporter` | `mms-interop-iec61850bean` | ✓ |
-| `libiec61850-goose-publisher` | `mms-interop-libiec61850` | ✓ |
-| `libiec61850-goose-subscriber` | `mms-interop-libiec61850` | ✓ |
-| `dscsystems-mms-server` | `mms-interop-dscsystems` | ✓ |
-| `dscsystems-mms-client` | `mms-interop-dscsystems` | ✓ |
-| `dscsystems-ied-server` | `mms-interop-dscsystems` | ✓ |
-| `dscsystems-ied-client` | `mms-interop-dscsystems` | ✓ |
-| `dscsystems-ied-controller` | `mms-interop-dscsystems` | ✓ |
-| `dscsystems-ied-reporter` | `mms-interop-dscsystems` | ✓ |
-| `dscsystems-goose-publisher` | `mms-interop-dscsystems` | ✓ |
-| `dscsystems-goose-subscriber` | `mms-interop-dscsystems` | ✓ |
-| `iec61850-rust-mms-server` | `mms-interop-iec61850-rust` | ✓ |
-| `iec61850-rust-mms-client` | `mms-interop-iec61850-rust` | ✓ |
-| `iec61850-rust-ied-server` | `mms-interop-iec61850-rust` | ✓ |
-| `iec61850-rust-ied-client` | `mms-interop-iec61850-rust` | ✓ |
-| `iec61850-rust-ied-controller` | `mms-interop-iec61850-rust` | ✓ |
-| `iec61850-rust-ied-reporter` | `mms-interop-iec61850-rust` | ✓ |
-| `iec61850-rust-goose-publisher` | `mms-interop-iec61850-rust` | ✓ |
-| `iec61850-rust-goose-subscriber` | `mms-interop-iec61850-rust` | ✓ |
-| `libiec61850-sv-publisher` | `mms-interop-libiec61850` | ✓ |
-| `libiec61850-sv-subscriber` | `mms-interop-libiec61850` | ✓ |
-| `dscsystems-sv-publisher` | `mms-interop-dscsystems` | ✓ |
-| `dscsystems-sv-subscriber` | `mms-interop-dscsystems` | ✓ |
-| `iec61850-rust-sv-publisher` | `mms-interop-iec61850-rust` | ✓ |
-| `iec61850-rust-sv-subscriber` | `mms-interop-iec61850-rust` | ✓ |
+| `libiec61850-mms-server` | `iec61850-interop-libiec61850` | ✓ |
+| `libiec61850-mms-client` | `iec61850-interop-libiec61850` | ✓ |
+| `libiec61850-ied-server` | `iec61850-interop-libiec61850` | ✓ |
+| `libiec61850-ied-client` | `iec61850-interop-libiec61850` | ✓ |
+| `libiec61850-ied-controller` | `iec61850-interop-libiec61850` | ✓ |
+| `libiec61850-ied-reporter` | `iec61850-interop-libiec61850` | ✓ |
+| `iec61850bean-ied-server` | `iec61850-interop-iec61850bean` | ✓ |
+| `iec61850bean-ied-client` | `iec61850-interop-iec61850bean` | ✓ |
+| `iec61850bean-ied-controller` | `iec61850-interop-iec61850bean` | ✓ |
+| `iec61850bean-ied-reporter` | `iec61850-interop-iec61850bean` | ✓ |
+| `libiec61850-goose-publisher` | `iec61850-interop-libiec61850` | ✓ |
+| `libiec61850-goose-subscriber` | `iec61850-interop-libiec61850` | ✓ |
+| `dscsystems-mms-server` | `iec61850-interop-dscsystems` | ✓ |
+| `dscsystems-mms-client` | `iec61850-interop-dscsystems` | ✓ |
+| `dscsystems-ied-server` | `iec61850-interop-dscsystems` | ✓ |
+| `dscsystems-ied-client` | `iec61850-interop-dscsystems` | ✓ |
+| `dscsystems-ied-controller` | `iec61850-interop-dscsystems` | ✓ |
+| `dscsystems-ied-reporter` | `iec61850-interop-dscsystems` | ✓ |
+| `dscsystems-goose-publisher` | `iec61850-interop-dscsystems` | ✓ |
+| `dscsystems-goose-subscriber` | `iec61850-interop-dscsystems` | ✓ |
+| `iec61850-rust-mms-server` | `iec61850-interop-iec61850-rust` | ✓ |
+| `iec61850-rust-mms-client` | `iec61850-interop-iec61850-rust` | ✓ |
+| `iec61850-rust-ied-server` | `iec61850-interop-iec61850-rust` | ✓ |
+| `iec61850-rust-ied-client` | `iec61850-interop-iec61850-rust` | ✓ |
+| `iec61850-rust-ied-controller` | `iec61850-interop-iec61850-rust` | ✓ |
+| `iec61850-rust-ied-reporter` | `iec61850-interop-iec61850-rust` | ✓ |
+| `iec61850-rust-goose-publisher` | `iec61850-interop-iec61850-rust` | ✓ |
+| `iec61850-rust-goose-subscriber` | `iec61850-interop-iec61850-rust` | ✓ |
+| `libiec61850-sv-publisher` | `iec61850-interop-libiec61850` | ✓ |
+| `libiec61850-sv-subscriber` | `iec61850-interop-libiec61850` | ✓ |
+| `dscsystems-sv-publisher` | `iec61850-interop-dscsystems` | ✓ |
+| `dscsystems-sv-subscriber` | `iec61850-interop-dscsystems` | ✓ |
+| `iec61850-rust-sv-publisher` | `iec61850-interop-iec61850-rust` | ✓ |
+| `iec61850-rust-sv-subscriber` | `iec61850-interop-iec61850-rust` | ✓ |
 
-**SV control blocks over MMS** (IED server exposes `LLN0$MS$MSVCB02` of the IED fixture):
-
-| IED server | SVCB over MMS |
-|------------|:-------------:|
-| `libiec61850` | ✓ |
-| `dscsystems` | ✓ |
-| `iec61850bean` | — |
-| `iec61850-rust` | — |
-
-**Known limitations (verified upstream gaps):**
+## Known limitations (verified upstream gaps)
 
 | Stack | Version | Direction | Capability | Expected skip |
 |-------|---------|-----------|------------|---------------|
@@ -82,14 +86,14 @@ Adapter version: `0.4.1` · Fixture revisions: `mms-v2`, `iec61850-v3`, `goose-v
 | `iec61850-rust` | v0.2.0-0-gd4e8952 | * → iec61850-rust-sv-subscriber | SV receive buffer | — |
 | `dscsystems` | v0.6.5-1-g6bf3f37 | * → dscsystems-sv-subscriber | smpRate 0 / empty datSet | — |
 
-**Notes:**
+## Notes
 
 - All adapter commands read from the fixture files in `fixtures/`.
-- All commands emit JSON Lines to stdout; diagnostics go to stderr.
+- All commands emit JSON Lines to stdout; diagnostics go to stderr. The contract is [`docs/contract.md`](docs/contract.md).
 - Each adapter command supports `--capabilities` (emit JSON and exit) and `--version` (emit version JSON and exit).
 - Fixed-sequence IED clients exit non-zero when any operation emits `ok:false` (connection failures remain exit 2).
-- Every IED server seeds its values from `fixtures/iec61850/values.json` (as of 0.4.1 including `GGIO1.DPS1.stVal` = 2 and `MMTR1.TotVAh.actVal` = 42). Every fixed-sequence IED client reads, in this order: `GGIO1.SPS1.stVal[ST]`, `MMXU1.TotW.mag.f[MX]`, `GGIO1.DPS1.stVal[ST]` (Dbpos, reported as its enumeration 0..3, 2 = on), `MMTR1.TotVAh.actVal[ST]` (INT32U), `LLN0.Mod.ctlModel[CF]`, `LLN0.Mod.d[DC]`.
+- Every IED server seeds its values from `fixtures/iec61850/values.json` (including `GGIO1.DPS1.stVal` = 2 and `MMTR1.TotVAh.actVal` = 42). Every fixed-sequence IED client reads, in this order: `GGIO1.SPS1.stVal[ST]`, `MMXU1.TotW.mag.f[MX]`, `GGIO1.DPS1.stVal[ST]` (Dbpos, reported as its enumeration 0..3, 2 = on), `MMTR1.TotVAh.actVal[ST]` (INT32U), `LLN0.Mod.ctlModel[CF]`, `LLN0.Mod.d[DC]`.
 - GOOSE commands (`*-goose-publisher`, `*-goose-subscriber`) need a raw socket: run them with `--cap-add NET_RAW` on a shared Docker network; see [`docs/goose.md`](docs/goose.md).
-- Sampled Values commands (`*-sv-publisher`, `*-sv-subscriber`) need the same; see [`docs/sv.md`](docs/sv.md). iec61850bean has no SV support, so `mms-interop-iec61850bean` has no SV commands.
-- `mms-interop-dscsystems` is built from GPL-3.0 code (dscsystems/go-iec61850); see `adapters/dscsystems/NOTICE`.
+- Sampled Values commands (`*-sv-publisher`, `*-sv-subscriber`) need the same; see [`docs/sv.md`](docs/sv.md). iec61850bean has no SV support, so `iec61850-interop-iec61850bean` has no SV commands.
+- `iec61850-interop-dscsystems` is built from GPL-3.0 code (dscsystems/go-iec61850); see `adapters/dscsystems/NOTICE`.
 - A skipped test without a registered limitation in this table must fail CI.

@@ -7,7 +7,7 @@
 # Build from repository root:
 #   docker buildx build --platform=linux/amd64 \
 #       -f adapters/dscsystems/Dockerfile \
-#       -t mms-interop-dscsystems:local .
+#       -t iec61850-interop-dscsystems:local .
 #
 # The upstream pin is the require line of adapters/dscsystems/go.mod
 # (DSCSYSTEMS_SHA below documents the same commit and is checked against it).
@@ -37,8 +37,8 @@ RUN go vet ./... \
 # ---------------------------------------------------------------------------
 FROM debian:bookworm-slim@${DEBIAN_DIGEST} AS runtime
 
-LABEL org.opencontainers.image.source="https://github.com/otfabric/mms-interop" \
-      org.opencontainers.image.description="mms-interop adapter on dscsystems/go-iec61850 (MMS, IEC 61850, GOOSE, Sampled Values)" \
+LABEL org.opencontainers.image.source="https://github.com/otfabric/iec61850-interop" \
+      org.opencontainers.image.description="iec61850-interop adapter on dscsystems/go-iec61850 (MMS, IEC 61850, GOOSE, Sampled Values)" \
       org.opencontainers.image.licenses="GPL-3.0-only"
 
 COPY --from=build /out/ /usr/local/bin/
@@ -61,7 +61,7 @@ COPY fixtures/iec61850/interop.icd  /fixtures/iec61850/interop.icd
 COPY fixtures/iec61850/values.json  /fixtures/iec61850/values.json
 COPY fixtures/goose/                /fixtures/goose/
 COPY fixtures/sv/                   /fixtures/sv/
-COPY adapters/dscsystems/LICENSE adapters/dscsystems/NOTICE /usr/share/doc/mms-interop-dscsystems/
+COPY adapters/dscsystems/LICENSE adapters/dscsystems/NOTICE /usr/share/doc/iec61850-interop-dscsystems/
 
 USER adapter
 

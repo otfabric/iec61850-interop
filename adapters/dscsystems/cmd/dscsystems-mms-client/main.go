@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-// dscsystems-mms-client — MMS client adapter for mms-interop on
+// dscsystems-mms-client — MMS client adapter for iec61850-interop on
 // github.com/dscsystems/go-iec61850 (package mms).
 //
 // Port of adapters/libiec61850/src/mms_client.c. Connects to a host:port
@@ -49,7 +49,7 @@ import (
 	"time"
 
 	"github.com/dscsystems/go-iec61850/mms"
-	"github.com/otfabric/mms-interop/adapters/dscsystems/internal/jl"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/jl"
 )
 
 // requestTimeout bounds every confirmed request, as libiec61850's default
