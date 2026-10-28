@@ -75,7 +75,7 @@ static inline void jl_handle_meta_flags(int argc, char** argv, const char* adapt
     if (strcmp(argv[1], "--version") == 0) {
         fprintf(stdout,
                 "{\"event\":\"version\",\"adapterVersion\":\"%s\","
-                "\"fixtureRevision\":\"iec61850-v2\"}\n",
+                "\"fixtureRevision\":\"iec61850-v3\"}\n",
                 version);
         fflush(stdout);
         exit(0);
@@ -84,16 +84,17 @@ static inline void jl_handle_meta_flags(int argc, char** argv, const char* adapt
         if (strcmp(adapter_image, "libiec61850") == 0) {
             fprintf(stdout,
                     "{\"event\":\"capabilities\",\"adapterVersion\":\"%s\","
-                    "\"fixtureRevision\":\"iec61850-v2\","
+                    "\"fixtureRevision\":\"iec61850-v3\","
                     "\"commands\":[\"libiec61850-mms-server\",\"libiec61850-mms-client\","
                     "\"libiec61850-ied-server\",\"libiec61850-ied-client\","
                     "\"libiec61850-ied-controller\",\"libiec61850-ied-reporter\","
-                    "\"libiec61850-goose-publisher\",\"libiec61850-goose-subscriber\"]}\n",
+                    "\"libiec61850-goose-publisher\",\"libiec61850-goose-subscriber\","
+                    "\"libiec61850-sv-publisher\",\"libiec61850-sv-subscriber\"]}\n",
                     version);
         } else {
             fprintf(stdout,
                     "{\"event\":\"capabilities\",\"adapterVersion\":\"%s\","
-                    "\"fixtureRevision\":\"iec61850-v2\","
+                    "\"fixtureRevision\":\"iec61850-v3\","
                     "\"commands\":[\"iec61850bean-ied-server\",\"iec61850bean-ied-client\","
                     "\"iec61850bean-ied-controller\",\"iec61850bean-ied-reporter\"]}\n",
                     version);

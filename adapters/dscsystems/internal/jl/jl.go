@@ -16,11 +16,13 @@ import (
 const Adapter = "dscsystems"
 
 // FixtureRevision is the IEC 61850 fixture revision; MMSFixtureRevision
-// the MMS one and GooseFixtureRevision the GOOSE one.
+// the MMS one, GooseFixtureRevision the GOOSE one and SVFixtureRevision
+// the Sampled Values one.
 const (
-	FixtureRevision      = "iec61850-v2"
+	FixtureRevision      = "iec61850-v3"
 	MMSFixtureRevision   = "mms-v2"
 	GooseFixtureRevision = "goose-v1"
+	SVFixtureRevision    = "sv-v1"
 )
 
 // Commands lists every command of the image, as --capabilities reports it.
@@ -33,6 +35,8 @@ var Commands = []string{
 	"dscsystems-ied-reporter",
 	"dscsystems-goose-publisher",
 	"dscsystems-goose-subscriber",
+	"dscsystems-sv-publisher",
+	"dscsystems-sv-subscriber",
 }
 
 var mu sync.Mutex

@@ -37,7 +37,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     cargo build --release --locked \
     && mkdir -p /out \
     && for b in mms-server mms-client ied-server ied-client ied-controller ied-reporter \
-                goose-publisher goose-subscriber; do \
+                goose-publisher goose-subscriber sv-publisher sv-subscriber; do \
          cp "target/release/iec61850-rust-$b" /out/; \
        done
 
@@ -47,17 +47,19 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 FROM debian:bookworm-slim@${DEBIAN_DIGEST} AS runtime
 
 LABEL org.opencontainers.image.source="https://github.com/otfabric/mms-interop" \
-      org.opencontainers.image.description="mms-interop adapter on csp0924/iec61850-rust (MMS, IEC 61850, GOOSE)" \
+      org.opencontainers.image.description="mms-interop adapter on csp0924/iec61850-rust (MMS, IEC 61850, GOOSE, SV)" \
       org.opencontainers.image.licenses="MIT AND (MIT OR Apache-2.0)"
 
 COPY --from=build /out/ /usr/local/bin/
 
-# GOOSE needs a raw AF_PACKET socket. File capabilities let the non-root
+# GOOSE and Sampled Values need a raw AF_PACKET socket. File capabilities let the non-root
 # adapter user open one when the container has CAP_NET_RAW (Docker's
 # default set includes it). Run with --user 0 when no-new-privileges is set.
 RUN apt-get update && apt-get install -y --no-install-recommends libcap2-bin \
     && setcap cap_net_raw+ep /usr/local/bin/iec61850-rust-goose-publisher \
     && setcap cap_net_raw+ep /usr/local/bin/iec61850-rust-goose-subscriber \
+    && setcap cap_net_raw+ep /usr/local/bin/iec61850-rust-sv-publisher \
+    && setcap cap_net_raw+ep /usr/local/bin/iec61850-rust-sv-subscriber \
     && apt-get purge -y libcap2-bin && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/* \
     && addgroup --system --gid 10001 adapter \
@@ -67,6 +69,7 @@ COPY fixtures/mms/interop.json      /fixtures/mms/interop.json
 COPY fixtures/iec61850/interop.icd  /fixtures/iec61850/interop.icd
 COPY fixtures/iec61850/values.json  /fixtures/iec61850/values.json
 COPY fixtures/goose/                /fixtures/goose/
+COPY fixtures/sv/                   /fixtures/sv/
 COPY adapters/iec61850-rust/LICENSE-MIT adapters/iec61850-rust/LICENSE-APACHE adapters/iec61850-rust/NOTICE \
      /usr/share/doc/mms-interop-iec61850-rust/
 

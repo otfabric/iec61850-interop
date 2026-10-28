@@ -2,22 +2,23 @@
 //
 // Shared code of the iec61850-rust adapter commands: JSON Lines output,
 // C printf-style number formatting, the typed value JSON of the GOOSE
-// contract, and small time helpers. The protocol work is done by the
-// iec61850-rust crates; this crate only adapts them to the mms-interop
-// command line and output contract.
+// contract, the Sampled Values seqData encoding, and small time helpers.
+// The protocol work is done by the iec61850-rust crates; this crate only
+// adapts them to the mms-interop command line and output contract.
 
 pub mod ber;
 pub mod cfmt;
 pub mod ied;
 pub mod jl;
+pub mod sv;
 pub mod timefmt;
 pub mod typed;
 
 /// Adapter name reported in ready events.
 pub const ADAPTER: &str = "iec61850-rust";
 
-/// The eight commands of this image, in the order of the other adapters.
-pub const COMMANDS: [&str; 8] = [
+/// The commands of this image, in the order of the other adapters.
+pub const COMMANDS: [&str; 10] = [
     "iec61850-rust-mms-server",
     "iec61850-rust-mms-client",
     "iec61850-rust-ied-server",
@@ -26,6 +27,8 @@ pub const COMMANDS: [&str; 8] = [
     "iec61850-rust-ied-reporter",
     "iec61850-rust-goose-publisher",
     "iec61850-rust-goose-subscriber",
+    "iec61850-rust-sv-publisher",
+    "iec61850-rust-sv-subscriber",
 ];
 
 /// Installs SIGTERM/SIGINT handlers that exit 0 at once (the commands

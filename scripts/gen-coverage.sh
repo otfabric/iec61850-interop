@@ -31,7 +31,7 @@ lines = [
     "",
     "This file is generated from `fixtures/capabilities.json`; do not edit manually. Run `./scripts/gen-coverage.sh`.",
     "",
-    f"Adapter version: `{caps.get('adapterVersion', '?')}` · Fixture revisions: `{caps.get('mmsFixtureRevision', '?')}`, `{caps.get('fixtureRevision', '?')}`, `{caps.get('gooseFixtureRevision', '?')}`",
+    f"Adapter version: `{caps.get('adapterVersion', '?')}` · Fixture revisions: `{caps.get('mmsFixtureRevision', '?')}`, `{caps.get('fixtureRevision', '?')}`, `{caps.get('gooseFixtureRevision', '?')}`, `{caps.get('svFixtureRevision', '?')}`",
     "",
     "| Adapter command | Image | Available |",
     "|----------------|-------|:---------:|",
@@ -39,6 +39,19 @@ lines = [
 for cmd, available in commands.items():
     mark = "✓" if available else "—"
     lines.append(f"| `{cmd}` | `{image_for(cmd)}` | {mark} |")
+
+svcb = caps.get("svcbOverMms") or {}
+if svcb:
+    lines += [
+        "",
+        "**SV control blocks over MMS** (IED server exposes `LLN0$MS$MSVCB02` of the IED fixture):",
+        "",
+        "| IED server | SVCB over MMS |",
+        "|------------|:-------------:|",
+    ]
+    for stack, yes in svcb.items():
+        if stack != "description":
+            lines.append(f"| `{stack}` | {'✓' if yes else '—'} |")
 
 lines += [
     "",
@@ -62,6 +75,7 @@ lines += [
     "- Each adapter command supports `--capabilities` (emit JSON and exit) and `--version` (emit version JSON and exit).",
     "- Fixed-sequence IED clients exit non-zero when any operation emits `ok:false` (connection failures remain exit 2).",
     "- GOOSE commands (`*-goose-publisher`, `*-goose-subscriber`) need a raw socket: run them with `--cap-add NET_RAW` on a shared Docker network; see [`docs/goose.md`](docs/goose.md).",
+    "- Sampled Values commands (`*-sv-publisher`, `*-sv-subscriber`) need the same; see [`docs/sv.md`](docs/sv.md). iec61850bean has no SV support, so `mms-interop-iec61850bean` has no SV commands.",
     "- `mms-interop-dscsystems` is built from GPL-3.0 code (dscsystems/go-iec61850); see `adapters/dscsystems/NOTICE`.",
     "- A skipped test without a registered limitation in this table must fail CI.",
     "",

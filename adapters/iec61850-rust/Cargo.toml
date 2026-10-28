@@ -13,7 +13,7 @@ edition = "2021"
 rust-version = "1.88"
 license = "MIT"
 publish = false
-description = "mms-interop adapter commands on iec61850-rust (MMS, IEC 61850, GOOSE)"
+description = "mms-interop adapter commands on iec61850-rust (MMS, IEC 61850, GOOSE, SV)"
 
 [lib]
 name = "adapter"
@@ -51,6 +51,14 @@ path = "src/bin/goose_publisher.rs"
 name = "iec61850-rust-goose-subscriber"
 path = "src/bin/goose_subscriber.rs"
 
+[[bin]]
+name = "iec61850-rust-sv-publisher"
+path = "src/bin/sv_publisher.rs"
+
+[[bin]]
+name = "iec61850-rust-sv-subscriber"
+path = "src/bin/sv_subscriber.rs"
+
 [dependencies]
 # csp0924/iec61850-rust v0.2.0 (d4e8952)
 iec61850-mms = { git = "https://github.com/csp0924/iec61850-rust", rev = "d4e895217f367ed4caebf21611d2c16ee46035c0" }
@@ -59,6 +67,7 @@ iec61850-client = { git = "https://github.com/csp0924/iec61850-rust", rev = "d4e
 iec61850-server = { git = "https://github.com/csp0924/iec61850-rust", rev = "d4e895217f367ed4caebf21611d2c16ee46035c0", default-features = false, features = ["std", "full-server"] }
 iec61850-scl = { git = "https://github.com/csp0924/iec61850-rust", rev = "d4e895217f367ed4caebf21611d2c16ee46035c0" }
 iec61850-goose = { git = "https://github.com/csp0924/iec61850-rust", rev = "d4e895217f367ed4caebf21611d2c16ee46035c0" }
+iec61850-sv = { git = "https://github.com/csp0924/iec61850-rust", rev = "d4e895217f367ed4caebf21611d2c16ee46035c0" }
 iec61850-hal = { git = "https://github.com/csp0924/iec61850-rust", rev = "d4e895217f367ed4caebf21611d2c16ee46035c0", features = ["ethernet-linux-afpacket", "transport-tokio"] }
 
 bytes = "1"

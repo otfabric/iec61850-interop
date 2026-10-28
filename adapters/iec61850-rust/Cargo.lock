@@ -166,6 +166,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "iec61850-sv"
+version = "0.2.0"
+source = "git+https://github.com/csp0924/iec61850-rust?rev=d4e895217f367ed4caebf21611d2c16ee46035c0#d4e895217f367ed4caebf21611d2c16ee46035c0"
+dependencies = [
+ "bytes",
+ "iec61850-asn1",
+ "iec61850-hal",
+ "iec61850-model",
+ "libc",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
 name = "indexmap"
 version = "2.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -216,6 +230,7 @@ dependencies = [
  "iec61850-model",
  "iec61850-scl",
  "iec61850-server",
+ "iec61850-sv",
  "libc",
  "serde_json",
  "tokio",

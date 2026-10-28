@@ -228,7 +228,7 @@ int main(int argc, char** argv)
 
     char addr_buf[64];
     snprintf(addr_buf, sizeof(addr_buf), "0.0.0.0:%d", port);
-    jl_ready(addr_buf, "iec61850-v2", "libiec61850", iedModel.name);
+    jl_ready(addr_buf, "iec61850-v3", "libiec61850", iedModel.name);
 
     while (g_running)
         Thread_sleep(100);

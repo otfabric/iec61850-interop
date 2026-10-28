@@ -72,7 +72,8 @@ jobs:
       # both directions), and GOOSE publisher -> subscriber between
       # libiec61850, dscsystems and iec61850-rust for every pair, including
       # the host side of the bridge network as a Go test on a Linux host
-      # uses it.
+      # uses it; the same for Sampled Values (both fixture streams, loss
+      # reported per pair, known-limitation pairs checked to still fail).
       - name: Run adapter smoke tests
         run: |
           LIBIEC61850_IMAGE=mms-interop-libiec61850:local \

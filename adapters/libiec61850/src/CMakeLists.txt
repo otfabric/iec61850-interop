@@ -185,3 +185,29 @@ target_link_libraries(libiec61850-goose-subscriber
     pthread
     m
 )
+
+add_executable(libiec61850-sv-publisher
+    sv_publisher.c
+    sv_common.c
+    goose_common.c
+)
+target_link_libraries(libiec61850-sv-publisher
+    ${LIBIEC61850_LIB}
+    ${LIBIEC61850_HAL_LIB}
+    ${JSONC_LIBRARIES}
+    pthread
+    m
+)
+
+add_executable(libiec61850-sv-subscriber
+    sv_subscriber.c
+    sv_common.c
+    goose_common.c
+)
+target_link_libraries(libiec61850-sv-subscriber
+    ${LIBIEC61850_LIB}
+    ${LIBIEC61850_HAL_LIB}
+    ${JSONC_LIBRARIES}
+    pthread
+    m
+)

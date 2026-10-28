@@ -38,17 +38,19 @@ RUN go vet ./... \
 FROM debian:bookworm-slim@${DEBIAN_DIGEST} AS runtime
 
 LABEL org.opencontainers.image.source="https://github.com/otfabric/mms-interop" \
-      org.opencontainers.image.description="mms-interop adapter on dscsystems/go-iec61850 (MMS, IEC 61850, GOOSE)" \
+      org.opencontainers.image.description="mms-interop adapter on dscsystems/go-iec61850 (MMS, IEC 61850, GOOSE, Sampled Values)" \
       org.opencontainers.image.licenses="GPL-3.0-only"
 
 COPY --from=build /out/ /usr/local/bin/
 
-# GOOSE needs a raw AF_PACKET socket. File capabilities let the non-root
-# adapter user open one when the container has CAP_NET_RAW (Docker's
-# default set includes it). Run with --user 0 when no-new-privileges is set.
+# GOOSE and Sampled Values need a raw AF_PACKET socket. File capabilities
+# let the non-root adapter user open one when the container has CAP_NET_RAW
+# (Docker's default set includes it). Run with --user 0 when no-new-privileges is set.
 RUN apt-get update && apt-get install -y --no-install-recommends libcap2-bin \
     && setcap cap_net_raw+ep /usr/local/bin/dscsystems-goose-publisher \
     && setcap cap_net_raw+ep /usr/local/bin/dscsystems-goose-subscriber \
+    && setcap cap_net_raw+ep /usr/local/bin/dscsystems-sv-publisher \
+    && setcap cap_net_raw+ep /usr/local/bin/dscsystems-sv-subscriber \
     && apt-get purge -y libcap2-bin && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/* \
     && addgroup --system --gid 10001 adapter \
@@ -58,6 +60,7 @@ COPY fixtures/mms/interop.json      /fixtures/mms/interop.json
 COPY fixtures/iec61850/interop.icd  /fixtures/iec61850/interop.icd
 COPY fixtures/iec61850/values.json  /fixtures/iec61850/values.json
 COPY fixtures/goose/                /fixtures/goose/
+COPY fixtures/sv/                   /fixtures/sv/
 COPY adapters/dscsystems/LICENSE adapters/dscsystems/NOTICE /usr/share/doc/mms-interop-dscsystems/
 
 USER adapter
