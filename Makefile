@@ -250,7 +250,7 @@ ci: validate-fixtures build verify-binaries verify-fixtures smoke goose-crossche
 	@echo "--- Provenance ---"
 	@echo "iec61850-interop SHA : $$(git rev-parse HEAD 2>/dev/null || echo 'unknown')"
 	@echo "libiec61850 SHA : $$(grep 'LIBIEC61850_SHA=' adapters/libiec61850/Dockerfile | head -1 | cut -d= -f2)"
-	@echo "iec61850bean    : $$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+' adapters/iec61850bean/pom.xml | head -1 || echo 1.9.0)"
+	@echo "iec61850bean    : $$(grep -A1 '<artifactId>iec61850bean</artifactId>' adapters/iec61850bean/pom.xml | sed -nE 's|.*<version>([^<]+)</version>.*|\1|p')"
 	@echo "dscsystems      : $$(grep 'ARG DSCSYSTEMS_SHA=' adapters/dscsystems/Dockerfile | cut -d= -f2)"
 	@echo "iec61850-rust   : $$(grep 'ARG IEC61850_RUST_SHA=' adapters/iec61850-rust/Dockerfile | cut -d= -f2)"
 	@echo "platform        : $(PLATFORM)"

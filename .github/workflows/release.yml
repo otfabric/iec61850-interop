@@ -272,7 +272,7 @@ jobs:
           dockerfile = pathlib.Path("adapters/libiec61850/Dockerfile").read_text()
           sha_match = re.search(r"^ARG LIBIEC61850_SHA=(\S+)", dockerfile, re.M)
           pom = pathlib.Path("adapters/iec61850bean/pom.xml").read_text()
-          pom_match = re.search(r"<version>([^<]+)</version>", pom)
+          pom_match = re.search(r"<artifactId>iec61850bean</artifactId>\s*<version>([^<]+)</version>", pom)
           caps = json.loads(pathlib.Path("fixtures/capabilities.json").read_text())
           dsc = pathlib.Path("adapters/dscsystems/Dockerfile").read_text()
           dsc_match = re.search(r"^ARG DSCSYSTEMS_SHA=(\S+)", dsc, re.M)

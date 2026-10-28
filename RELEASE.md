@@ -24,6 +24,26 @@ Tags are immutable. A fix is a new version.
 
 ---
 
+## v1.0.1
+
+**Date:** 2026-10-28
+
+## Summary
+
+Provenance fix. The release's `manifest.json` reported the adapter's own
+Maven version (`1.0.0`) in its `iec61850bean` field; it now reports the
+iec61850bean library version the image is built with (`1.9.0`). Images,
+commands, events and fixtures are unchanged from v1.0.0.
+
+## Changes
+
+### Fixed
+
+- `manifest.json` `iec61850bean` is read from the `com.beanit:iec61850bean` dependency of `adapters/iec61850bean/pom.xml`, not from the first `<version>` in the file.
+- `make ci` prints the same version in its provenance block (it printed the POM `modelVersion`, `4.0.0`).
+
+---
+
 ## v1.0.0
 
 **Date:** 2026-10-28
