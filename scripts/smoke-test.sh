@@ -259,8 +259,10 @@ check_binary "$IEC61850BEAN_IMAGE" iec61850bean-ied-server
 check_binary "$IEC61850BEAN_IMAGE" iec61850bean-ied-client
 check_binary "$LIBIEC61850_IMAGE" libiec61850-goose-publisher
 check_binary "$LIBIEC61850_IMAGE" libiec61850-goose-subscriber
+check_binary "$LIBIEC61850_IMAGE" libiec61850-sv-publisher
+check_binary "$LIBIEC61850_IMAGE" libiec61850-sv-subscriber
 for cmd in mms-server mms-client ied-server ied-client ied-controller ied-reporter \
-           goose-publisher goose-subscriber; do
+           goose-publisher goose-subscriber sv-publisher sv-subscriber; do
     check_binary "$DSCSYSTEMS_IMAGE" "dscsystems-$cmd"
     check_binary "$IEC61850RUST_IMAGE" "iec61850-rust-$cmd"
 done
@@ -284,6 +286,9 @@ check_capabilities_command "$DSCSYSTEMS_IMAGE" dscsystems-ied-client dscsystems-
 check_capabilities_command "$DSCSYSTEMS_IMAGE" dscsystems-goose-subscriber dscsystems-goose-publisher
 check_capabilities_command "$IEC61850RUST_IMAGE" iec61850-rust-ied-client iec61850-rust-ied-client
 check_capabilities_command "$IEC61850RUST_IMAGE" iec61850-rust-goose-subscriber iec61850-rust-goose-publisher
+check_capabilities_command "$LIBIEC61850_IMAGE" libiec61850-sv-publisher libiec61850-sv-subscriber
+check_capabilities_command "$DSCSYSTEMS_IMAGE" dscsystems-sv-subscriber dscsystems-sv-publisher
+check_capabilities_command "$IEC61850RUST_IMAGE" iec61850-rust-sv-subscriber iec61850-rust-sv-publisher
 
 info ""
 info "=== Fixture files ==="
@@ -292,11 +297,13 @@ check_fixture_file "$LIBIEC61850_IMAGE" /fixtures/iec61850/interop.icd
 check_fixture_file "$LIBIEC61850_IMAGE" /fixtures/iec61850/values.json
 check_fixture_file "$IEC61850BEAN_IMAGE" /fixtures/iec61850/interop.icd
 check_fixture_file "$IEC61850BEAN_IMAGE" /fixtures/iec61850/values.json
-for f in /fixtures/goose/goose.json /fixtures/goose/interop-goose.cid; do
+for f in /fixtures/goose/goose.json /fixtures/goose/interop-goose.cid \
+         /fixtures/sv/sv.json /fixtures/sv/interop-sv.cid; do
     check_fixture_file "$LIBIEC61850_IMAGE" "$f"
 done
 for f in /fixtures/mms/interop.json /fixtures/iec61850/interop.icd /fixtures/iec61850/values.json \
-         /fixtures/goose/goose.json /fixtures/goose/interop-goose.cid; do
+         /fixtures/goose/goose.json /fixtures/goose/interop-goose.cid \
+         /fixtures/sv/sv.json /fixtures/sv/interop-sv.cid; do
     check_fixture_file "$DSCSYSTEMS_IMAGE" "$f"
     check_fixture_file "$IEC61850RUST_IMAGE" "$f"
 done
@@ -402,6 +409,60 @@ for i in 0 1 2; do
     set -- ${STACKS[$i]} ${STACKS[$(( (i + 1) % 3 ))]}
     FLAGS=plain goose_check "$1" "$2-goose-publisher" "$3" "$4-goose-subscriber" gcbBool
     HOST_SIDE=1 goose_check "$1" "$2-goose-publisher" "$3" "$4-goose-subscriber" gcbAll
+done
+
+info ""
+info "=== Sampled Values publisher -> subscriber (L2, Docker bridge) ==="
+
+sv_check() {
+    local out
+    if out=$("$SCRIPTS/sv-crosscheck.sh" "$@" 2>&1); then
+        pass "${out#PASS }"
+    else
+        fail "$out"
+    fi
+}
+# Pairs that fail for a known limitation (fixtures/capabilities.json): the
+# check must fail with nothing received. When one starts to pass, the
+# limitation is gone and has to be removed here and in capabilities.json.
+sv_known() {
+    local out
+    if out=$("$SCRIPTS/sv-crosscheck.sh" "$@" 2>&1); then
+        fail "known limitation no longer reproduces, update capabilities.json: ${out#PASS }"
+    elif echo "$out" | grep -q "received 0 of"; then
+        out="${out%%:*}"
+        pass "known limitation reproduced: ${out#FAIL }"
+    else
+        fail "$out"
+    fi
+}
+# libiec61850's subscriber drops an ASDU whose smpMod is two octets, which
+# its own publisher and dscsystems' send: the generic stream (it carries
+# smpMod) cannot reach it from them.
+sv_generic_known() {
+    case "$1/$2" in
+        libiec61850/libiec61850|dscsystems/libiec61850) return 0 ;;
+    esac
+    return 1
+}
+# Every publisher -> every subscriber: the 9-2LE stream with --simulation
+# and smpSynch 2, the generic stream plain.
+for pub in "${STACKS[@]}"; do
+    for sub in "${STACKS[@]}"; do
+        set -- $pub $sub
+        FLAGS=all sv_check "$1" "$2-sv-publisher" "$3" "$4-sv-subscriber" MSVCB01
+        if sv_generic_known "$2" "$4"; then
+            sv_known "$1" "$2-sv-publisher" "$3" "$4-sv-subscriber" MSVCB02
+        else
+            sv_check "$1" "$2-sv-publisher" "$3" "$4-sv-subscriber" MSVCB02
+        fi
+    done
+done
+# From the host side of the bridge, each stack once as publisher and once
+# as subscriber.
+for i in 0 1 2; do
+    set -- ${STACKS[$i]} ${STACKS[$(( (i + 1) % 3 ))]}
+    HOST_SIDE=1 sv_check "$1" "$2-sv-publisher" "$3" "$4-sv-subscriber" MSVCB01
 done
 
 # ===========================================================================

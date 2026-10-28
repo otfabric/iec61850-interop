@@ -23,6 +23,25 @@
   <Header id="interop-iec61850" version="1" revision="0"
           nameStructure="IEDName"/>
 
+  <Communication>
+    <SubNetwork name="StationBus" type="8-MMS">
+      <ConnectedAP iedName="InteropIED" apName="AP1">
+        <Address>
+          <P type="IP">0.0.0.0</P>
+          <P type="IP-SUBNET">255.255.255.0</P>
+        </Address>
+        <SMV ldInst="InteropLD" cbName="MSVCB02">
+          <Address>
+            <P type="MAC-Address">01-0C-CD-04-00-01</P>
+            <P type="APPID">4001</P>
+            <P type="VLAN-ID">000</P>
+            <P type="VLAN-PRIORITY">4</P>
+          </Address>
+        </SMV>
+      </ConnectedAP>
+    </SubNetwork>
+  </Communication>
+
   <IED name="InteropIED" manufacturer="OTFabric" type="interop" revision="1.0">
     <Services>
       <DynAssociation/>
@@ -36,6 +55,7 @@
       <ReportSettings cbName="Fix" datSet="Fix" rptID="Fix"
                       optFields="Fix" bufTime="Fix" trgOps="Fix" intgPd="Fix"/>
       <ConfLNs fixPrefix="true" fixLnInst="true"/>
+      <SMVsc max="1"/>
     </Services>
 
     <AccessPoint name="AP1">
@@ -53,6 +73,19 @@
                     doName="SPS1" daName="stVal" fc="ST"/>
               <FCDA ldInst="InteropLD" prefix="" lnClass="LLN0" lnInst=""
                     doName="Mod"  daName="stVal" fc="ST"/>
+            </DataSet>
+            <!-- Sampled values: the generic stream of fixtures/sv/sv.json -->
+            <DataSet name="dsSvGeneric" desc="Generic SV dataset">
+              <FCDA ldInst="InteropLD" prefix="" lnClass="MMXU" lnInst="1"
+                    doName="TotW" daName="mag.f" fc="MX"/>
+              <FCDA ldInst="InteropLD" prefix="" lnClass="MMXU" lnInst="1"
+                    doName="TotW" daName="q" fc="MX"/>
+              <FCDA ldInst="InteropLD" prefix="" lnClass="MMTR" lnInst="1"
+                    doName="TotVAh" daName="actVal" fc="ST"/>
+              <FCDA ldInst="InteropLD" prefix="" lnClass="MMTR" lnInst="1"
+                    doName="TotVAh" daName="q" fc="ST"/>
+              <FCDA ldInst="InteropLD" prefix="" lnClass="LLN0" lnInst=""
+                    doName="Mod" daName="stVal" fc="ST"/>
             </DataSet>
             <ReportControl name="urcb01"
                            rptID="interop_urcb01"
@@ -74,6 +107,13 @@
               <OptFields seqNum="true" timeStamp="true" reasonCode="true"
                          entryID="true" bufOvfl="true"/>
             </ReportControl>
+            <SampledValueControl name="MSVCB02" smvID="InteropSvGeneric"
+                                 datSet="dsSvGeneric" confRev="1"
+                                 smpRate="1000" nofASDU="4"
+                                 smpMod="SmpPerSec" multicast="true">
+              <SmvOpts refreshTime="true" sampleSynchronized="true"
+                       sampleRate="true" dataSet="true" security="false"/>
+            </SampledValueControl>
           </LN0>
 
           <LN prefix="" lnClass="GGIO" inst="1" lnType="GGIO1_Type"

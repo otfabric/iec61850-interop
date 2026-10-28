@@ -4,7 +4,7 @@ Availability of adapter commands across the four images. Compatibility matrices 
 
 This file is generated from `fixtures/capabilities.json`; do not edit manually. Run `./scripts/gen-coverage.sh`.
 
-Adapter version: `0.3.0` · Fixture revisions: `mms-v2`, `iec61850-v2`, `goose-v1`
+Adapter version: `0.4.0` · Fixture revisions: `mms-v2`, `iec61850-v3`, `goose-v1`, `sv-v1`
 
 | Adapter command | Image | Available |
 |----------------|-------|:---------:|
@@ -36,6 +36,21 @@ Adapter version: `0.3.0` · Fixture revisions: `mms-v2`, `iec61850-v2`, `goose-v
 | `iec61850-rust-ied-reporter` | `mms-interop-iec61850-rust` | ✓ |
 | `iec61850-rust-goose-publisher` | `mms-interop-iec61850-rust` | ✓ |
 | `iec61850-rust-goose-subscriber` | `mms-interop-iec61850-rust` | ✓ |
+| `libiec61850-sv-publisher` | `mms-interop-libiec61850` | ✓ |
+| `libiec61850-sv-subscriber` | `mms-interop-libiec61850` | ✓ |
+| `dscsystems-sv-publisher` | `mms-interop-dscsystems` | ✓ |
+| `dscsystems-sv-subscriber` | `mms-interop-dscsystems` | ✓ |
+| `iec61850-rust-sv-publisher` | `mms-interop-iec61850-rust` | ✓ |
+| `iec61850-rust-sv-subscriber` | `mms-interop-iec61850-rust` | ✓ |
+
+**SV control blocks over MMS** (IED server exposes `LLN0$MS$MSVCB02` of the IED fixture):
+
+| IED server | SVCB over MMS |
+|------------|:-------------:|
+| `libiec61850` | ✓ |
+| `dscsystems` | ✓ |
+| `iec61850bean` | — |
+| `iec61850-rust` | — |
 
 **Known limitations (verified upstream gaps):**
 
@@ -59,6 +74,13 @@ Adapter version: `0.3.0` · Fixture revisions: `mms-v2`, `iec61850-v2`, `goose-v
 | `iec61850-rust` | v0.2.0-0-gd4e8952 | iec61850-rust-client → go-server | Abort (A-ABORT) | — |
 | `iec61850-rust` | v0.2.0-0-gd4e8952 | go-client → iec61850-rust-server | ObtainFile | `TestClient_ObtainFile` |
 | `iec61850-rust` | v0.2.0-0-gd4e8952 | go-client → iec61850-rust-server | DeleteNamedVariableList with domain/VMD scope | `TestClient_DeleteAllNVLs_UnsupportedByPeer` |
+| `libiec61850` | 1.6.2.1-89-g6e265c54 | libiec61850-sv-publisher / dscsystems-sv-publisher → libiec61850-sv-subscriber | Sampled Values ASDUs carrying smpMod (the generic stream, MSVCB02) | `scripts/sv-crosscheck.sh … MSVCB02` |
+| `dscsystems` | v0.6.5-1-g6bf3f37 | go-client → dscsystems-ied-server | MSVCB OptFlds width | — |
+| `iec61850bean` | 1.x | — | Sampled Values | — |
+| `iec61850-rust` | v0.2.0-0-gd4e8952 | go-client → iec61850-rust-ied-server | SVCB over MMS (LLN0$MS$MSVCB02) | — |
+| `iec61850-rust` | v0.2.0-0-gd4e8952 | * → iec61850-rust-sv-subscriber, iec61850-rust-sv-publisher → * | More than 10 ASDUs per SV frame | — |
+| `iec61850-rust` | v0.2.0-0-gd4e8952 | * → iec61850-rust-sv-subscriber | SV receive buffer | — |
+| `dscsystems` | v0.6.5-1-g6bf3f37 | * → dscsystems-sv-subscriber | smpRate 0 / empty datSet | — |
 
 **Notes:**
 
@@ -67,5 +89,6 @@ Adapter version: `0.3.0` · Fixture revisions: `mms-v2`, `iec61850-v2`, `goose-v
 - Each adapter command supports `--capabilities` (emit JSON and exit) and `--version` (emit version JSON and exit).
 - Fixed-sequence IED clients exit non-zero when any operation emits `ok:false` (connection failures remain exit 2).
 - GOOSE commands (`*-goose-publisher`, `*-goose-subscriber`) need a raw socket: run them with `--cap-add NET_RAW` on a shared Docker network; see [`docs/goose.md`](docs/goose.md).
+- Sampled Values commands (`*-sv-publisher`, `*-sv-subscriber`) need the same; see [`docs/sv.md`](docs/sv.md). iec61850bean has no SV support, so `mms-interop-iec61850bean` has no SV commands.
 - `mms-interop-dscsystems` is built from GPL-3.0 code (dscsystems/go-iec61850); see `adapters/dscsystems/NOTICE`.
 - A skipped test without a registered limitation in this table must fail CI.

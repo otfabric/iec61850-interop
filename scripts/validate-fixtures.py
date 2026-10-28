@@ -28,6 +28,8 @@ VALUES_JSON   = ROOT / "fixtures" / "iec61850" / "values.json"
 INTEROP_ICD   = ROOT / "fixtures" / "iec61850" / "interop.icd"
 GOOSE_JSON    = ROOT / "fixtures" / "goose" / "goose.json"
 GOOSE_SCL     = ROOT / "fixtures" / "goose" / "interop-goose.cid"
+SV_JSON       = ROOT / "fixtures" / "sv" / "sv.json"
+SV_SCL        = ROOT / "fixtures" / "sv" / "interop-sv.cid"
 
 SCL_NS = "http://www.iec.ch/61850/2003/SCL"
 
@@ -582,6 +584,169 @@ def validate_goose(icd_root: ET.Element) -> None:
             if typed and types:
                 ok(f"{where}.{key}: {len(vals)} typed values match the members")
 
+# ---------------------------------------------------------------------------
+# 8. Sampled Values fixture
+# ---------------------------------------------------------------------------
+
+SV_SMP_MODS = {"SmpPerPeriod": "samples-per-period", "SmpPerSec": "samples-per-second",
+               "SecPerSmp": "seconds-per-sample"}
+SV_MEMBER_TYPES = {"integer", "unsigned", "float32", "float64", "boolean", "bit-string", "utc-time"}
+
+
+def _by_id(root: ET.Element) -> dict[str, str]:
+    dtt = root.find(tag("DataTypeTemplates"))
+    return {e.get("id"): _canonical(e) for e in (list(dtt) if dtt is not None else [])}
+
+
+def _lln0(root: ET.Element) -> dict[str, str]:
+    """LLN0 children by element and name, canonical form."""
+    out = {}
+    for ln0 in root.iter(tag("LN0")):
+        for c in ln0:
+            out[f"{c.tag.split('}')[1]}:{c.get('name', '')}"] = _canonical(c)
+    return out
+
+
+def validate_sv(icd_root: ET.Element) -> None:
+    try:
+        data = json.loads(SV_JSON.read_text())
+        ok("sv.json — valid JSON")
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        err(f"sv.json — {e}")
+        return
+    try:
+        cid = ET.parse(SV_SCL).getroot()
+        ok("interop-sv.cid — valid XML")
+    except (FileNotFoundError, ET.ParseError) as e:
+        err(f"interop-sv.cid — {e}")
+        return
+
+    if data.get("revision") != "sv-v1":
+        err(f"sv.json revision {data.get('revision')!r}, expected 'sv-v1'")
+
+    # The SV SCL is interop.icd plus the merging-unit model: a superset.
+    icd_types, cid_types = _by_id(icd_root), _by_id(cid)
+    changed = [i for i, c in icd_types.items() if cid_types.get(i) != c]
+    if changed:
+        err(f"interop-sv.cid DataTypeTemplates differ from interop.icd: {changed}")
+    else:
+        ok("interop-sv.cid — DataTypeTemplates of interop.icd included unchanged")
+    missing = sorted(set(_model_shape(icd_root)) - set(_model_shape(cid)))
+    if missing:
+        err(f"interop-sv.cid lacks logical nodes of interop.icd: {missing}")
+    else:
+        ok("interop-sv.cid — logical nodes of interop.icd included unchanged")
+    icd_ln0, cid_ln0 = _lln0(icd_root), _lln0(cid)
+    changed = [k for k, c in icd_ln0.items() if cid_ln0.get(k) != c]
+    if changed:
+        err(f"interop-sv.cid LLN0 differs from interop.icd: {changed}")
+    else:
+        ok("interop-sv.cid — LLN0 of interop.icd (datasets, control blocks) included unchanged")
+
+    ied = cid.find(tag("IED"))
+    ied_name = ied.get("name", "") if ied is not None else ""
+    if ied_name != data.get("iedName"):
+        err(f"sv.json iedName {data.get('iedName')!r} != SCL IED {ied_name!r}")
+    paths = collect_icd_paths(cid)
+    smv = {g.get("cbName"): g for g in cid.iter(tag("SMV"))}
+    svcs = {}
+    for ld in cid.iter(tag("LDevice")):
+        for sc in ld.iter(tag("SampledValueControl")):
+            svcs[sc.get("name")] = (ld.get("inst"), sc)
+    if set(svcs) != set(data.get("streams", {})):
+        err(f"sv.json streams {sorted(data.get('streams', {}))} != SampledValueControl blocks {sorted(svcs)}")
+    icd_svcs = {sc.get("name") for sc in icd_root.iter(tag("SampledValueControl"))}
+    icd_smv = {g.get("cbName") for g in icd_root.iter(tag("SMV"))}
+    if icd_svcs != icd_smv:
+        err(f"interop.icd SampledValueControl {sorted(icd_svcs)} without SMV address {sorted(icd_smv)} (genmodel needs one)")
+
+    for name, st in data.get("streams", {}).items():
+        where = f"sv.json streams.{name}"
+        if name not in svcs:
+            continue
+        ld_inst, sc = svcs[name]
+        ld_ref = f"{ied_name}{ld_inst}"
+        opts = sc.find(tag("SmvOpts"))
+        opt = (lambda k: opts is not None and opts.get(k) == "true")
+        expect = {
+            "msvcbRef": f"{ld_ref}/LLN0$MS${name}",
+            "svID": sc.get("smvID"),
+            "datSet": f"{ld_ref}/LLN0${sc.get('datSet')}",
+            "confRev": int(sc.get("confRev", "0")),
+            "smpRate": int(sc.get("smpRate", "0")),
+            "smpMod": SV_SMP_MODS.get(sc.get("smpMod", "SmpPerPeriod")),
+            "noASDU": int(sc.get("nofASDU", "0")),
+            "optionalFields": {"datSet": opt("dataSet"), "refrTm": opt("refreshTime"),
+                               "smpRate": opt("sampleRate"), "smpMod": opt("sampleRate")},
+        }
+        g = smv.get(name)
+        if g is None:
+            err(f"{where}: no SMV address for {name} in the Communication section")
+            continue
+        p = {e.get("type"): (e.text or "").strip() for e in g.iter(tag("P"))}
+        expect.update({
+            "dst": p.get("MAC-Address", "").replace("-", ":").lower(),
+            "appID": f"0x{int(p.get('APPID', '0'), 16):04x}",
+            "vlanId": int(p.get("VLAN-ID", "0"), 16),
+            "vlanPrio": int(p.get("VLAN-PRIORITY", "0")),
+        })
+        per_s = {"samples-per-period": st.get("smpRate", 0) * st.get("frequency", 50),
+                 "samples-per-second": st.get("smpRate", 0)}.get(st.get("smpMod"))
+        expect["samplesPerSecond"] = per_s
+        expect["smpCntWrap"] = per_s if per_s else 65536
+        bad = [f"{k}={st.get(k)!r} (expected {v!r})" for k, v in expect.items() if st.get(k) != v]
+        if bad:
+            err(f"{where}: disagrees with interop-sv.cid: {', '.join(bad)}")
+        else:
+            ok(f"{where}: references, address, rate and optional fields match the SCL")
+
+        # Members: an FCDA naming a data attribute is one member; one naming
+        # only a data object (9-2LE) is its MX leaves (instMag.i, q).
+        fcdas = [f for ds in cid.iter(tag("DataSet")) if ds.get("name") == sc.get("datSet")
+                 for f in ds.iter(tag("FCDA"))]
+        want = []
+        for f in fcdas:
+            ln = f"{f.get('prefix', '')}{f.get('lnClass')}{f.get('lnInst', '')}"
+            base = f"{f.get('ldInst')}/{ln}.{f.get('doName')}"
+            if f.get("daName"):
+                want.append((f"{base}.{f.get('daName')}", f.get("fc")))
+            else:
+                want += [(f"{base}.instMag.i", f.get("fc")), (f"{base}.q", f.get("fc"))]
+        members = st.get("members", [])
+        got = [(m.get("ref"), m.get("fc")) for m in members]
+        if got != want:
+            err(f"{where}: members {got} != dataset {want}")
+        missing = [m["ref"] for m in members if m.get("ref") not in paths]
+        if missing:
+            err(f"{where}: members not in the model: {missing}")
+        bad_types = [m.get("type") for m in members if m.get("type") not in SV_MEMBER_TYPES]
+        if bad_types:
+            err(f"{where}: member types SV cannot carry: {bad_types}")
+        if st.get("profile") == "9-2LE":
+            le = [m.get("type") for m in members] == ["integer", "bit-string"] * 8
+            if not le or any(st["optionalFields"].values()):
+                err(f"{where}: 9-2LE needs 8 integer/bit-string pairs and no optional fields")
+        elif st.get("profile") != "generic":
+            err(f"{where}: profile {st.get('profile')!r} is not 9-2LE or generic")
+        for key in ("values", "update"):
+            vals = st.get(key, [])
+            if len(vals) != len(members):
+                err(f"{where}.{key}: {len(vals)} values for {len(members)} members")
+                continue
+            typed = all(_typed_ok(v, f"{name}.{key}[{i}]") for i, v in enumerate(vals))
+            types = [v["type"] for v in vals] == [m.get("type") for m in members]
+            ranges = all(
+                (v["type"] != "integer" or -2**31 <= v["value"] < 2**31) and
+                (v["type"] != "unsigned" or v["value"] < 2**32) and
+                (v["type"] != "bit-string" or len(v["value"]) == 13)
+                for v in vals if isinstance(v, dict) and "value" in v)
+            if not types:
+                err(f"{where}.{key}: value types differ from member types")
+            if not ranges:
+                err(f"{where}.{key}: integer out of INT32, unsigned out of INT32U or quality not 13 bits")
+            if typed and types and ranges:
+                ok(f"{where}.{key}: {len(vals)} typed values match the members")
+
 # ===========================================================================
 # Main
 # ===========================================================================
@@ -627,6 +792,10 @@ def main() -> int:
         print()
         print("--- goose.json / interop-goose.cid ---")
         validate_goose(icd_root)
+
+        print()
+        print("--- sv.json / interop-sv.cid ---")
+        validate_sv(icd_root)
 
     print()
     print(f"Results: {PASS} passed  {FAIL} failed")

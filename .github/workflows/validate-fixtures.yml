@@ -92,3 +92,11 @@ jobs:
           java -jar "${GENMODEL}" "${GITHUB_WORKSPACE}/fixtures/goose/interop-goose.cid" -ied InteropIED -ap AP1
           grep -q 'gcbAll' static_model.c && grep -q 'gcbBool' static_model.c \
             && echo "interop-goose.cid: both GOOSE control blocks generated"
+
+      - name: genmodel.jar — the SV SCL (SampledValueControl/SMV) generates too
+        run: |
+          GENMODEL=$(find /tmp/libiec61850 -name 'genmodel.jar' | head -1)
+          mkdir -p /tmp/sv-model && cd /tmp/sv-model
+          java -jar "${GENMODEL}" "${GITHUB_WORKSPACE}/fixtures/sv/interop-sv.cid" -ied InteropIED -ap AP1
+          grep -q 'MSVCB01' static_model.c && grep -q 'MSVCB02' static_model.c \
+            && echo "interop-sv.cid: both SV control blocks generated"

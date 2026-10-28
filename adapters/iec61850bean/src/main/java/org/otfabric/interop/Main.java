@@ -18,7 +18,7 @@ import java.util.Arrays;
  *   --version        Emit version JSON and exit 0.
  */
 public class Main {
-    private static final String FIXTURE_REVISION = "iec61850-v2";
+    private static final String FIXTURE_REVISION = "iec61850-v3";
 
     public static void main(String[] args) throws Exception {
         // Handle meta flags regardless of subcommand position.

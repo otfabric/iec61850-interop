@@ -288,7 +288,7 @@ fn main() {
             .start()
             .await
             .unwrap_or_else(|e| jl::fatal(1, &format!("{PROG}: failed to start on port {port}: {e}")));
-        jl::ready(&format!("0.0.0.0:{port}"), "iec61850-v2", IED_NAME);
+        jl::ready(&format!("0.0.0.0:{port}"), "iec61850-v3", IED_NAME);
         std::future::pending::<()>().await;
     });
 }

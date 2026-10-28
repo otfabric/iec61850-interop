@@ -18,6 +18,43 @@ Tags are immutable. A fix is a new version.
 
 ---
 
+## v0.4.0
+
+**Date:** 2026-10-28
+
+## Summary
+
+Sampled Values. libiec61850, dscsystems and iec61850-rust gain an SV
+publisher and subscriber with one contract (`docs/sv.md`), one fixture
+(`fixtures/sv/`, revision `sv-v1`) and a pairwise cross-check that reports
+loss. The IED fixture (`iec61850-v3`) gains the SV control block
+`MSVCB02`, which the libiec61850 and dscsystems IED servers expose over
+MMS. iec61850bean has no SV support.
+
+## Changes
+
+### Added
+
+- `libiec61850-sv-publisher`/`-sv-subscriber`, `dscsystems-sv-publisher`/`-sv-subscriber`, `iec61850-rust-sv-publisher`/`-sv-subscriber`. The publisher paces samples against absolute deadlines (9-2LE: 4000 frames/s), wraps smpCnt at the samples per second, takes `{"cmd":"set"}` / `{"cmd":"stop"}` on stdin, and emits throttled `published` events and a final `stopped` with the totals. The subscriber emits every Nth ASDU (`--sample-every`) as an `sv` event decoded with the fixture's member list, and once per second `stats` (received, lost, duplicates, outOfOrder from smpCnt). Profiles: 9-2LE (8 × INT32 + quality, no optional fields) and generic (dataset members in order with every optional field). `--simulation` sets the Edition 2 S bit.
+- Fixture revision `sv-v1` (`fixtures/sv/`): `interop-sv.cid` (`interop.icd` plus the 9-2LE merging-unit model `TCTR1..4`/`TVTR1..4`, dataset `PhsMeas1`, `SampledValueControl` `MSVCB01` (9-2LE, 80 samples/period at 50 Hz, 1 ASDU) and `MSVCB02` (generic, 1000 samples/s, 4 ASDUs) with their `SMV` addresses) and `sv.json`. `scripts/validate-fixtures.py` checks both against each other and that the CID contains `interop.icd` unchanged; the fixture workflow runs genmodel on the CID.
+- `scripts/sv-crosscheck.sh`: SV publisher → subscriber on a Docker bridge, with a `set`, checking values, header fields and loss (sent vs received, at most 1 %). CI runs it for all nine directions of the three stacks and both streams, plus host-side runs.
+- `fixtures/capabilities.json`: the SV commands, `svFixtureRevision`, `svcbOverMms` (libiec61850 and dscsystems yes; iec61850-rust and iec61850bean no), and SV known limitations.
+- `make sv-crosscheck`.
+
+### Changed
+
+- IED fixture revision `iec61850-v3`: `interop.icd` adds the dataset `dsSvGeneric`, the `SampledValueControl` `MSVCB02`, `SMVsc` and a Communication section with its `SMV` address (libiec61850's genmodel requires one). Every adapter reports `iec61850-v3`; existing logical nodes, data and report control blocks are unchanged.
+- The GOOSE and SV cross-checks time the publisher's `set` and `stop` from its `ready` event, not from `docker run`, so a slow container start no longer shortens the first state.
+
+### Notes
+
+- smpMod width differs: libiec61850's and dscsystems' publishers send two octets, iec61850-rust's one. libiec61850's subscriber accepts only one and drops the ASDU otherwise, so the generic stream from libiec61850 or dscsystems does not reach `libiec61850-sv-subscriber`; CI checks that these two pairs still fail.
+- MSVCB `OptFlds` reads as 5 bits from libiec61850 and 10 bits from dscsystems.
+- The SV publishers stay on one CPU (a veth can reorder frames of a thread that moves between CPUs); the libiec61850 and dscsystems subscribers enlarge their socket receive buffer (capped by `net.core.rmem_max`); iec61850-rust's HAL does not allow it.
+- iec61850-rust handles at most 10 ASDUs per frame.
+
+---
+
 ## v0.3.0
 
 **Date:** 2026-10-28

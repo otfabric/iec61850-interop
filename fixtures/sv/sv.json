@@ -1,0 +1,357 @@
+{
+  "revision": "sv-v1",
+  "description": "IEC 61850-9-2 Sampled Values interop fixture. Streams mirror the SampledValueControl blocks of interop-sv.cid (MSVCB02 also of fixtures/iec61850/interop.icd). values is what a publisher sends from the start, update what a {\"cmd\":\"set\"} sends. 9-2LE values are the eight channels in dataset order, each an INT32 (integer: 1 mA / 10 mV per LSB) followed by its quality (13-bit bit-string, position i = bit i of the 32-bit quality word counting from the LSB). Generic values are the dataset members in order.",
+  "scl": "interop-sv.cid",
+  "iedName": "InteropIED",
+  "ldName": "InteropIEDInteropLD",
+  "streams": {
+    "MSVCB01": {
+      "msvcbRef": "InteropIEDInteropLD/LLN0$MS$MSVCB01",
+      "profile": "9-2LE",
+      "svID": "InteropSv92LE",
+      "datSet": "InteropIEDInteropLD/LLN0$PhsMeas1",
+      "appID": "0x4000",
+      "dst": "01:0c:cd:04:00:00",
+      "vlanId": 0,
+      "vlanPrio": 4,
+      "confRev": 1,
+      "smpRate": 80,
+      "smpMod": "samples-per-period",
+      "frequency": 50,
+      "samplesPerSecond": 4000,
+      "smpCntWrap": 4000,
+      "noASDU": 1,
+      "smpSynch": 0,
+      "optionalFields": {
+        "datSet": false,
+        "refrTm": false,
+        "smpRate": false,
+        "smpMod": false
+      },
+      "members": [
+        {
+          "name": "IA",
+          "ref": "InteropLD/TCTR1.Amp.instMag.i",
+          "fc": "MX",
+          "type": "integer"
+        },
+        {
+          "name": "qIA",
+          "ref": "InteropLD/TCTR1.Amp.q",
+          "fc": "MX",
+          "type": "bit-string"
+        },
+        {
+          "name": "IB",
+          "ref": "InteropLD/TCTR2.Amp.instMag.i",
+          "fc": "MX",
+          "type": "integer"
+        },
+        {
+          "name": "qIB",
+          "ref": "InteropLD/TCTR2.Amp.q",
+          "fc": "MX",
+          "type": "bit-string"
+        },
+        {
+          "name": "IC",
+          "ref": "InteropLD/TCTR3.Amp.instMag.i",
+          "fc": "MX",
+          "type": "integer"
+        },
+        {
+          "name": "qIC",
+          "ref": "InteropLD/TCTR3.Amp.q",
+          "fc": "MX",
+          "type": "bit-string"
+        },
+        {
+          "name": "IN",
+          "ref": "InteropLD/TCTR4.Amp.instMag.i",
+          "fc": "MX",
+          "type": "integer"
+        },
+        {
+          "name": "qIN",
+          "ref": "InteropLD/TCTR4.Amp.q",
+          "fc": "MX",
+          "type": "bit-string"
+        },
+        {
+          "name": "VA",
+          "ref": "InteropLD/TVTR1.Vol.instMag.i",
+          "fc": "MX",
+          "type": "integer"
+        },
+        {
+          "name": "qVA",
+          "ref": "InteropLD/TVTR1.Vol.q",
+          "fc": "MX",
+          "type": "bit-string"
+        },
+        {
+          "name": "VB",
+          "ref": "InteropLD/TVTR2.Vol.instMag.i",
+          "fc": "MX",
+          "type": "integer"
+        },
+        {
+          "name": "qVB",
+          "ref": "InteropLD/TVTR2.Vol.q",
+          "fc": "MX",
+          "type": "bit-string"
+        },
+        {
+          "name": "VC",
+          "ref": "InteropLD/TVTR3.Vol.instMag.i",
+          "fc": "MX",
+          "type": "integer"
+        },
+        {
+          "name": "qVC",
+          "ref": "InteropLD/TVTR3.Vol.q",
+          "fc": "MX",
+          "type": "bit-string"
+        },
+        {
+          "name": "VN",
+          "ref": "InteropLD/TVTR4.Vol.instMag.i",
+          "fc": "MX",
+          "type": "integer"
+        },
+        {
+          "name": "qVN",
+          "ref": "InteropLD/TVTR4.Vol.q",
+          "fc": "MX",
+          "type": "bit-string"
+        }
+      ],
+      "values": [
+        {
+          "type": "integer",
+          "value": 1000
+        },
+        {
+          "type": "bit-string",
+          "value": "0000000000000"
+        },
+        {
+          "type": "integer",
+          "value": -500
+        },
+        {
+          "type": "bit-string",
+          "value": "0000000000000"
+        },
+        {
+          "type": "integer",
+          "value": -500
+        },
+        {
+          "type": "bit-string",
+          "value": "0000000000000"
+        },
+        {
+          "type": "integer",
+          "value": 0
+        },
+        {
+          "type": "bit-string",
+          "value": "0000000000000"
+        },
+        {
+          "type": "integer",
+          "value": 6350
+        },
+        {
+          "type": "bit-string",
+          "value": "0000000000000"
+        },
+        {
+          "type": "integer",
+          "value": -3175
+        },
+        {
+          "type": "bit-string",
+          "value": "0000000000000"
+        },
+        {
+          "type": "integer",
+          "value": -3175
+        },
+        {
+          "type": "bit-string",
+          "value": "0000000000000"
+        },
+        {
+          "type": "integer",
+          "value": 0
+        },
+        {
+          "type": "bit-string",
+          "value": "0000000000000"
+        }
+      ],
+      "update": [
+        {
+          "type": "integer",
+          "value": 2000
+        },
+        {
+          "type": "bit-string",
+          "value": "0000000000000"
+        },
+        {
+          "type": "integer",
+          "value": -1000
+        },
+        {
+          "type": "bit-string",
+          "value": "0000000000000"
+        },
+        {
+          "type": "integer",
+          "value": -1000
+        },
+        {
+          "type": "bit-string",
+          "value": "0000000000000"
+        },
+        {
+          "type": "integer",
+          "value": 0
+        },
+        {
+          "type": "bit-string",
+          "value": "0000000000010"
+        },
+        {
+          "type": "integer",
+          "value": 6000
+        },
+        {
+          "type": "bit-string",
+          "value": "0000000000000"
+        },
+        {
+          "type": "integer",
+          "value": -3000
+        },
+        {
+          "type": "bit-string",
+          "value": "0000000000000"
+        },
+        {
+          "type": "integer",
+          "value": -3000
+        },
+        {
+          "type": "bit-string",
+          "value": "0000000000000"
+        },
+        {
+          "type": "integer",
+          "value": 0
+        },
+        {
+          "type": "bit-string",
+          "value": "0100000000000"
+        }
+      ]
+    },
+    "MSVCB02": {
+      "msvcbRef": "InteropIEDInteropLD/LLN0$MS$MSVCB02",
+      "profile": "generic",
+      "svID": "InteropSvGeneric",
+      "datSet": "InteropIEDInteropLD/LLN0$dsSvGeneric",
+      "appID": "0x4001",
+      "dst": "01:0c:cd:04:00:01",
+      "vlanId": 0,
+      "vlanPrio": 4,
+      "confRev": 1,
+      "smpRate": 1000,
+      "smpMod": "samples-per-second",
+      "samplesPerSecond": 1000,
+      "smpCntWrap": 1000,
+      "noASDU": 4,
+      "smpSynch": 0,
+      "optionalFields": {
+        "datSet": true,
+        "refrTm": true,
+        "smpRate": true,
+        "smpMod": true
+      },
+      "members": [
+        {
+          "ref": "InteropLD/MMXU1.TotW.mag.f",
+          "fc": "MX",
+          "type": "float32"
+        },
+        {
+          "ref": "InteropLD/MMXU1.TotW.q",
+          "fc": "MX",
+          "type": "bit-string"
+        },
+        {
+          "ref": "InteropLD/MMTR1.TotVAh.actVal",
+          "fc": "ST",
+          "type": "unsigned"
+        },
+        {
+          "ref": "InteropLD/MMTR1.TotVAh.q",
+          "fc": "ST",
+          "type": "bit-string"
+        },
+        {
+          "ref": "InteropLD/LLN0.Mod.stVal",
+          "fc": "ST",
+          "type": "integer"
+        }
+      ],
+      "values": [
+        {
+          "type": "float32",
+          "value": 1234.5
+        },
+        {
+          "type": "bit-string",
+          "value": "0000000000000"
+        },
+        {
+          "type": "unsigned",
+          "value": 42
+        },
+        {
+          "type": "bit-string",
+          "value": "0000000000000"
+        },
+        {
+          "type": "integer",
+          "value": 1
+        }
+      ],
+      "update": [
+        {
+          "type": "float32",
+          "value": 0.1
+        },
+        {
+          "type": "bit-string",
+          "value": "0000000000010"
+        },
+        {
+          "type": "unsigned",
+          "value": 4294967295
+        },
+        {
+          "type": "bit-string",
+          "value": "1100000000000"
+        },
+        {
+          "type": "integer",
+          "value": -2147483648
+        }
+      ]
+    }
+  }
+}

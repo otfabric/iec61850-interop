@@ -1,6 +1,6 @@
 .PHONY: help build build-libiec61850 build-iec61850bean build-dscsystems build-iec61850-rust \
         publish publish-libiec61850 publish-iec61850bean publish-dscsystems publish-iec61850-rust \
-        smoke smoke-servers goose-crosscheck verify-binaries verify-fixtures \
+        smoke smoke-servers goose-crosscheck sv-crosscheck verify-binaries verify-fixtures \
         validate-fixtures genmodel clone-libiec61850 \
         ci pr \
         test \
@@ -149,12 +149,21 @@ goose-crosscheck: build-libiec61850 build-dscsystems build-iec61850-rust ## GOOS
 	  done; \
 	done
 
+sv-crosscheck: build-libiec61850 build-dscsystems build-iec61850-rust ## Sampled Values publisher -> subscriber between libiec61850, dscsystems and iec61850-rust, every pair (9-2LE stream).
+	@for pub in "$(LIBIEC61850_IMAGE) libiec61850" "$(DSCSYSTEMS_IMAGE) dscsystems" "$(IEC61850RUST_IMAGE) iec61850-rust"; do \
+	  for sub in "$(LIBIEC61850_IMAGE) libiec61850" "$(DSCSYSTEMS_IMAGE) dscsystems" "$(IEC61850RUST_IMAGE) iec61850-rust"; do \
+	    set -- $$pub $$sub; \
+	    ./scripts/sv-crosscheck.sh $$1 $$2-sv-publisher $$3 $$4-sv-subscriber MSVCB01 || exit 1; \
+	  done; \
+	done
+
 verify-binaries: build ## Verify all required binaries are present in the adapter images.
 	@echo "--- Checking binaries in $(LIBIEC61850_IMAGE) ---"
 	@for bin in libiec61850-mms-server libiec61850-mms-client \
 	            libiec61850-ied-server libiec61850-ied-client \
 	            libiec61850-ied-controller libiec61850-ied-reporter \
-	            libiec61850-goose-publisher libiec61850-goose-subscriber; do \
+	            libiec61850-goose-publisher libiec61850-goose-subscriber \
+	            libiec61850-sv-publisher libiec61850-sv-subscriber; do \
 	  docker run --rm --entrypoint sh $(LIBIEC61850_IMAGE) -c "command -v $$bin" \
 	    && echo "  OK: $$bin" || echo "  MISSING: $$bin"; \
 	done
@@ -168,7 +177,8 @@ verify-binaries: build ## Verify all required binaries are present in the adapte
 	@for bin in iec61850-rust-mms-server iec61850-rust-mms-client \
 	            iec61850-rust-ied-server iec61850-rust-ied-client \
 	            iec61850-rust-ied-controller iec61850-rust-ied-reporter \
-	            iec61850-rust-goose-publisher iec61850-rust-goose-subscriber; do \
+	            iec61850-rust-goose-publisher iec61850-rust-goose-subscriber \
+	            iec61850-rust-sv-publisher iec61850-rust-sv-subscriber; do \
 	  docker run --rm --entrypoint sh $(IEC61850RUST_IMAGE) -c "command -v $$bin" \
 	    && echo "  OK: $$bin" || echo "  MISSING: $$bin"; \
 	done
@@ -176,7 +186,8 @@ verify-binaries: build ## Verify all required binaries are present in the adapte
 	@for bin in dscsystems-mms-server dscsystems-mms-client \
 	            dscsystems-ied-server dscsystems-ied-client \
 	            dscsystems-ied-controller dscsystems-ied-reporter \
-	            dscsystems-goose-publisher dscsystems-goose-subscriber; do \
+	            dscsystems-goose-publisher dscsystems-goose-subscriber \
+	            dscsystems-sv-publisher dscsystems-sv-subscriber; do \
 	  docker run --rm --entrypoint sh $(DSCSYSTEMS_IMAGE) -c "command -v $$bin" \
 	    && echo "  OK: $$bin" || echo "  MISSING: $$bin"; \
 	done
@@ -187,7 +198,9 @@ verify-fixtures: build ## Verify fixture files are present inside the adapter im
 	           /fixtures/iec61850/interop.icd \
 	           /fixtures/iec61850/values.json \
 	           /fixtures/goose/goose.json \
-	           /fixtures/goose/interop-goose.cid; do \
+	           /fixtures/goose/interop-goose.cid \
+	           /fixtures/sv/sv.json \
+	           /fixtures/sv/interop-sv.cid; do \
 	  docker run --rm --entrypoint sh $(LIBIEC61850_IMAGE) -c "test -f $$f" \
 	    && echo "  OK: $$f" || echo "  MISSING: $$f"; \
 	done
@@ -196,7 +209,9 @@ verify-fixtures: build ## Verify fixture files are present inside the adapter im
 	           /fixtures/iec61850/interop.icd \
 	           /fixtures/iec61850/values.json \
 	           /fixtures/goose/goose.json \
-	           /fixtures/goose/interop-goose.cid; do \
+	           /fixtures/goose/interop-goose.cid \
+	           /fixtures/sv/sv.json \
+	           /fixtures/sv/interop-sv.cid; do \
 	  docker run --rm --entrypoint sh $(IEC61850RUST_IMAGE) -c "test -f $$f" \
 	    && echo "  OK: $$f" || echo "  MISSING: $$f"; \
 	done
@@ -205,7 +220,9 @@ verify-fixtures: build ## Verify fixture files are present inside the adapter im
 	           /fixtures/iec61850/interop.icd \
 	           /fixtures/iec61850/values.json \
 	           /fixtures/goose/goose.json \
-	           /fixtures/goose/interop-goose.cid; do \
+	           /fixtures/goose/interop-goose.cid \
+	           /fixtures/sv/sv.json \
+	           /fixtures/sv/interop-sv.cid; do \
 	  docker run --rm --entrypoint sh $(DSCSYSTEMS_IMAGE) -c "test -f $$f" \
 	    && echo "  OK: $$f" || echo "  MISSING: $$f"; \
 	done
@@ -221,13 +238,13 @@ verify-fixtures: build ## Verify fixture files are present inside the adapter im
 
 # Mirrors pr.yml: validate fixtures + build + verify + smoke.
 # Run this before opening a PR.
-pr: validate-fixtures build verify-binaries verify-fixtures smoke goose-crosscheck ## Mirror pr.yml locally (no publish).
+pr: validate-fixtures build verify-binaries verify-fixtures smoke goose-crosscheck sv-crosscheck ## Mirror pr.yml locally (no publish).
 	@echo ""
 	@echo "PR checks passed."
 
 # Mirrors ci.yml: validate fixtures + build + smoke + provenance record.
 # Run this to confirm a push to main would succeed.
-ci: validate-fixtures build verify-binaries verify-fixtures smoke goose-crosscheck ## Mirror ci.yml locally (no publish).
+ci: validate-fixtures build verify-binaries verify-fixtures smoke goose-crosscheck sv-crosscheck ## Mirror ci.yml locally (no publish).
 	@echo ""
 	@echo "--- Provenance ---"
 	@echo "mms-interop SHA : $$(git rev-parse HEAD 2>/dev/null || echo 'unknown')"

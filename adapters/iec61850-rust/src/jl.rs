@@ -63,7 +63,7 @@ pub fn handle_meta_flags() {
     let v = version();
     if a1 == "--version" {
         line(&format!(
-            "{{\"event\":\"version\",\"adapterVersion\":{},\"fixtureRevision\":\"iec61850-v2\"}}",
+            "{{\"event\":\"version\",\"adapterVersion\":{},\"fixtureRevision\":\"iec61850-v3\"}}",
             q(&v)
         ));
         std::process::exit(0);
@@ -71,7 +71,7 @@ pub fn handle_meta_flags() {
     if a1 == "--capabilities" {
         let cmds: Vec<String> = crate::COMMANDS.iter().map(|c| q(c)).collect();
         line(&format!(
-            "{{\"event\":\"capabilities\",\"adapterVersion\":{},\"fixtureRevision\":\"iec61850-v2\",\"commands\":[{}]}}",
+            "{{\"event\":\"capabilities\",\"adapterVersion\":{},\"fixtureRevision\":\"iec61850-v3\",\"commands\":[{}]}}",
             q(&v),
             cmds.join(",")
         ));

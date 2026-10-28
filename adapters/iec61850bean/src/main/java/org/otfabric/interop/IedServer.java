@@ -118,7 +118,7 @@ public class IedServer {
         String version = System.getenv("ADAPTER_VERSION");
         if (version == null) version = "dev";
         System.out.printf(
-            "{\"event\":\"ready\",\"address\":\"localhost:%d\",\"fixture\":\"iec61850-v2\",\"adapter\":\"iec61850bean\",\"version\":\"%s\",\"ied_name\":\"%s\"}%n",
+            "{\"event\":\"ready\",\"address\":\"localhost:%d\",\"fixture\":\"iec61850-v3\",\"adapter\":\"iec61850bean\",\"version\":\"%s\",\"ied_name\":\"%s\"}%n",
             port, version, iedName);
         System.out.flush();
 

@@ -43,6 +43,15 @@ trap cleanup EXIT
 
 field() { python3 -c "import json,sys;cb=json.load(open('$FIXTURE'))['controlBlocks']['$CB'];v=cb[sys.argv[1]];print(json.dumps(v) if isinstance(v,(list,dict)) else v)" "$1"; }
 
+# wait_ready FILE: block until FILE has a ready event (at most 30 s).
+wait_ready() {
+    local i
+    for i in $(seq 300); do
+        grep -q '"event":"ready"' "$1" 2>/dev/null && return 0
+        sleep 0.1
+    done
+}
+
 BRIDGE="goosexc$$"
 BRIDGE="${BRIDGE:0:15}"
 docker network create -o "com.docker.network.bridge.name=${BRIDGE}" "$NET" >/dev/null
@@ -72,7 +81,9 @@ done
 update="$(python3 -c "import json;print(json.dumps({'cmd':'set','values':json.load(open('$FIXTURE'))['controlBlocks']['$CB']['update']}))")"
 
 # Publisher: state 1 for ~1.5 s (retransmissions), state 2, then stop.
-{ sleep 1.5; echo "$update"; sleep 1.5; echo '{"cmd":"stop"}'; } | \
+# The clock starts at the publisher's ready event, not at docker run:
+# container start-up on a busy host would otherwise eat into state 1.
+{ wait_ready "$OUT/pub.jsonl"; sleep 1.5; echo "$update"; sleep 1.5; echo '{"cmd":"stop"}'; } | \
 docker run -i --name "$PUB" --network "$NET" --cap-add NET_RAW \
     --entrypoint "$PUB_CMD" "$PUB_IMAGE" \
     --iface eth0 --gocb-ref "$(field gocbRef)" --go-id "$(field goID)" \

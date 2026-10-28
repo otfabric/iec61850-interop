@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "adapterVersion": "0.3.0",
-  "fixtureRevision": "iec61850-v2",
+  "adapterVersion": "0.4.0",
+  "fixtureRevision": "iec61850-v3",
   "mmsFixtureRevision": "mms-v2",
   "commands": {
     "libiec61850-mms-server": true,
@@ -31,7 +31,13 @@
     "iec61850-rust-ied-controller": true,
     "iec61850-rust-ied-reporter": true,
     "iec61850-rust-goose-publisher": true,
-    "iec61850-rust-goose-subscriber": true
+    "iec61850-rust-goose-subscriber": true,
+    "libiec61850-sv-publisher": true,
+    "libiec61850-sv-subscriber": true,
+    "dscsystems-sv-publisher": true,
+    "dscsystems-sv-subscriber": true,
+    "iec61850-rust-sv-publisher": true,
+    "iec61850-rust-sv-subscriber": true
   },
   "knownLimitations": [
     {
@@ -177,6 +183,62 @@
       "capability": "DeleteNamedVariableList with domain/VMD scope",
       "reason": "answered object-access-unsupported, as libiec61850 does",
       "reproducedBy": "TestClient_DeleteAllNVLs_UnsupportedByPeer"
+    },
+    {
+      "stack": "libiec61850",
+      "version": "1.6.2.1-89-g6e265c54",
+      "direction": "libiec61850-sv-publisher / dscsystems-sv-publisher → libiec61850-sv-subscriber",
+      "capability": "Sampled Values ASDUs carrying smpMod (the generic stream, MSVCB02)",
+      "reason": "SVReceiver accepts smpMod only as one octet and drops an ASDU whose smpMod has two, which libiec61850's own SVPublisher and dscsystems send (iec61850-rust sends one octet); the subscriber reports and counts nothing of such a stream",
+      "reproducedBy": "scripts/sv-crosscheck.sh … MSVCB02"
+    },
+    {
+      "stack": "dscsystems",
+      "version": "v0.6.5-1-g6bf3f37",
+      "direction": "go-client → dscsystems-ied-server",
+      "capability": "MSVCB OptFlds width",
+      "reason": "the MS OptFlds attribute of MSVCB02 reads as a 10-bit bit-string; the libiec61850 IED server returns 5 bits (refresh-time, reserved, sample-rate, data-set, security)",
+      "reproducedBy": ""
+    },
+    {
+      "stack": "iec61850bean",
+      "version": "1.x",
+      "direction": "—",
+      "capability": "Sampled Values",
+      "reason": "iec61850bean has no SV publisher, subscriber or SVCB model: its image has no SV commands and its IED server does not expose MSVCB02",
+      "reproducedBy": ""
+    },
+    {
+      "stack": "iec61850-rust",
+      "version": "v0.2.0-0-gd4e8952",
+      "direction": "go-client → iec61850-rust-ied-server",
+      "capability": "SVCB over MMS (LLN0$MS$MSVCB02)",
+      "reason": "the upstream server does not model SampledValueControl blocks as MMS variables (the SCL parser builds them, no server code reads them): reading MSVCB02 attributes fails with object-non-existent",
+      "reproducedBy": ""
+    },
+    {
+      "stack": "iec61850-rust",
+      "version": "v0.2.0-0-gd4e8952",
+      "direction": "* → iec61850-rust-sv-subscriber, iec61850-rust-sv-publisher → *",
+      "capability": "More than 10 ASDUs per SV frame",
+      "reason": "iec61850-sv encodes and decodes at most 10 ASDUs per frame (MAX_ASDU_PER_FRAME): --no-asdu is limited to 1..10 and a frame with more ASDUs is rejected",
+      "reproducedBy": ""
+    },
+    {
+      "stack": "iec61850-rust",
+      "version": "v0.2.0-0-gd4e8952",
+      "direction": "* → iec61850-rust-sv-subscriber",
+      "capability": "SV receive buffer",
+      "reason": "iec61850-hal's AF_PACKET socket does not expose its descriptor, so the receive buffer stays at the kernel default (about 40 ms of a 9-2LE stream); a longer subscriber stall drops samples",
+      "reproducedBy": ""
+    },
+    {
+      "stack": "dscsystems",
+      "version": "v0.6.5-1-g6bf3f37",
+      "direction": "* → dscsystems-sv-subscriber",
+      "capability": "smpRate 0 / empty datSet",
+      "reason": "sv.Parse returns smpRate 0 and datSet \"\" for absent fields, so a present smpRate of 0 or an empty datSet is reported as null",
+      "reproducedBy": ""
     }
   ],
   "upstreams": {
@@ -197,5 +259,13 @@
       "license": "MIT OR Apache-2.0"
     }
   },
-  "gooseFixtureRevision": "goose-v1"
+  "gooseFixtureRevision": "goose-v1",
+  "svFixtureRevision": "sv-v1",
+  "svcbOverMms": {
+    "description": "Whether the stack's IED server exposes the SampledValueControl blocks of the IED fixture (LLN0$MS$MSVCB02) as MMS variables. Checked by reading SvEna, MsvID, DatSet, ConfRev, SmpRate, OptFlds, SmpMod, DstAddress and noASDU with FC MS.",
+    "libiec61850": true,
+    "dscsystems": true,
+    "iec61850bean": false,
+    "iec61850-rust": false
+  }
 }
