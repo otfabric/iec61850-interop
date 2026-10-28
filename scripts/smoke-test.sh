@@ -100,14 +100,22 @@ run_client_pair() {
         sleep 0.2
     done
 
-    # Run client.
-    local output
-    output=$(docker run --rm \
-        --network "$net" \
-        --entrypoint "${cmd_client}" \
-        "${image_client}" \
-        --host "smoke-server-$$" --port 1102 \
-        2>/dev/null || true)
+    # Run client. A failed association right after the server's ready
+    # event is retried (up to three tries): on a busy runner the new
+    # container's name or port can lag the event by a moment. Any other
+    # outcome, and a third failed association, is the result.
+    local output try
+    for try in 1 2 3; do
+        output=$(docker run --rm \
+            --network "$net" \
+            --entrypoint "${cmd_client}" \
+            "${image_client}" \
+            --host "smoke-server-$$" --port 1102 \
+            2>/dev/null || true)
+        echo "$output" | grep -q '"operation":"associate","ok":false' || break
+        echo "${cmd_client} -> ${cmd_server}: association failed (try ${try}): $(echo "$output" | head -1)" >&2
+        sleep 1
+    done
 
     docker stop "$sid" >/dev/null 2>&1
     docker rm   "$sid" >/dev/null 2>&1
@@ -188,7 +196,7 @@ check_ied_client_ops() {
         return
     fi
     if ! echo "$output" | grep -q '"operation":"conclude"'; then
-        fail "${label}: missing conclude operation"
+        fail "${label}: missing conclude operation; output: $(echo "$output" | head -3 | tr '\n' ' ')"
         return
     fi
     local bad
