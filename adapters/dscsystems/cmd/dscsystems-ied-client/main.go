@@ -12,11 +12,13 @@
 //  3. get-ln-directory      data objects in LD/GGIO1
 //  4. read (ST)             LD/GGIO1.SPS1.stVal
 //  5. read (MX)             LD/MMXU1.TotW.mag.f
-//  6. read (CF)             LD/LLN0.Mod.ctlModel
-//  7. read (DC)             LD/LLN0.Mod.d
-//  8. write (ST)            LD/LLN0.Mod.stVal = 5
-//  9. read-dataset          LD/LLN0$dsInterop
-//  10. conclude
+//  6. read (ST)             LD/GGIO1.DPS1.stVal (Dbpos as 0..3)
+//  7. read (ST)             LD/MMTR1.TotVAh.actVal
+//  8. read (CF)             LD/LLN0.Mod.ctlModel
+//  9. read (DC)             LD/LLN0.Mod.d
+//  10. write (ST)           LD/LLN0.Mod.stVal = 5
+//  11. read-dataset         LD/LLN0$dsInterop
+//  12. conclude
 //
 // Exit codes: 0 all ok, 1 argument error, 2 connection failure, 3 one or
 // more operations emitted ok:false (conclude still attempted).
@@ -58,6 +60,8 @@ func main() {
 	ok = getLNDirectory(c, ld+"/GGIO1") && ok
 	ok = read(c, ld+"/GGIO1.SPS1.stVal", model.ST, readBool) && ok
 	ok = read(c, ld+"/MMXU1.TotW.mag.f", model.MX, readFloat) && ok
+	ok = read(c, ld+"/GGIO1.DPS1.stVal", model.ST, readDbpos) && ok
+	ok = read(c, ld+"/MMTR1.TotVAh.actVal", model.ST, readUint) && ok
 	ok = read(c, ld+"/LLN0.Mod.ctlModel", model.CF, readInt) && ok
 	ok = read(c, ld+"/LLN0.Mod.d", model.DC, readString) && ok
 	ok = write(c, ld+"/LLN0.Mod.stVal", model.ST, mms.NewInt32(5)) && ok
@@ -140,6 +144,22 @@ func readInt(ref string, v *mms.Value) (any, error) {
 		return int32(v.Int64()), nil
 	}
 	return nil, ied.TypeError(ref, "integer", v)
+}
+
+// readDbpos reports a Dbpos as its enumeration value (2 = on, bits "10").
+func readDbpos(ref string, v *mms.Value) (any, error) {
+	if v.Type() != mms.TypeBitString {
+		return nil, ied.TypeError(ref, "bit-string", v)
+	}
+	return int(model.DbposFromValue(v)), nil
+}
+
+func readUint(ref string, v *mms.Value) (any, error) {
+	switch v.Type() {
+	case mms.TypeInteger, mms.TypeUnsigned:
+		return uint32(v.Int64()), nil
+	}
+	return nil, ied.TypeError(ref, "unsigned", v)
 }
 
 func readString(ref string, v *mms.Value) (any, error) {

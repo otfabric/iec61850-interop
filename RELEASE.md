@@ -18,6 +18,35 @@ Tags are immutable. A fix is a new version.
 
 ---
 
+## v0.4.1
+
+**Date:** 2026-10-28
+
+## Summary
+
+CDC values. The libiec61850 and iec61850bean IED servers now serve
+`GGIO1.DPS1.stVal` = 2 and `MMTR1.TotVAh.actVal` = 42 from
+`fixtures/iec61850/values.json`, as the dscsystems and iec61850-rust
+servers already did, and every fixed-sequence IED client reads both. The
+fixture is unchanged (`iec61850-v3`).
+
+## Changes
+
+### Added
+
+- `libiec61850-ied-client`, `iec61850bean-ied-client`, `dscsystems-ied-client` and `iec61850-rust-ied-client` read `GGIO1.DPS1.stVal[ST]` (Dbpos, reported as its enumeration 0..3, 2 = on) and `MMTR1.TotVAh.actVal[ST]` (INT32U) after `MMXU1.TotW.mag.f[MX]`, with the existing read event shape: `{"operation":"read","target":"InteropIEDInteropLD/GGIO1.DPS1.stVal[ST]","ok":true,"value":2}`.
+- Smoke/CI: every IED client run checks both values (libiec61850 and iec61850bean against themselves and each other; dscsystems and iec61850-rust against libiec61850, both directions).
+
+### Changed
+
+- `libiec61850-ied-server` served `DPS1.stVal` 0 and `TotVAh.actVal` 0; `iec61850bean-ied-server` served 1 and 0. Both now seed them from `values.json` (2 and 42).
+
+## Notes
+
+- `capabilities.json` `adapterVersion` is `0.4.1`; fixture revisions are unchanged.
+
+---
+
 ## v0.4.0
 
 **Date:** 2026-10-28

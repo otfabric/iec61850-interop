@@ -7,7 +7,8 @@
 //
 // Fixed sequence, one JSON Line per operation: associate,
 // get-server-directory, get-ld-directory, get-ln-directory (GGIO1),
-// read SPS1.stVal[ST], TotW.mag.f[MX], Mod.ctlModel[CF], Mod.d[DC],
+// read SPS1.stVal[ST], TotW.mag.f[MX], DPS1.stVal[ST] (Dbpos as 0..3),
+// TotVAh.actVal[ST], Mod.ctlModel[CF], Mod.d[DC],
 // write Mod.stVal[ST]=5, read-dataset LLN0$dsInterop, conclude.
 // The logical device is taken from the server directory: "InteropLD",
 // else a name ending in "InteropLD", else the first.
@@ -17,6 +18,7 @@
 
 use iec61850_client::{AcsiClass, IedConnection};
 use iec61850_mms::{AccessResult, MmsData};
+use iec61850_model::value::MmsValue;
 use iec61850_model::FC;
 
 use adapter::ied::{emit_error, err_str};
@@ -98,6 +100,33 @@ async fn run(conn: &IedConnection) -> bool {
     let t = format!("{r}[MX]");
     match conn.read_float(&r, FC::Mx).await {
         Ok(v) => emit_read(&t, cfmt::g6(v as f64)),
+        Err(e) => {
+            emit_error("read", Some(&t), &err_str(&e, true));
+            failed = true;
+        }
+    }
+
+    // Dbpos: two bits, MSB first, reported as the enumeration (2 = on, "10").
+    let r = format!("{ld}/GGIO1.DPS1.stVal");
+    let t = format!("{r}[ST]");
+    match conn.read_object(&r, FC::St).await {
+        Ok(MmsValue::BitString { data, .. }) if !data.is_empty() => {
+            emit_read(&t, ((data[0] >> 6) & 3).to_string())
+        }
+        Ok(_) => {
+            emit_error("read", Some(&t), "unexpected-type");
+            failed = true;
+        }
+        Err(e) => {
+            emit_error("read", Some(&t), &err_str(&e, true));
+            failed = true;
+        }
+    }
+
+    let r = format!("{ld}/MMTR1.TotVAh.actVal");
+    let t = format!("{r}[ST]");
+    match conn.read_uint32(&r, FC::St).await {
+        Ok(v) => emit_read(&t, v.to_string()),
         Err(e) => {
             emit_error("read", Some(&t), &err_str(&e, true));
             failed = true;

@@ -230,6 +230,37 @@ if bad:
 }
 
 # ---------------------------------------------------------------------------
+# Check: the client read the values.json values of the CDC extras
+# GGIO1.DPS1.stVal (Dbpos, reported as its enumeration: 2 = on) and
+# MMTR1.TotVAh.actVal (INT32U, 42) — the server seeded them.
+# ---------------------------------------------------------------------------
+check_cdc_values() {
+    local label="$1" output="$2" got
+    got=$(echo "$output" | python3 -c '
+import sys, json
+want = {"GGIO1.DPS1.stVal[ST]": 2, "MMTR1.TotVAh.actVal[ST]": 42}
+seen = {}
+for line in sys.stdin:
+    try:
+        o = json.loads(line)
+    except Exception:
+        continue
+    if o.get("operation") != "read":
+        continue
+    for k in want:
+        if str(o.get("target", "")).endswith("/" + k):
+            seen[k] = o.get("value") if o.get("ok") else "ok:false"
+bad = ["%s=%r" % (k, seen.get(k, "missing")) for k in want if seen.get(k) != want[k]]
+print("; ".join(bad))
+' 2>/dev/null || echo "parse error")
+    if [ -n "$got" ]; then
+        fail "${label}: CDC values wrong (want DPS1.stVal=2, TotVAh.actVal=42): ${got}"
+    else
+        pass "${label}: DPS1.stVal=2, TotVAh.actVal=42"
+    fi
+}
+
+# ---------------------------------------------------------------------------
 # Check: required binary exists inside image.
 # ---------------------------------------------------------------------------
 check_binary() {
@@ -354,6 +385,7 @@ output=$(run_client_pair \
     "$LIBIEC61850_IMAGE" libiec61850-ied-client)
 check_json_lines "libiec61850-ied-client" "$output"
 check_ied_client_ops "libiec61850-ied-client" "$output"
+check_cdc_values "libiec61850-ied-client" "$output"
 
 output=$(run_client_pair \
     "$LIBIEC61850_IMAGE" libiec61850-ied-server \
@@ -365,6 +397,18 @@ output=$(run_client_pair \
     "$IEC61850BEAN_IMAGE" iec61850bean-ied-client)
 check_json_lines "iec61850bean-ied-client" "$output"
 check_ied_client_ops "iec61850bean-ied-client" "$output"
+check_cdc_values "iec61850bean-ied-client" "$output"
+
+# iec61850bean against libiec61850, both directions (CDC values).
+output=$(run_client_pair "$LIBIEC61850_IMAGE" libiec61850-ied-server "$IEC61850BEAN_IMAGE" iec61850bean-ied-client)
+check_json_lines "iec61850bean-ied-client -> libiec61850-ied-server" "$output"
+check_ied_client_ops "iec61850bean-ied-client -> libiec61850-ied-server" "$output"
+check_cdc_values "iec61850bean-ied-client -> libiec61850-ied-server" "$output"
+
+output=$(run_client_pair "$IEC61850BEAN_IMAGE" iec61850bean-ied-server "$LIBIEC61850_IMAGE" libiec61850-ied-client)
+check_json_lines "libiec61850-ied-client -> iec61850bean-ied-server" "$output"
+check_ied_client_ops "libiec61850-ied-client -> iec61850bean-ied-server" "$output"
+check_cdc_values "libiec61850-ied-client -> iec61850bean-ied-server" "$output"
 
 # dscsystems and iec61850-rust against libiec61850, both directions.
 for stack in "$DSCSYSTEMS_IMAGE dscsystems" "$IEC61850RUST_IMAGE iec61850-rust"; do
@@ -380,10 +424,12 @@ for stack in "$DSCSYSTEMS_IMAGE dscsystems" "$IEC61850RUST_IMAGE iec61850-rust";
     output=$(run_client_pair "$LIBIEC61850_IMAGE" libiec61850-ied-server "$img" "$p-ied-client")
     check_json_lines "$p-ied-client -> libiec61850-ied-server" "$output"
     check_ied_client_ops "$p-ied-client -> libiec61850-ied-server" "$output"
+    check_cdc_values "$p-ied-client -> libiec61850-ied-server" "$output"
 
     output=$(run_client_pair "$img" "$p-ied-server" "$LIBIEC61850_IMAGE" libiec61850-ied-client)
     check_json_lines "libiec61850-ied-client -> $p-ied-server" "$output"
     check_ied_client_ops "libiec61850-ied-client -> $p-ied-server" "$output"
+    check_cdc_values "libiec61850-ied-client -> $p-ied-server" "$output"
 
     output=$(run_client_pair "$LIBIEC61850_IMAGE" libiec61850-ied-server "$img" "$p-ied-reporter")
     check_json_lines "$p-ied-reporter -> libiec61850-ied-server" "$output"

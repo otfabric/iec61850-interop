@@ -15,6 +15,8 @@
  *   3.  get-ln-directory      — list data objects in InteropLD/GGIO1
  *   4.  read (ST)             — InteropLD/GGIO1.SPS1.stVal
  *   5.  read (MX)             — InteropLD/MMXU1.TotW.mag.f
+ *   5a. read (ST)             — InteropLD/GGIO1.DPS1.stVal (Dbpos as 0..3)
+ *   5b. read (ST)             — InteropLD/MMTR1.TotVAh.actVal (INT32U)
  *   6.  read (CF)             — InteropLD/LLN0.Mod.ctlModel
  *   7.  read (DC)             — InteropLD/LLN0.Mod.d
  *   8.  write (ST)            — InteropLD/LLN0.Mod.stVal = 5
@@ -253,6 +255,42 @@ static bool op_read_int(IedConnection conn, const char* ref, FunctionalConstrain
     return true;
 }
 
+static bool op_read_dbpos(IedConnection conn, const char* ref, FunctionalConstraint fc)
+{
+    IedClientError err;
+    MmsValue* val = IedConnection_readObject(conn, &err, ref, fc);
+    char target[256];
+    snprintf(target, sizeof(target), "%s[%s]", ref, FunctionalConstraint_toString(fc));
+    if (err != IED_ERROR_OK) {
+        emit_error("read", target, ied_error_str(err));
+        return false;
+    }
+    if (val == NULL || MmsValue_getType(val) != MMS_BIT_STRING) {
+        if (val) MmsValue_delete(val);
+        emit_error("read", target, "unexpected-type");
+        return false;
+    }
+    emit_int(target, (int32_t) Dbpos_fromMmsValue(val));
+    MmsValue_delete(val);
+    return true;
+}
+
+static bool op_read_uint(IedConnection conn, const char* ref, FunctionalConstraint fc)
+{
+    IedClientError err;
+    uint32_t val = IedConnection_readUnsigned32Value(conn, &err, ref, fc);
+    char target[256];
+    snprintf(target, sizeof(target), "%s[%s]", ref, FunctionalConstraint_toString(fc));
+    if (err != IED_ERROR_OK) {
+        emit_error("read", target, ied_error_str(err));
+        return false;
+    }
+    printf("{\"operation\":\"read\",\"target\":\"%s\",\"ok\":true,\"value\":%u}\n",
+           target, val);
+    fflush(stdout);
+    return true;
+}
+
 static bool op_read_string(IedConnection conn, const char* ref, FunctionalConstraint fc)
 {
     IedClientError err;
@@ -388,6 +426,12 @@ int main(int argc, char** argv)
 
     snprintf(ref, sizeof(ref), "%s/MMXU1.TotW.mag.f", ld);
     failed |= !op_read_float(conn, ref, IEC61850_FC_MX);
+
+    snprintf(ref, sizeof(ref), "%s/GGIO1.DPS1.stVal", ld);
+    failed |= !op_read_dbpos(conn, ref, IEC61850_FC_ST);
+
+    snprintf(ref, sizeof(ref), "%s/MMTR1.TotVAh.actVal", ld);
+    failed |= !op_read_uint(conn, ref, IEC61850_FC_ST);
 
     snprintf(ref, sizeof(ref), "%s/LLN0.Mod.ctlModel", ld);
     failed |= !op_read_int(conn, ref, IEC61850_FC_CF);

@@ -98,6 +98,10 @@ public class IedClient {
                 failed |= !readBool(assoc, model, ld + "/GGIO1.SPS1.stVal", Fc.ST,
                         ld + "/GGIO1.SPS1.stVal[ST]");
                 failed |= !readFloatMagF(assoc, model, ld);
+                failed |= !readDbpos(assoc, model, ld + "/GGIO1.DPS1.stVal", Fc.ST,
+                        ld + "/GGIO1.DPS1.stVal[ST]");
+                failed |= !readUInt32(assoc, model, ld + "/MMTR1.TotVAh.actVal", Fc.ST,
+                        ld + "/MMTR1.TotVAh.actVal[ST]");
                 failed |= !readInt8(assoc, model, ld + "/LLN0.Mod.ctlModel", Fc.CF,
                         ld + "/LLN0.Mod.ctlModel[CF]");
                 failed |= !readString(assoc, model, ld + "/LLN0.Mod.d", Fc.DC,
@@ -178,6 +182,42 @@ public class IedClient {
                                     String ref, Fc fc, String target) {
         ModelNode node = model.findModelNode(ref, fc);
         if (!(node instanceof BdaInt8 bda)) {
+            JsonLines.error("read", target, "model node not found or wrong type");
+            return false;
+        }
+        try {
+            assoc.getDataValues((FcModelNode) bda);
+            JsonLines.successReadInt(target, bda.getValue());
+            return true;
+        } catch (Exception e) {
+            JsonLines.error("read", target, e.getMessage());
+            return false;
+        }
+    }
+
+    /** Dbpos is reported as its enumeration value 0..3 (2 = on, bits "10"). */
+    private static boolean readDbpos(ClientAssociation assoc, ServerModel model,
+                                     String ref, Fc fc, String target) {
+        ModelNode node = model.findModelNode(ref, fc);
+        if (!(node instanceof BdaBitString bda)) {
+            JsonLines.error("read", target, "model node not found or wrong type");
+            return false;
+        }
+        try {
+            assoc.getDataValues((FcModelNode) bda);
+            byte b = bda.getValue()[0];
+            JsonLines.successReadInt(target, ((b >> 7) & 1) << 1 | ((b >> 6) & 1));
+            return true;
+        } catch (Exception e) {
+            JsonLines.error("read", target, e.getMessage());
+            return false;
+        }
+    }
+
+    private static boolean readUInt32(ClientAssociation assoc, ServerModel model,
+                                      String ref, Fc fc, String target) {
+        ModelNode node = model.findModelNode(ref, fc);
+        if (!(node instanceof BdaInt32U bda)) {
             JsonLines.error("read", target, "model node not found or wrong type");
             return false;
         }

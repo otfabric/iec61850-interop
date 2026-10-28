@@ -82,6 +82,10 @@ static void set_initial_values(IedServer server)
     IedServer_updateVisibleStringAttributeValue(server,
         &iedModel_InteropLD_GGIO1_SPS1_d, "status point");
 
+    /* GGIO1.DPS1.stVal = 2 (on, bits "10") */
+    IedServer_updateDbposValue(server,
+        &iedModel_InteropLD_GGIO1_DPS1_stVal, DBPOS_ON);
+
     /* GGIO1.SPCSO1.stVal = false */
     IedServer_updateBooleanAttributeValue(server,
         &iedModel_InteropLD_GGIO1_SPCSO1_stVal, false);
@@ -109,6 +113,10 @@ static void set_initial_values(IedServer server)
     /* MMXU1.TotW.mag.f = 1234.5 */
     IedServer_updateFloatAttributeValue(server,
         &iedModel_InteropLD_MMXU1_TotW_mag_f, 1234.5f);
+
+    /* MMTR1.TotVAh.actVal = 42 (INT32U) */
+    IedServer_updateUnsignedAttributeValue(server,
+        &iedModel_InteropLD_MMTR1_TotVAh_actVal, 42);
 
     /* GGIO1.SetInt1.setVal = 0 (writable ING setting) */
     IedServer_updateInt32AttributeValue(server,
