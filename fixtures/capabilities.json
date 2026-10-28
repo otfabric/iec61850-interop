@@ -1,7 +1,8 @@
 {
   "schemaVersion": 1,
-  "adapterVersion": "0.1.4",
+  "adapterVersion": "0.2.0",
   "fixtureRevision": "iec61850-v2",
+  "mmsFixtureRevision": "mms-v2",
   "commands": {
     "libiec61850-mms-server": true,
     "libiec61850-mms-client": true,
@@ -16,9 +17,49 @@
   },
   "knownLimitations": [
     {
+      "stack": "libiec61850",
+      "version": "1.6.2.1-89-g6e265c54",
+      "direction": "libiec61850-server → go-client",
+      "capability": "InformationReport, listOfVariable form",
+      "reason": "MmsServerConnection_sendInformationReportListOfVariables encodes a wrong length (2 trailing bytes); the adapter sends only VMD named-list reports",
+      "reproducedBy": "TestClient_InformationReport"
+    },
+    {
+      "stack": "libiec61850",
+      "version": "1.6.2.1-89-g6e265c54",
+      "direction": "go-client → libiec61850-server",
+      "capability": "FileOpen initialPosition",
+      "reason": "LIB61850-557 rejects initialPosition past EOF, but an in-range position is still not seeked; the test asserts the unseeked content",
+      "reproducedBy": "TestClient_FileOpen_InitialPosition"
+    },
+    {
+      "stack": "libiec61850",
+      "version": "1.6.2.1-89-g6e265c54",
+      "direction": "go-client → libiec61850-server",
+      "capability": "DeleteNamedVariableList scopeOfDelete domain/vmd (DeleteAll*NVLs)",
+      "reason": "only scopeOfDelete specific is implemented; bulk deletes are answered with an Access-class ServiceError",
+      "reproducedBy": "TestClient_DeleteAllNVLs_UnsupportedByPeer"
+    },
+    {
+      "stack": "libiec61850",
+      "version": "1.6.2.1-89-g6e265c54",
+      "direction": "go-client → libiec61850-server",
+      "capability": "ObtainFile",
+      "reason": "the server fetches the source file from the client with FileOpen/FileRead (role reversal), which go-mms does not serve; the request fails with a File-class ServiceError",
+      "reproducedBy": "TestClient_ObtainFile"
+    },
+    {
+      "stack": "libiec61850",
+      "version": "1.6.2.1-89-g6e265c54",
+      "direction": "libiec61850-client → go-server",
+      "capability": "FileOpen response without lastModified",
+      "reason": "the client's FileOpen response handler leaves lastModified uninitialised when the optional field is absent; the test asserts size and content only",
+      "reproducedBy": "TestServer_FileOpen_NoLastModified"
+    },
+    {
       "stack": "iec61850bean",
       "version": "1.x",
-      "direction": "go-client \u2192 iec61850bean-server",
+      "direction": "go-client → iec61850bean-server",
       "capability": "SBOw SelectWithValue",
       "reason": "iec61850bean server does not expose SBOw[CO] as a writable MMS attribute",
       "reproducedBy": "TestBeanClient_Control_SBOwOperate"
@@ -26,7 +67,7 @@
   ],
   "upstreams": {
     "libiec61850": {
-      "version": "1.6.2"
+      "version": "1.6.2.1-89-g6e265c54"
     },
     "iec61850bean": {
       "version": "1.x"

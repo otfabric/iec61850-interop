@@ -27,7 +27,7 @@ lines = [
     "",
     "This file is generated from `fixtures/capabilities.json`; do not edit manually. Run `./scripts/gen-coverage.sh`.",
     "",
-    f"Adapter version: `{caps.get('adapterVersion', '?')}` · Fixture revision: `{caps.get('fixtureRevision', '?')}`",
+    f"Adapter version: `{caps.get('adapterVersion', '?')}` · Fixture revisions: `{caps.get('mmsFixtureRevision', '?')}`, `{caps.get('fixtureRevision', '?')}`",
     "",
     "| Adapter command | Image | Available |",
     "|----------------|-------|:---------:|",

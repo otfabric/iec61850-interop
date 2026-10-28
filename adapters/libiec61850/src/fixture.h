@@ -10,6 +10,7 @@
 #define FIXTURE_H
 
 #include <stdbool.h>
+#include <stdint.h>
 #include "mms_value.h"
 #include "mms_types.h"
 
@@ -20,18 +21,58 @@ typedef struct {
     bool                    writable;
 } VarDef;
 
+/* One journal entry: a single data variable plus libiec61850's ReasonCode. */
 typedef struct {
-    char*    name;
-    int      var_count;
-    VarDef*  vars;   /* array of var_count VarDef */
-} DomainDef;
+    uint64_t  entry_id;
+    uint64_t  time_ms;
+    char*     tag;          /* owned */
+    MmsValue* value;        /* owned */
+    uint8_t   reason_code;
+} JournalEntryDef;
 
 typedef struct {
+    char*            name;
+    int              entry_count;
+    JournalEntryDef* entries;  /* array of entry_count, ascending by time */
+} JournalDef;
+
+typedef struct {
+    char*       name;
+    int         var_count;
+    VarDef*     vars;      /* array of var_count VarDef */
+    int         journal_count;
+    JournalDef* journals;  /* array of journal_count JournalDef */
+} DomainDef;
+
+/* A file of the virtual file store. name uses '/' as separator. */
+typedef struct {
+    char*    name;
+    uint8_t* data;
+    int      size;
+    uint64_t last_modified_ms;
+} FileDef;
+
+/* An InformationReport sent when report-trigger is written. vmd_list is
+ * NULL for the listOfVariable form. variables are "domain/item" strings. */
+typedef struct {
+    char*  vmd_list;
+    int    var_count;
+    char** variables;
+} ReportDef;
+
+typedef struct {
+    char*       fixture_revision;
     char*       vendor;
     char*       model;
     char*       revision;
+    int         status_logical;
+    int         status_physical;
     int         domain_count;
     DomainDef*  domains;   /* array of domain_count DomainDef */
+    int         file_count;
+    FileDef*    files;
+    int         report_count;
+    ReportDef*  reports;
 } FixtureDef;
 
 /*

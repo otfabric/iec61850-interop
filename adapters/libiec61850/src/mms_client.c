@@ -20,8 +20,21 @@
  *   Step 7 — negative tests:
  *     read unknown domain, read unknown variable, write wrong type
  *
+ * Fixture mms-v2 services (full_sequence=1, mms_client_services.c):
+ *   status, name lists (journals, VMD variables, domain and association
+ *   NVLs), type specs, alternate access reads/writes, NVLs in domain, VMD
+ *   and association scope (define, attributes, read, write, delete), file
+ *   directory/open/read/close/delete/rename/obtain, journal reads,
+ *   InformationReport reception.
+ *
  * Reconnect verification (full_sequence=0):
  *   read bool + conclude only.
+ *
+ * Abort verification (connection 3):
+ *   read bool + abort.
+ *
+ * Server abort verification (connection 4):
+ *   write -1 to report-trigger; the server aborts the association.
  *
  * JSON output format is documented in PLAN.md §Adapter output contract.
  *
@@ -42,6 +55,7 @@
 #include "linked_list.h"
 
 #include "jsonlines.h"
+#include "mms_client_services.h"
 
 /* -------------------------------------------------------------------------
  * JSON-Lines helpers
@@ -359,6 +373,8 @@ static int run_sequence(const char* host, int port, int full_sequence)
         jl_log("MmsConnection_create failed");
         return 1;
     }
+    if (full_sequence)
+        services_install_report_handler(conn);
 
     MmsConnection_connect(conn, &mmsError, host, port);
     if (mmsError != MMS_ERROR_NONE) {
@@ -772,6 +788,12 @@ static int run_sequence(const char* host, int port, int full_sequence)
             MmsValue_delete(wval);
             emit_write_result("interop/integer-wrong-type", mmsError, dae);
         }
+
+        /* ================================================================
+         * Fixture mms-v2 services (mms_client_services.c)
+         * ============================================================== */
+        run_services(conn);
+        mmsError = MMS_ERROR_NONE;
     }
 
     /* --- Conclude --- */
@@ -814,6 +836,13 @@ int main(int argc, char* argv[])
     if (rc == 2)
         jl_fatal(2, "fatal: connection 2 (reconnect) failed to connect to %s:%d",
                  host, port);
+    if (rc != 0)
+        return rc;
 
-    return rc;
+    /* Connection 3: abort instead of conclude */
+    run_abort(host, port);
+
+    /* Connection 4: server-initiated abort */
+    run_server_abort(host, port);
+    return 0;
 }
