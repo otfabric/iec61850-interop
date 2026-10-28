@@ -12,13 +12,13 @@
 //  3. get-ln-directory      data objects in LD/GGIO1
 //  4. read (ST)             LD/GGIO1.SPS1.stVal
 //  5. read (MX)             LD/MMXU1.TotW.mag.f
-//  5a. read (ST)            LD/GGIO1.DPS1.stVal (Dbpos as 0..3)
-//  5b. read (ST)            LD/MMTR1.TotVAh.actVal
-//  6. read (CF)             LD/LLN0.Mod.ctlModel
-//  7. read (DC)             LD/LLN0.Mod.d
-//  8. write (ST)            LD/LLN0.Mod.stVal = 5
-//  9. read-dataset          LD/LLN0$dsInterop
-//  10. conclude
+//  6. read (ST)             LD/GGIO1.DPS1.stVal (Dbpos as 0..3)
+//  7. read (ST)             LD/MMTR1.TotVAh.actVal
+//  8. read (CF)             LD/LLN0.Mod.ctlModel
+//  9. read (DC)             LD/LLN0.Mod.d
+//  10. write (ST)           LD/LLN0.Mod.stVal = 5
+//  11. read-dataset         LD/LLN0$dsInterop
+//  12. conclude
 //
 // Exit codes: 0 all ok, 1 argument error, 2 connection failure, 3 one or
 // more operations emitted ok:false (conclude still attempted).
