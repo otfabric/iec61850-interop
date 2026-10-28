@@ -1,10 +1,10 @@
-# mms-interop — Roadmap
+# iec61850-interop — Roadmap
 
-This file is the single source of truth for `mms-interop` work items.
+This file is the single source of truth for `iec61850-interop` work items.
 It is updated as phases complete and new work is scoped.
 
 The master roadmap for the entire OTFabric IEC 61850 MMS stack is described in
-`go-iec61850/PLAN.md`. This file contains only the `mms-interop`-owned deliverables.
+`go-iec61850/PLAN.md`. This file contains only the `iec61850-interop`-owned deliverables.
 
 ---
 
@@ -14,8 +14,8 @@ The master roadmap for the entire OTFabric IEC 61850 MMS stack is described in
 
 | Image | Commands |
 |-------|----------|
-| `mms-interop-libiec61850` | `libiec61850-mms-server`, `libiec61850-mms-client`, `libiec61850-ied-server`, `libiec61850-ied-controller`, `libiec61850-ied-reporter` |
-| `mms-interop-iec61850bean` | `iec61850bean-ied-server`, `iec61850bean-ied-controller`, `iec61850bean-ied-reporter` |
+| `iec61850-interop-libiec61850` | `libiec61850-mms-server`, `libiec61850-mms-client`, `libiec61850-ied-server`, `libiec61850-ied-controller`, `libiec61850-ied-reporter` |
+| `iec61850-interop-iec61850bean` | `iec61850bean-ied-server`, `iec61850bean-ied-controller`, `iec61850bean-ied-reporter` |
 
 **Fixture revision: `iec61850-v2`**
 - Three controllable DOs: SPCSO1 (direct), SPCSO2 (SBO normal), SPCSO3 (SBO enhanced).
@@ -136,7 +136,7 @@ Required for Phase D3 (dynamic datasets).
 
 ### M3.1 Packet-fragmenting proxy ⬜
 
-Provide a TCP proxy binary (`mms-interop-proxy`) that can:
+Provide a TCP proxy binary (`iec61850-interop-proxy`) that can:
 - Split TPKT packets at configured byte boundaries.
 - Join multiple PDUs into one TCP segment.
 - Delay individual frames.

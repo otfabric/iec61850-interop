@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 /*
  * sv_subscriber.c — libIEC61850 Sampled Values subscriber adapter for
- * mms-interop (contract: docs/sv.md).
+ * iec61850-interop (contract: docs/sv.md).
  *
  * Usage:
  *   libiec61850-sv-subscriber --iface IF [--app-id 0xNNNN] [--sv-id ID]

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * fixture.c — parse an mms-interop fixture JSON file.
+ * fixture.c — parse an iec61850-interop fixture JSON file.
  *
  * Supported variable types: boolean, integer, unsigned, float32,
  * visible-string, octet-string, bit-string, utc-time, array, structure.
@@ -438,7 +438,7 @@ FixtureDef* fixture_load(const char* path)
         if (json_object_object_get_ex(jid, "revision", &jv)) f->revision = strdup(json_object_get_string(jv));
     }
     if (!f->vendor)   f->vendor   = strdup("OTFabric");
-    if (!f->model)    f->model    = strdup("mms-interop");
+    if (!f->model)    f->model    = strdup("iec61850-interop");
     if (!f->revision) f->revision = strdup("1.0");
 
     struct json_object* jrev = NULL;

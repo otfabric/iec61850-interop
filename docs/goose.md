@@ -7,12 +7,16 @@ a layer-2 segment shared with the peer under test.
 
 | Command | Image |
 |---|---|
-| `libiec61850-goose-publisher`, `libiec61850-goose-subscriber` | `mms-interop-libiec61850` |
-| `dscsystems-goose-publisher`, `dscsystems-goose-subscriber` | `mms-interop-dscsystems` |
-| `iec61850-rust-goose-publisher`, `iec61850-rust-goose-subscriber` | `mms-interop-iec61850-rust` |
+| `libiec61850-goose-publisher`, `libiec61850-goose-subscriber` | `iec61850-interop-libiec61850` |
+| `dscsystems-goose-publisher`, `dscsystems-goose-subscriber` | `iec61850-interop-dscsystems` |
+| `iec61850-rust-goose-publisher`, `iec61850-rust-goose-subscriber` | `iec61850-interop-iec61850-rust` |
 
 All three stacks implement the same command line and JSON Lines contract, so a
 test switches peer by image and command name only.
+
+iec61850bean has no GOOSE support. The rules every command shares
+(`--version`, `--capabilities`, stdout/stderr, the v1 stability promise) are
+in [contract.md](contract.md); this page is the GOOSE part of that contract.
 
 ## Fixture — `fixtures/goose/`
 
@@ -143,12 +147,12 @@ it works without, a Docker bridge floods multicast to every port):
 ```bash
 docker network create \
   -o com.docker.network.bridge.name=goose0 \
-  mms-interop-goose
+  iec61850-interop-goose
 
-docker run -d --name goose-sub --network mms-interop-goose \
+docker run -d --name goose-sub --network iec61850-interop-goose \
   --cap-add NET_RAW --cap-add NET_ADMIN \
   --entrypoint libiec61850-goose-subscriber \
-  ghcr.io/otfabric/mms-interop-libiec61850:v0.3.0 --iface eth0 --app-id 0x1001
+  ghcr.io/otfabric/iec61850-interop-libiec61850:v1.0.0 --iface eth0 --app-id 0x1001
 ```
 
 Inside a container the interface is `eth0`. The GOOSE binaries carry the
@@ -179,7 +183,7 @@ Two options, both used by CI:
    container to join sees its first second or so of sends stall while
    the bridge comes up (retransmissions are lost, not delayed). Attach the
    adapter you do not test the timing of first, or an idle container
-   (`docker run -d --network mms-interop-goose --entrypoint sleep IMAGE infinity`),
+   (`docker run -d --network iec61850-interop-goose --entrypoint sleep IMAGE infinity`),
    and wait a second before the publisher starts. With adapters on both
    ends in containers, the first one started is that port.
 
@@ -187,7 +191,7 @@ Two options, both used by CI:
    host:
 
    ```bash
-   docker run --rm --network mms-interop-goose --cap-add NET_RAW \
+   docker run --rm --network iec61850-interop-goose --cap-add NET_RAW \
      -v "$PWD":/src -w /src golang:1.27 \
      env GOOSE_IFACE=eth0 go test -tags=interop ./interop/...
    ```
@@ -205,6 +209,6 @@ runs between every pair of libiec61850, dscsystems and iec61850-rust.
 Docker Desktop runs containers in a Linux VM. The `goose0` bridge lives
 in that VM, not on the macOS host, and macOS has no `AF_PACKET`, so a Go
 test running natively on macOS cannot exchange GOOSE frames with the
-adapters. Run the Go side inside a container on `mms-interop-goose`
+adapters. Run the Go side inside a container on `iec61850-interop-goose`
 (option 2), or with `--network host`, which on Docker Desktop is the VM's
 network namespace and therefore sees `goose0` (option 1 inside the VM).

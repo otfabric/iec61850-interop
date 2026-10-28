@@ -7,10 +7,10 @@
         clean
 
 PLATFORM            ?= linux/amd64
-LIBIEC61850_IMAGE   ?= mms-interop-libiec61850:local
-IEC61850BEAN_IMAGE  ?= mms-interop-iec61850bean:local
-DSCSYSTEMS_IMAGE    ?= mms-interop-dscsystems:local
-IEC61850RUST_IMAGE  ?= mms-interop-iec61850-rust:local
+LIBIEC61850_IMAGE   ?= iec61850-interop-libiec61850:local
+IEC61850BEAN_IMAGE  ?= iec61850-interop-iec61850bean:local
+DSCSYSTEMS_IMAGE    ?= iec61850-interop-dscsystems:local
+IEC61850RUST_IMAGE  ?= iec61850-interop-iec61850-rust:local
 ADAPTER_VERSION     ?= dev
 FIXTURE             ?= fixtures/mms/interop.json
 PORT                ?= 1102
@@ -18,7 +18,7 @@ REGISTRY            ?= ghcr.io/otfabric
 VERSION             ?= latest
 
 # Scratch directory for locally cloned libiec61850 (used by genmodel target).
-LIBIEC61850_CLONE   ?= /tmp/mms-interop-libiec61850-src
+LIBIEC61850_CLONE   ?= /tmp/iec61850-interop-libiec61850-src
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-26s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -75,28 +75,29 @@ build-iec61850-rust: ## Build the csp0924/iec61850-rust adapter image.
 publish: publish-libiec61850 publish-iec61850bean publish-dscsystems publish-iec61850-rust ## Publish adapter images to $(REGISTRY).
 
 publish-libiec61850: build-libiec61850 ## Tag and push the libiec61850 adapter image.
-	docker tag $(LIBIEC61850_IMAGE) $(REGISTRY)/mms-interop-libiec61850:$(VERSION)
-	docker push $(REGISTRY)/mms-interop-libiec61850:$(VERSION)
+	docker tag $(LIBIEC61850_IMAGE) $(REGISTRY)/iec61850-interop-libiec61850:$(VERSION)
+	docker push $(REGISTRY)/iec61850-interop-libiec61850:$(VERSION)
 
 publish-iec61850bean: build-iec61850bean ## Tag and push the iec61850bean adapter image.
-	docker tag $(IEC61850BEAN_IMAGE) $(REGISTRY)/mms-interop-iec61850bean:$(VERSION)
-	docker push $(REGISTRY)/mms-interop-iec61850bean:$(VERSION)
+	docker tag $(IEC61850BEAN_IMAGE) $(REGISTRY)/iec61850-interop-iec61850bean:$(VERSION)
+	docker push $(REGISTRY)/iec61850-interop-iec61850bean:$(VERSION)
 
 publish-dscsystems: build-dscsystems ## Tag and push the dscsystems adapter image.
-	docker tag $(DSCSYSTEMS_IMAGE) $(REGISTRY)/mms-interop-dscsystems:$(VERSION)
-	docker push $(REGISTRY)/mms-interop-dscsystems:$(VERSION)
+	docker tag $(DSCSYSTEMS_IMAGE) $(REGISTRY)/iec61850-interop-dscsystems:$(VERSION)
+	docker push $(REGISTRY)/iec61850-interop-dscsystems:$(VERSION)
 
 publish-iec61850-rust: build-iec61850-rust ## Tag and push the iec61850-rust adapter image.
-	docker tag $(IEC61850RUST_IMAGE) $(REGISTRY)/mms-interop-iec61850-rust:$(VERSION)
-	docker push $(REGISTRY)/mms-interop-iec61850-rust:$(VERSION)
+	docker tag $(IEC61850RUST_IMAGE) $(REGISTRY)/iec61850-interop-iec61850-rust:$(VERSION)
+	docker push $(REGISTRY)/iec61850-interop-iec61850-rust:$(VERSION)
 
 # ---------------------------------------------------------------------------
 # Fixture validation (no Docker required)
 # ---------------------------------------------------------------------------
 
-validate-fixtures: ## JSON/XML syntax + cross-reference checks, and the notes of the newest version in RELEASE.md (no Docker, no network).
+validate-fixtures: ## JSON/XML syntax + cross-reference checks, the notes of the newest version in RELEASE.md, and the generated COVERAGE.md/README matrix (no Docker, no network).
 	python3 scripts/validate-fixtures.py
 	@scripts/release-notes.sh > /dev/null && echo "ok   RELEASE.md has the notes of the newest version"
+	@scripts/gen-coverage.sh --check
 
 clone-libiec61850: ## Clone libiec61850 at the pinned SHA into $(LIBIEC61850_CLONE).
 	$(eval LIBIEC61850_SHA := $(shell grep 'LIBIEC61850_SHA=' adapters/libiec61850/Dockerfile | head -1 | cut -d= -f2))
@@ -247,7 +248,7 @@ pr: validate-fixtures build verify-binaries verify-fixtures smoke goose-crossche
 ci: validate-fixtures build verify-binaries verify-fixtures smoke goose-crosscheck sv-crosscheck ## Mirror ci.yml locally (no publish).
 	@echo ""
 	@echo "--- Provenance ---"
-	@echo "mms-interop SHA : $$(git rev-parse HEAD 2>/dev/null || echo 'unknown')"
+	@echo "iec61850-interop SHA : $$(git rev-parse HEAD 2>/dev/null || echo 'unknown')"
 	@echo "libiec61850 SHA : $$(grep 'LIBIEC61850_SHA=' adapters/libiec61850/Dockerfile | head -1 | cut -d= -f2)"
 	@echo "iec61850bean    : $$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+' adapters/iec61850bean/pom.xml | head -1 || echo 1.9.0)"
 	@echo "dscsystems      : $$(grep 'ARG DSCSYSTEMS_SHA=' adapters/dscsystems/Dockerfile | cut -d= -f2)"

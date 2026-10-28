@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/otfabric/mms-interop/adapters/dscsystems/internal/jl"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/jl"
 )
 
 // simulationBit is the S bit of Reserved1 (IEC 61850-8-1 Ed2, Annex C):

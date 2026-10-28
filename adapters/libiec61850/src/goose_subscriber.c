@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * goose_subscriber.c — libIEC61850 GOOSE subscriber adapter for mms-interop.
+ * goose_subscriber.c — libIEC61850 GOOSE subscriber adapter for iec61850-interop.
  *
  * Usage:
  *   libiec61850-goose-subscriber --iface IF [--app-id 0xNNNN]

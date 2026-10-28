@@ -1,19 +1,19 @@
 # SPDX-License-Identifier: MIT
 #
-# mms-interop adapter on csp0924/iec61850-rust (MIT OR Apache-2.0).
+# iec61850-interop adapter on csp0924/iec61850-rust (MIT OR Apache-2.0).
 #
 # The upstream crates are pinned to one commit through `rev`; the Dockerfile
 # documents the same commit in IEC61850_RUST_SHA and checks it against this
 # file. Cargo.lock is committed so the whole dependency graph is fixed.
 
 [package]
-name = "mms-interop-iec61850-rust"
+name = "iec61850-interop-iec61850-rust"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.88"
 license = "MIT"
 publish = false
-description = "mms-interop adapter commands on iec61850-rust (MMS, IEC 61850, GOOSE, SV)"
+description = "iec61850-interop adapter commands on iec61850-rust (MMS, IEC 61850, GOOSE, SV)"
 
 [lib]
 name = "adapter"

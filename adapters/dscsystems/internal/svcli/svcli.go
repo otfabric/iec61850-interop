@@ -16,8 +16,8 @@ import (
 	"github.com/dscsystems/go-iec61850/model"
 	"github.com/dscsystems/go-iec61850/sv"
 
-	"github.com/otfabric/mms-interop/adapters/dscsystems/internal/jl"
-	"github.com/otfabric/mms-interop/adapters/dscsystems/internal/mmsjson"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/jl"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/mmsjson"
 )
 
 // QualityBits is the length of the quality bit-string; bits 13..31 of the

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * mms_client.c — libIEC61850 MMS client adapter for mms-interop.
+ * mms_client.c — libIEC61850 MMS client adapter for iec61850-interop.
  *
  * Connects to a host:port MMS server, executes the Phase 1A + Phase 1C
  * operation sequence, and emits one JSON Line per operation to stdout.

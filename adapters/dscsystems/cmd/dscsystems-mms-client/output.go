@@ -24,7 +24,7 @@ import (
 	"syscall"
 
 	"github.com/dscsystems/go-iec61850/mms"
-	"github.com/otfabric/mms-interop/adapters/dscsystems/internal/jl"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/jl"
 )
 
 // raw is a pre-rendered JSON value.

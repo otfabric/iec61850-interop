@@ -3,7 +3,7 @@
 # Build from repository root:
 #   docker buildx build --platform=linux/amd64 \
 #       -f adapters/libiec61850/Dockerfile \
-#       -t mms-interop-libiec61850:local .
+#       -t iec61850-interop-libiec61850:local .
 #
 # The adapter binaries require access to libIEC61850 private headers (Phase 0
 # finding: generic MMS server API is only in src/mms/inc_private/). The source
@@ -109,6 +109,9 @@ RUN cmake .. \
 # Stage 3: minimal runtime image
 # ---------------------------------------------------------------------------
 FROM debian:bookworm-slim@${DEBIAN_DIGEST} AS runtime
+
+LABEL org.opencontainers.image.source="https://github.com/otfabric/iec61850-interop" \
+      org.opencontainers.image.description="iec61850-interop adapter on libiec61850 (MMS, IEC 61850, GOOSE, Sampled Values)"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libjson-c5 \

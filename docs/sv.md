@@ -9,15 +9,18 @@ Linux, a container on macOS).
 
 | Command | Image |
 |---|---|
-| `libiec61850-sv-publisher`, `libiec61850-sv-subscriber` | `mms-interop-libiec61850` |
-| `dscsystems-sv-publisher`, `dscsystems-sv-subscriber` | `mms-interop-dscsystems` |
-| `iec61850-rust-sv-publisher`, `iec61850-rust-sv-subscriber` | `mms-interop-iec61850-rust` |
+| `libiec61850-sv-publisher`, `libiec61850-sv-subscriber` | `iec61850-interop-libiec61850` |
+| `dscsystems-sv-publisher`, `dscsystems-sv-subscriber` | `iec61850-interop-dscsystems` |
+| `iec61850-rust-sv-publisher`, `iec61850-rust-sv-subscriber` | `iec61850-interop-iec61850-rust` |
 
 iec61850bean has no Sampled Values support (no publisher, subscriber or
 SVCB model), so its image has no SV commands.
 
 All three stacks implement one command line and JSON Lines contract, so a
 test switches peer by image and command name only.
+The rules every command shares (`--version`, `--capabilities`,
+stdout/stderr, the v1 stability promise) are in [contract.md](contract.md);
+this page is the Sampled Values part of that contract.
 
 ## Fixture — `fixtures/sv/` (revision `sv-v1`)
 

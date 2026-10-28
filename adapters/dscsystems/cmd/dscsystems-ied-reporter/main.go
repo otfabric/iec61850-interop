@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 // Command dscsystems-ied-reporter is the dscsystems/go-iec61850 URCB
-// adapter for mms-interop, the counterpart of libiec61850-ied-reporter.
+// adapter for iec61850-interop, the counterpart of libiec61850-ied-reporter.
 //
 // It connects to --host/--port, enables InteropLD/LLN0.RP.urcb01, writes
 // GGIO1.SPS1.stVal[ST] to raise a dchg report, waits for it, emits it,
@@ -27,8 +27,8 @@ import (
 	"github.com/dscsystems/go-iec61850/client"
 	"github.com/dscsystems/go-iec61850/mms"
 	"github.com/dscsystems/go-iec61850/model"
-	"github.com/otfabric/mms-interop/adapters/dscsystems/internal/ied"
-	"github.com/otfabric/mms-interop/adapters/dscsystems/internal/jl"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/ied"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/jl"
 )
 
 const (

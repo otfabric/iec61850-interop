@@ -6,7 +6,7 @@
 # Build from repository root:
 #   docker buildx build --platform=linux/amd64 \
 #       -f adapters/iec61850-rust/Dockerfile \
-#       -t mms-interop-iec61850-rust:local .
+#       -t iec61850-interop-iec61850-rust:local .
 #
 # The upstream pin is the `rev` of the iec61850-* git dependencies in
 # adapters/iec61850-rust/Cargo.toml, locked in Cargo.lock
@@ -46,8 +46,8 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 # ---------------------------------------------------------------------------
 FROM debian:bookworm-slim@${DEBIAN_DIGEST} AS runtime
 
-LABEL org.opencontainers.image.source="https://github.com/otfabric/mms-interop" \
-      org.opencontainers.image.description="mms-interop adapter on csp0924/iec61850-rust (MMS, IEC 61850, GOOSE, SV)" \
+LABEL org.opencontainers.image.source="https://github.com/otfabric/iec61850-interop" \
+      org.opencontainers.image.description="iec61850-interop adapter on csp0924/iec61850-rust (MMS, IEC 61850, GOOSE, SV)" \
       org.opencontainers.image.licenses="MIT AND (MIT OR Apache-2.0)"
 
 COPY --from=build /out/ /usr/local/bin/
@@ -71,7 +71,7 @@ COPY fixtures/iec61850/values.json  /fixtures/iec61850/values.json
 COPY fixtures/goose/                /fixtures/goose/
 COPY fixtures/sv/                   /fixtures/sv/
 COPY adapters/iec61850-rust/LICENSE-MIT adapters/iec61850-rust/LICENSE-APACHE adapters/iec61850-rust/NOTICE \
-     /usr/share/doc/mms-interop-iec61850-rust/
+     /usr/share/doc/iec61850-interop-iec61850-rust/
 
 USER adapter
 

@@ -219,7 +219,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mms-interop-iec61850-rust"
+name = "iec61850-interop-iec61850-rust"
 version = "0.1.0"
 dependencies = [
  "bytes",

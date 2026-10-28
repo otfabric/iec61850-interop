@@ -6,7 +6,7 @@ import com.beanit.iec61850bean.*;
 import java.net.InetAddress;
 
 /**
- * iec61850bean IED controller adapter for mms-interop Phase 2E/2I/2J.
+ * iec61850bean IED controller adapter for iec61850-interop Phase 2E/2I/2J.
  *
  * <p>Mirrors the operation sequence of {@code libiec61850-ied-controller}:
  * <ol>

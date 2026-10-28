@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * fixture.h — load an mms-interop fixture JSON into a ready-to-use model.
+ * fixture.h — load an iec61850-interop fixture JSON into a ready-to-use model.
  *
  * Each VarDef holds an allocated MmsVariableSpecification (type shape) and
  * an initial MmsValue.  Both are owned by the FixtureDef; call fixture_free()

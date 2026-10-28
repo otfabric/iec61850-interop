@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 // Package mmsjson converts MMS values to and from the typed JSON form of
-// the mms-interop contract: {"type":"boolean","value":true}.
+// the iec61850-interop contract: {"type":"boolean","value":true}.
 //
 //	boolean          JSON boolean
 //	integer          JSON number

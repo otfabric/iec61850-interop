@@ -7,7 +7,7 @@ import java.net.InetAddress;
 import java.util.*;
 
 /**
- * iec61850bean IED client adapter for mms-interop.
+ * iec61850bean IED client adapter for iec61850-interop.
  *
  * <p>Executes the same fixed operation sequence as the libiec61850 IED client
  * (see {@code adapters/libiec61850/src/ied_client.c}) and emits one JSON Line

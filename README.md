@@ -1,302 +1,333 @@
-# mms-interop
+# iec61850-interop
 
-Interoperability **infrastructure** for [go-mms](https://github.com/otfabric/go-mms) and [go-iec61850](https://github.com/otfabric/go-iec61850).
+> **Renamed from `mms-interop`.** The repository was `otfabric/mms-interop`
+> until v0.4.1 and its images were `ghcr.io/otfabric/mms-interop-<stack>`.
+> From v1.0.0 the images are `ghcr.io/otfabric/iec61850-interop-<stack>`.
+> The old images stay published and pullable by their tags and digests (see
+> [RELEASE.md](RELEASE.md)) but receive no new versions; GitHub redirects the
+> old repository URL.
 
-This repository provides adapter images, fixture files and the adapter output contract. It does not own assertions about the Go libraries. Interoperability tests and compatibility matrices live in the Go repositories and consume the infrastructure here.
+Interoperability infrastructure for IEC 61850 across all of its
+communication profiles: **MMS** (client/server, ISO 9506), **IED services**
+(the IEC 61850-8-1 ACSI mapping: browse, read/write, datasets, reports,
+controls), **GOOSE** (IEC 61850-8-1, layer 2) and **Sampled Values**
+(IEC 61850-9-2 / 9-2LE, layer 2).
 
-```
-               mms-interop
-          containers + fixtures
-               /           \
-              /             \
-         go-mms           go-iec61850
-      interop/             interop/
-   owns MMS tests      owns IEC 61850 tests
-```
-
-## Purpose
-
-- Publish reproducible adapter images for libiec61850, iec61850bean, dscsystems/go-iec61850 and csp0924/iec61850-rust.
-- Define the canonical fixture models and runtime values that all interop tests rely on.
-- Specify the JSON Lines adapter output contract that adapters must implement.
-- Keep the adapter implementations simple and auditable against upstream library examples.
-
-## Repository structure
+The repository publishes one container image per independent IEC 61850 stack
+(libiec61850, iec61850bean, dscsystems/go-iec61850, iec61850-rust), the
+canonical fixtures every stack loads, and a stable JSON Lines contract that
+every adapter command speaks. It does not own assertions about any library:
+interop tests and compatibility matrices live in the consumer repositories.
 
 ```
-mms-interop/
-├── README.md
-├── PLAN.md
-├── COVERAGE.md               # Adapter command availability
-├── Makefile
-├── docker-compose.yml
-├── docs/
-│   ├── goose.md              # GOOSE contract and L2 networking
-│   └── sv.md                 # Sampled Values contract
-│
-├── fixtures/
-│   ├── mms/
-│   │   └── interop.json      # MMS server model and initial variable state
-│   ├── iec61850/
-│   │   ├── interop.icd       # SCL model (logical devices, nodes, data objects)
-│   │   └── values.json       # Runtime values and writable attribute list
-│   ├── goose/
-│   │   ├── interop-goose.cid # interop.icd + GOOSE datasets, GSEControl, GSE addresses
-│   │   └── goose.json        # GOOSE control blocks, members, test values
-│   └── sv/
-│       ├── interop-sv.cid    # interop.icd + 9-2LE merging unit, SampledValueControl, SMV addresses
-│       └── sv.json           # SV streams, members, test values
-│
-└── adapters/
-    ├── libiec61850/
-    │   ├── Dockerfile
-    │   ├── SPIKE.md           # Phase 0 findings
-    │   └── src/
-    ├── iec61850bean/
-    │   ├── Dockerfile
-    │   └── src/
-    ├── dscsystems/            # GPL-3.0 (LICENSE, NOTICE in this directory)
-    └── iec61850-rust/         # Rust adapter (LICENSE-MIT, LICENSE-APACHE, NOTICE)
-        ├── Dockerfile
-        ├── cmd/
-        └── internal/
+                      iec61850-interop
+        images + fixtures + JSON Lines contract (v1, semver)
+           /                    |                     \
+      go-mms               go-iec61850             iec61850ctl
+   MMS interop tests   IED / GOOSE / SV tests     CLI e2e tests
 ```
 
-## Library boundary
+## Stacks and capabilities
 
-| Library | Responsibility |
+<!-- capability-matrix:begin -->
+<!-- generated from fixtures/capabilities.json by scripts/gen-coverage.sh; do not edit -->
+
+| Stack | Image | MMS server | MMS client | IED server | IED client | IED controller | IED reporter | GOOSE publisher | GOOSE subscriber | SV publisher | SV subscriber | SVCB over MMS |
+|-------|-------|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| libiec61850 | `iec61850-interop-libiec61850` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| iec61850bean | `iec61850-interop-iec61850bean` | — | — | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — |
+| dscsystems | `iec61850-interop-dscsystems` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| iec61850-rust | `iec61850-interop-iec61850-rust` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+
+<!-- capability-matrix:end -->
+
+✓ = the command exists in the image. SVCB over MMS = the IED server exposes
+the SV control block `LLN0$MS$MSVCB02` as MMS variables. The table is
+generated from [`fixtures/capabilities.json`](fixtures/capabilities.json) by
+`scripts/gen-coverage.sh` and checked in CI; that file, not this README, is
+the authoritative capability claim, including the known limitations of each
+stack. [COVERAGE.md](COVERAGE.md) lists every command and limitation.
+
+| Stack | Upstream | Language | Pinned at |
+|---|---|---|---|
+| libiec61850 | [mz-automation/libiec61850](https://github.com/mz-automation/libiec61850) | C | `1.6.2.1-89-g6e265c54` |
+| iec61850bean | [beanit/iec61850bean](https://github.com/beanit/iec61850bean) | Java | 1.9.0 |
+| dscsystems | [dscsystems/go-iec61850](https://github.com/dscsystems/go-iec61850) | Go | `v0.6.5-1-g6bf3f37` |
+| iec61850-rust | [csp0924/iec61850-rust](https://github.com/csp0924/iec61850-rust) | Rust | `v0.2.0` (`d4e8952`) |
+
+The four share no protocol code with each other or with the otfabric Go
+libraries, which is the point: a library that interoperates with all of them
+has not just agreed with itself.
+
+## Images
+
+| Image | Commands |
 |---|---|
-| `go-mms` | ISO session / presentation / ACSE, MMS association, BER encoding, generic MMS services, named variable lists |
-| `go-iec61850` | IEC 61850 object references, functional constraints, logical-node discovery, datasets, reports, controls, SCL handling — uses `go-mms` underneath |
+| `ghcr.io/otfabric/iec61850-interop-libiec61850` | `libiec61850-*` |
+| `ghcr.io/otfabric/iec61850-interop-iec61850bean` | `iec61850bean-*` |
+| `ghcr.io/otfabric/iec61850-interop-dscsystems` | `dscsystems-*` (GPL-3.0, see [Licensing](#licensing)) |
+| `ghcr.io/otfabric/iec61850-interop-iec61850-rust` | `iec61850-rust-*` |
 
-`go-mms` must never accumulate IEC 61850 semantics, even as a convenience.
+Every image is multi-arch (`linux/amd64`, `linux/arm64`) and tagged
+`vX.Y.Z`, `X.Y.Z`, `X.Y`, `X` and `latest`. Each command is a binary on the
+`PATH`; select it with `--entrypoint`. The default entrypoint is the
+stack's MMS server (the IED server for iec61850bean) on port 1102.
 
-## Adapters
+### Pinning by digest
 
-Third-party implementations run as separate Docker containers. They are intentionally simple: load a fixture, start a server or execute a fixed operation sequence, emit structured JSON Lines, exit.
+Tags are for humans; CI pins the multi-arch digest. Every GitHub release
+lists the four digests and ships a `manifest.json` with them, the upstream
+pins and the fixture revisions:
 
-### libiec61850
+```bash
+gh release download v1.0.0 -R otfabric/iec61850-interop -p manifest.json
+jq -r '.images' manifest.json
 
-[libIEC61850](https://libiec61850.com) is the primary reference. It exposes a distinct low-level generic MMS API and a separate high-level IEC 61850 API, which maps cleanly onto the `go-mms` / `go-iec61850` split.
+# or resolve a tag yourself
+docker buildx imagetools inspect ghcr.io/otfabric/iec61850-interop-libiec61850:v1.0.0 \
+  --format '{{ .Manifest.Digest }}'
+```
 
-libiec61850 is built and executed as a separate GPLv3-licensed containerised program and is not linked into the MIT-licensed Go libraries. It is downloaded from a pinned release archive during the Docker build. Distribution of any image containing it must preserve the applicable GPLv3 notices and corresponding source obligations.
+Consumers read the image from an environment variable, one per stack:
 
-The authoritative machine-readable command list is [`fixtures/capabilities.json`](fixtures/capabilities.json) (also rendered as [`COVERAGE.md`](COVERAGE.md)). Do not treat README prose as a capability claim.
+```bash
+LIBIEC61850_IMAGE=ghcr.io/otfabric/iec61850-interop-libiec61850@sha256:<digest>
+IEC61850BEAN_IMAGE=ghcr.io/otfabric/iec61850-interop-iec61850bean@sha256:<digest>
+DSCSYSTEMS_IMAGE=ghcr.io/otfabric/iec61850-interop-dscsystems@sha256:<digest>
+IEC61850RUST_IMAGE=ghcr.io/otfabric/iec61850-interop-iec61850-rust@sha256:<digest>
+```
 
-Commands currently declared for libiec61850:
+The images are public; `docker pull` needs no login.
 
-- `libiec61850-mms-server` — generic MMS server loaded from `fixtures/mms/interop.json`
-- `libiec61850-mms-client` — generic MMS client, executes a fixed sequence and emits JSON Lines
-- `libiec61850-ied-server` — IEC 61850 IED server loaded from `fixtures/iec61850/`
-- `libiec61850-ied-client` — IEC 61850 general browse/read/write/dataset client (fixed sequence)
-- `libiec61850-ied-controller` — IEC 61850 control client (direct / SBO / SBOw against SPCSO*)
-- `libiec61850-ied-reporter` — IEC 61850 client that subscribes to URCB and emits report fields as JSON Lines
-- `libiec61850-goose-publisher` — GOOSE publisher (raw Ethernet), state changes from stdin
-- `libiec61850-goose-subscriber` — GOOSE subscriber, one JSON line per frame plus TAL supervision
-- `libiec61850-sv-publisher` — Sampled Values publisher (9-2LE or generic), value changes from stdin
-- `libiec61850-sv-subscriber` — Sampled Values subscriber, sampled ASDUs plus loss statistics
+## Quick start
 
-### iec61850bean
+The examples use `v1.0.0` tags for brevity; pin digests in CI.
 
-[IEC61850bean](https://www.beanit.com/iec-61850/) (Apache-2.0) is the secondary reference. It provides an independently implemented ASN.1/BER encoder, ACSE state machine, MMS protocol handler and IEC 61850 mapping — genuine protocol diversity rather than a language wrapper over the same core.
+```bash
+V=v1.0.0
+R=ghcr.io/otfabric/iec61850-interop
+docker network create interop
+```
 
-`iec61850bean` is used at the IEC 61850 semantic layer only. Its MMS layer is not exposed through a practical generic MMS API, so generic MMS interoperability is covered by the libiec61850 directions.
+**MMS** — a libiec61850 MMS server and the dscsystems MMS client against it:
 
-Commands currently declared for iec61850bean (see `fixtures/capabilities.json`):
+```bash
+docker run -d --rm --name mms --network interop -p 1102:1102 $R-libiec61850:$V
+docker logs mms        # {"event":"ready","address":"0.0.0.0:1102","fixture":"mms-v2",...}
+docker run --rm --network interop --entrypoint dscsystems-mms-client \
+  $R-dscsystems:$V --host mms --port 1102
+docker stop mms
+```
 
-- `iec61850bean-ied-server` — IEC 61850 IED server loaded from `fixtures/iec61850/`
-- `iec61850bean-ied-client` — IEC 61850 general browse/read/write/dataset client (fixed sequence)
-- `iec61850bean-ied-controller` — IEC 61850 control client (direct / SBO / SBOw against SPCSO*)
-- `iec61850bean-ied-reporter` — IEC 61850 URCB reporter client (JSON Lines)
+Port 1102 is published on the host as well, so an MMS client under test
+(go-mms) can connect to `localhost:1102`.
 
-### dscsystems
+**IED services** — an iec61850-rust IED server and the iec61850bean IED
+client, controller and reporter against it:
 
-[dscsystems/go-iec61850](https://github.com/dscsystems/go-iec61850) (GPL-3.0) is a third, independent stack: pure Go MMS, IEC 61850 and GOOSE, sharing no code with libiec61850, iec61850bean or the otfabric libraries. The adapter is pinned to upstream commit `6bf3f37` (`v0.6.5-1-g6bf3f37`, in `adapters/dscsystems/go.mod` and the Dockerfile).
+```bash
+docker run -d --rm --name ied --network interop -p 1102:1102 \
+  --entrypoint iec61850-rust-ied-server $R-iec61850-rust:$V --port 1102
+docker run --rm --network interop --entrypoint iec61850bean-ied-client \
+  $R-iec61850bean:$V --host ied --port 1102
+docker run --rm --network interop --entrypoint iec61850bean-ied-controller \
+  $R-iec61850bean:$V --host ied --port 1102 --do SPCSO2 --ctlval 1
+docker run --rm --network interop --entrypoint iec61850bean-ied-reporter \
+  $R-iec61850bean:$V --host ied --port 1102
+docker stop ied
+```
 
-It offers the libiec61850 command set under the `dscsystems-` prefix, with the same flags, fixture defaults and JSON Lines, so a consumer harness switches stacks by image and command prefix alone:
+**GOOSE** — layer 2, so both ends need `NET_RAW` on one bridge:
 
-- `dscsystems-mms-server`, `dscsystems-mms-client`
-- `dscsystems-ied-server`, `dscsystems-ied-client`, `dscsystems-ied-controller`, `dscsystems-ied-reporter`
-- `dscsystems-goose-publisher`, `dscsystems-goose-subscriber`
-- `dscsystems-sv-publisher`, `dscsystems-sv-subscriber`
+```bash
+docker network create -o com.docker.network.bridge.name=goose0 iec61850-interop-goose
+docker run -d --rm --name goose-sub --network iec61850-interop-goose --cap-add NET_RAW \
+  --entrypoint iec61850-rust-goose-subscriber $R-iec61850-rust:$V --iface eth0 --app-id 0x1002
+docker run -i --rm --network iec61850-interop-goose --cap-add NET_RAW \
+  --entrypoint libiec61850-goose-publisher $R-libiec61850:$V \
+  --iface eth0 --gocb-ref 'InteropIEDInteropLD/LLN0$GO$gcbBool' --go-id InteropGooseBool \
+  --dataset 'InteropIEDInteropLD/LLN0$dsGooseBool' --app-id 0x1002 --dst 01:0c:cd:01:00:02 \
+  --values '[{"type":"boolean","value":false},{"type":"bit-string","value":"0000000000000"}]'
+# type {"cmd":"set","values":[{"type":"boolean","value":true},{"type":"bit-string","value":"0000000000000"}]}
+# then {"cmd":"stop"}; docker logs goose-sub shows both states
+```
 
-Where the library behaves differently, the gap is a known limitation in `fixtures/capabilities.json`.
+Or check a whole publisher/subscriber pair against the fixture:
 
-**Licensing boundary.** dscsystems code lives only in `adapters/dscsystems/` and the `mms-interop-dscsystems` image. That directory is GPL-3.0 (`LICENSE`, `NOTICE`); the rest of the repository stays MIT. Nothing from it may be copied or vendored into the MIT-licensed `go-mms` or `go-iec61850`: they talk to the adapter only over the network and its JSON Lines, as a separate program.
+```bash
+scripts/goose-crosscheck.sh $R-libiec61850:$V libiec61850-goose-publisher \
+                            $R-dscsystems:$V  dscsystems-goose-subscriber
+```
 
-### iec61850-rust
+**Sampled Values** — the 9-2LE stream from one stack into another, with the
+values, header fields and loss checked against `fixtures/sv/sv.json`:
 
-[csp0924/iec61850-rust](https://github.com/csp0924/iec61850-rust) (MIT OR Apache-2.0) is a fourth, independent stack in Rust. The adapter is pinned to upstream commit `d4e8952` (`v0.2.0`, the `rev` in `adapters/iec61850-rust/Cargo.toml`, locked in `Cargo.lock`) and built with Rust 1.95.0 (upstream's `rust-toolchain.toml` asks for stable).
+```bash
+scripts/sv-crosscheck.sh $R-dscsystems:$V   dscsystems-sv-publisher \
+                         $R-libiec61850:$V  libiec61850-sv-subscriber        # MSVCB01, 9-2LE
+scripts/sv-crosscheck.sh $R-iec61850-rust:$V iec61850-rust-sv-publisher \
+                         $R-dscsystems:$V    dscsystems-sv-subscriber MSVCB02 # generic stream
+```
 
-It offers the same command set under the `iec61850-rust-` prefix:
+[docs/sv.md](docs/sv.md) has the flags to run a publisher or subscriber
+directly.
 
-- `iec61850-rust-mms-server`, `iec61850-rust-mms-client`
-- `iec61850-rust-ied-server`, `iec61850-rust-ied-client`, `iec61850-rust-ied-controller`, `iec61850-rust-ied-reporter`
-- `iec61850-rust-goose-publisher`, `iec61850-rust-goose-subscriber`
-- `iec61850-rust-sv-publisher`, `iec61850-rust-sv-subscriber`
+## Layer-2 networking (GOOSE, SV)
 
-Upstream has no generic MMS server and a partial MMS client, so the adapter runs the association with upstream's ISO layers and encodes the remaining services itself. All eight commands are supported; a command that a stack cannot provide answers `{"event":"error","code":"unsupported","command":...,"reason":...}` and exits 4. Gaps are known limitations in `fixtures/capabilities.json`. `adapters/iec61850-rust/` keeps upstream's `LICENSE-MIT`, `LICENSE-APACHE` and a `NOTICE`.
+GOOSE and SV are raw Ethernet (EtherType `0x88B8` / `0x88BA`), not IP. The
+adapters open an `AF_PACKET` socket on `eth0`, so:
 
-## GOOSE
+- the container needs `NET_RAW` (in Docker's default set; `--cap-add NET_RAW`
+  makes it explicit, and is required with `cap_drop: ALL`); the binaries
+  carry `cap_net_raw+ep` and run as the non-root image user, except under
+  `--security-opt no-new-privileges`, where you add `--user 0`;
+- publisher and subscriber share one user-defined bridge network. Name the
+  bridge device (`-o com.docker.network.bridge.name=goose0`) so the host can
+  find it.
 
-GOOSE is layer 2. The publisher and subscriber commands of libiec61850, dscsystems and iec61850-rust share one contract and one fixture (`fixtures/goose/`). They need `CAP_NET_RAW` and a Docker bridge network shared with the peer; a Go test on a Linux host joins through the bridge device, on macOS it has to run in a container. [`docs/goose.md`](docs/goose.md) has the contract, the fixture and the networking recipes.
+**Linux host.** The bridge device `goose0` is a port of the same segment. A
+Go test on the host opens `goose0` with `CAP_NET_RAW` (`go test -exec sudo`
+or `setcap cap_net_raw+ep` on the test binary) and exchanges frames with the
+containers: `GOOSE_IFACE=goose0 go test -exec sudo -tags=interop ./...`. A
+bridge with no container attached has no carrier: attach one container
+first and wait a second before timing-sensitive sends.
 
-## Sampled Values
+**macOS (and Windows).** Docker Desktop runs containers in a Linux VM; the
+bridge lives in the VM and macOS has no `AF_PACKET`. Run the Go side in a
+container on the same network (`docker run --network iec61850-interop-goose
+--cap-add NET_RAW -v "$PWD":/src -w /src golang:1.27 go test ...`), or with
+`--network host`, which on Docker Desktop is the VM's namespace.
 
-Sampled Values (IEC 61850-9-2) are layer 2 like GOOSE and use the same Docker networking. libiec61850, dscsystems and iec61850-rust have SV publisher and subscriber commands with one contract and one fixture (`fixtures/sv/`): a 9-2LE stream (80 samples per period at 50 Hz, one ASDU per frame) and a generic stream (1000 samples/s, four ASDUs, float/integer/quality members). The subscriber reports every Nth ASDU and once per second its received, lost, duplicate and out-of-order counts. iec61850bean has no SV support. [`docs/sv.md`](docs/sv.md) has the contract; `fixtures/capabilities.json` records the gaps between stacks and which IED servers expose SV control blocks over MMS.
+[docs/goose.md](docs/goose.md#l2-networking) has the full recipes and
+caveats (VLAN offload, promiscuous mode, the bridge start-up stall).
+
+## Contract
+
+Every command of every image speaks one contract: JSON Lines on stdout,
+diagnostics on stderr, a `ready` event before a server accepts connections
+or a publisher sends, one line per operation for the fixed-sequence clients,
+`--version` and `--capabilities` on every command, fixed exit codes.
+
+- [docs/contract.md](docs/contract.md) — shared rules, MMS and IED servers and clients, exit codes, the stability promise.
+- [docs/goose.md](docs/goose.md) — GOOSE publisher/subscriber, supervision, value JSON, L2 networking.
+- [docs/sv.md](docs/sv.md) — SV publisher/subscriber, 9-2LE and generic profiles, loss statistics.
+
+### Compatibility promise (v1)
+
+From **v1.0.0** this repository follows semantic versioning. Image names,
+command names and flags, event and operation shapes, exit codes, fixture
+revisions (`mms-v2`, `iec61850-v3`, `goose-v1`, `sv-v1`) and the schemas of
+`capabilities.json` and `manifest.json` change incompatibly only in a new
+major version. Minor versions add (commands, optional fields, new fixture
+revisions next to the old ones); patch versions fix adapters to match the
+contract and update known limitations. Consumers ignore fields and events
+they do not know. Details in [docs/contract.md](docs/contract.md#stability-v1).
 
 ## Fixtures
 
-### MMS — `fixtures/mms/interop.json`
+| Revision | Files | Used by |
+|---|---|---|
+| `mms-v2` | `fixtures/mms/interop.json` — domains, variables of every MMS type, NVLs, file store, journals | `*-mms-server`, `*-mms-client` |
+| `iec61850-v3` | `fixtures/iec61850/interop.icd` (SCL: `InteropIED`/`InteropLD`, GGIO1, MMXU1, MMTR1, datasets, URCB/BRCB, `MSVCB02`) and `values.json` (runtime values, writable attributes) | `*-ied-*` |
+| `goose-v1` | `fixtures/goose/interop-goose.cid` (`interop.icd` + GOOSE datasets, `GSEControl`, `GSE`) and `goose.json` (control blocks, members, values) | `*-goose-*` |
+| `sv-v1` | `fixtures/sv/interop-sv.cid` (`interop.icd` + 9-2LE merging unit, `SampledValueControl`, `SMV`) and `sv.json` (streams, members, values) | `*-sv-*` |
 
-Defines domains, variables, types and initial values. Consumed by the libiec61850 C adapter. Consumer repositories (`go-mms`) carry a synchronized copy in `interop/testdata/`.
+The images carry the fixtures under `/fixtures/`. Consumers keep
+synchronised copies in their `testdata/`; an image version and the fixture
+revisions it names are updated together. `scripts/validate-fixtures.py`
+cross-checks the files (values against the ICD, the CIDs against
+`interop.icd`, the JSON against the CIDs).
 
-Initial type baseline: `boolean`, `integer`, `unsigned`, `float32`, `visible-string`, `octet-string`, `bit-string`, `utc-time`, `array`, `structure`.
+Writable scalar setting for consumer write tests (ING CDC):
+`InteropLD/GGIO1.SetInt1.setVal[SP]`. Do not treat `Mod.ctlModel` / `Mod.d`
+as assumed-success write targets.
 
-New types are added only when `go-mms` claims support for them or when they represent a known interoperability risk.
+## Consumer repositories
 
-### IEC 61850 — `fixtures/iec61850/`
+| Repository | Uses |
+|---|---|
+| [otfabric/go-mms](https://github.com/otfabric/go-mms) | MMS servers and clients (`mms-v2`) |
+| [otfabric/go-iec61850](https://github.com/otfabric/go-iec61850) | IED servers, clients, controllers and reporters (`iec61850-v3`); GOOSE and SV publishers and subscribers (`goose-v1`, `sv-v1`) |
+| [otfabric/iec61850ctl](https://github.com/otfabric/iec61850ctl) | IED servers and clients for the CLI's end-to-end tests |
 
-`interop.icd` is the canonical SCL model file (logical devices, logical nodes, data objects, datasets, report control blocks, and since revision `iec61850-v3` the SV control block `MSVCB02` with its dataset `dsSvGeneric` and SMV address). `values.json` supplies mutable runtime state that SCL cannot express.
+Each reads the images from `LIBIEC61850_IMAGE`, `IEC61850BEAN_IMAGE`,
+`DSCSYSTEMS_IMAGE` and `IEC61850RUST_IMAGE` (the stacks it tests), pins them
+by digest and runs its tests with `-tags=interop`
+(`make interop`). A test starts the adapter container, waits for `ready`,
+exercises the library, reads the adapter's JSON Lines, and stops the
+container; nothing runs beforehand.
 
-Writable scalar setting used by consumer write e2e (ING CDC):
+`go-mms` owns MMS (ISO stack, ACSE, BER, generic MMS services) and must not
+grow IEC 61850 semantics; `go-iec61850` owns the IEC 61850 layer on top of
+it. The test directions per repository are in their `INTEROP.md`.
 
-```text
-InteropLD/GGIO1.SetInt1.setVal[SP]
-```
+## Licensing
 
-Do not treat `Mod.ctlModel` / `Mod.d` as assumed-success write targets.
+The repository's own code and documentation are MIT unless noted otherwise.
+Each image also contains its upstream library, under that library's licence:
 
-Consumer repositories (`go-iec61850`, `iec61850ctl`) carry synchronized copies in `interop/testdata/` / `e2e/testdata/`. The adapter image version and fixture revision must remain compatible — they are updated together.
+| Image | Adapter code | Upstream library | Image as distributed |
+|---|---|---|---|
+| `iec61850-interop-libiec61850` | MIT | libiec61850 — GPL-3.0 (or commercial) | contains GPL-3.0 code |
+| `iec61850-interop-iec61850bean` | MIT | iec61850bean — Apache-2.0 | MIT + Apache-2.0 |
+| `iec61850-interop-dscsystems` | **GPL-3.0** (`adapters/dscsystems/LICENSE`, `NOTICE`) | dscsystems/go-iec61850 — GPL-3.0 | GPL-3.0 |
+| `iec61850-interop-iec61850-rust` | MIT | iec61850-rust — MIT OR Apache-2.0 | MIT + (MIT OR Apache-2.0) |
 
-### GOOSE — `fixtures/goose/`
+**dscsystems isolation.** The dscsystems adapter is compiled into the same Go
+binaries as the GPL-3.0 library, so `adapters/dscsystems/` is itself GPL-3.0
+and lives only in that directory and that image. Nothing from it may be
+copied or vendored into the MIT-licensed `go-mms`, `go-iec61850` or any other
+directory of this repository. Consumers talk to every adapter only as a
+separate program, over the network and its JSON Lines, which keeps the
+consumers' own licence unaffected. Redistributing any image means keeping
+the upstream notices and meeting the source obligations of its licence. The
+dscsystems and iec61850-rust images carry their `LICENSE` and `NOTICE` files
+under `/usr/share/doc/iec61850-interop-<stack>/`; the NOTICE names the
+upstream commit the image was built from.
 
-Revision `goose-v1`. `interop-goose.cid` is `interop.icd` plus two GOOSE datasets (`dsGooseAll`: boolean, integer, unsigned, float32, quality, utc-time, Dbpos and a nested structure; `dsGooseBool`), their `GSEControl` blocks and `GSE` addresses. `goose.json` gives the same control blocks as on-wire references with initial and update values. `scripts/validate-fixtures.py` checks the two against each other and against `interop.icd`.
+## Building locally
 
-### Sampled Values — `fixtures/sv/`
-
-Revision `sv-v1`. `interop-sv.cid` is `interop.icd` plus the 9-2LE merging-unit model (`TCTR1..4`, `TVTR1..4`, dataset `PhsMeas1`), the `SampledValueControl` blocks `MSVCB01` (9-2LE) and `MSVCB02` (generic) and their `SMV` addresses. `sv.json` gives the same streams as on-wire references with initial and update values. `scripts/validate-fixtures.py` checks the two against each other and that the CID contains `interop.icd` unchanged.
-
-## Consuming the adapter images
-
-Consumer repositories pin a specific adapter image version tag for local use and a digest for CI:
-
-```bash
-# Local development — version tag
-LIBIEC61850_IMAGE=ghcr.io/otfabric/mms-interop-libiec61850:v0.4.0 make interop
-DSCSYSTEMS_IMAGE=ghcr.io/otfabric/mms-interop-dscsystems:v0.4.0 make interop
-IEC61850RUST_IMAGE=ghcr.io/otfabric/mms-interop-iec61850-rust:v0.4.0 make interop
-
-# CI — digest-pinned for full reproducibility
-LIBIEC61850_IMAGE=ghcr.io/otfabric/mms-interop-libiec61850@sha256:<digest> make interop
-```
-
-Each test lifecycle:
-
-1. Starts the adapter container with `docker run`.
-2. Waits for the readiness event on stdout (`{"event":"ready",...}`).
-3. Exercises the Go library under test.
-4. Collects adapter stdout (JSON Lines) and asserts results.
-5. Stops the container.
-
-No pre-running containers are required. Tests run with `-tags=interop` and `make interop` in each Go repository.
-
-## Adapter output contract
-
-Server readiness event (emitted to stdout before accepting connections):
-
-```json
-{"event":"ready","address":"0.0.0.0:102","fixture":"iec61850-v1","adapter":"libiec61850","version":"0.1.0"}
-```
-
-`fixture` identifies the canonical fixture revision consumed. `version` is the adapter image version, set via the `ADAPTER_VERSION` build argument and defaulting to `dev`.
-
-Client adapter output (one JSON Line per operation):
-
-```jsonl
-{"operation":"identify","ok":true,"value":{"vendor":"OTFabric","model":"MMS-Interop","revision":"1.0"}}
-{"operation":"read","target":"interop/boolean","ok":true,"value":true}
-{"operation":"write","target":"interop/float32","ok":true}
-{"operation":"conclude","ok":true}
-```
-
-Diagnostics go to stderr. Stdout must contain only JSON Lines.
-
-GOOSE commands are long-running: after `ready` they emit `published` (publisher) or `goose` and `supervision` (subscriber) events, and the publisher reads `{"cmd":"set"}` / `{"cmd":"stop"}` on stdin. See [`docs/goose.md`](docs/goose.md).
-
-SV commands work the same way: `published` and `stopped` (publisher), `sv` and `stats` (subscriber), and `{"cmd":"set"}` / `{"cmd":"stop"}` on stdin. See [`docs/sv.md`](docs/sv.md).
-
-## Test directions
-
-Primary directions (tests live in `go-mms`, `go-iec61850`, and consumer CLIs such as `iec61850ctl`):
-
-| Direction | Layer | Go role | Adapter command(s) | Phase |
-|---|---|---|---|---|
-| go-mms client → libiec61850 MMS server | MMS | Client | `libiec61850-mms-server` | 1A |
-| libiec61850 MMS client → go-mms server | MMS | Server | `libiec61850-mms-client` | 1B |
-| go-iec61850 / CLI client → libiec61850 IED server | IEC 61850 | Client | `libiec61850-ied-server` | 2A |
-| libiec61850 client/controller/reporter → go-iec61850 / CLI server | IEC 61850 | Server | `libiec61850-ied-client`, `-controller`, `-reporter` | 2A / 3A / 3B |
-| go-iec61850 / CLI client → iec61850bean IED server | IEC 61850 | Client | `iec61850bean-ied-server` | 2B |
-| iec61850bean client/controller/reporter → go-iec61850 / CLI server | IEC 61850 | Server | `iec61850bean-ied-client`, `-controller`, `-reporter` | 2B / 3A / 3B |
-| go-mms client ↔ dscsystems MMS server / client | MMS | Client / Server | `dscsystems-mms-server`, `dscsystems-mms-client` | 4 |
-| go-iec61850 ↔ dscsystems IED server / clients | IEC 61850 | Client / Server | `dscsystems-ied-server`, `-client`, `-controller`, `-reporter` | 4 |
-| go-mms client ↔ iec61850-rust MMS server / client | MMS | Client / Server | `iec61850-rust-mms-server`, `iec61850-rust-mms-client` | 4 |
-| go-iec61850 ↔ iec61850-rust IED server / clients | IEC 61850 | Client / Server | `iec61850-rust-ied-server`, `-client`, `-controller`, `-reporter` | 4 |
-| go-iec61850 GOOSE publisher → libiec61850 / dscsystems / iec61850-rust subscriber | GOOSE | Publisher | `*-goose-subscriber` | 5 |
-| libiec61850 / dscsystems / iec61850-rust publisher → go-iec61850 GOOSE subscriber | GOOSE | Subscriber | `*-goose-publisher` | 5 |
-| go-iec61850 SV publisher → libiec61850 / dscsystems / iec61850-rust subscriber | SV | Publisher | `*-sv-subscriber` | 6 |
-| libiec61850 / dscsystems / iec61850-rust publisher → go-iec61850 SV subscriber | SV | Subscriber | `*-sv-publisher` | 6 |
-
-Fixed-sequence `*-ied-client` adapters read `GGIO1.SPS1.stVal[ST]`, `MMXU1.TotW.mag.f[MX]`, `GGIO1.DPS1.stVal[ST]` (Dbpos as its enumeration, `2` = on), `MMTR1.TotVAh.actVal[ST]`, `LLN0.Mod.ctlModel[CF]` and `LLN0.Mod.d[DC]`, emitting `{"operation":"read","target":"<IED><LD>/<ref>[<FC>]","ok":true,"value":<v>}`; every IED server serves the `values.json` values (`DPS1.stVal` 2, `TotVAh.actVal` 42).
-
-Fixed-sequence `*-ied-client` adapters exit `3` when any operation emits `ok:false` (after attempting conclude). Connection failure remains exit `2`.
-
-## Building and publishing adapter images
+Requires Docker with BuildKit/buildx and Make.
 
 ```bash
-# Build all four adapter images locally
-make build
-
-# GOOSE publisher -> subscriber, every pair of libiec61850, dscsystems, iec61850-rust
-make goose-crosscheck
-
-# Sampled Values publisher -> subscriber, every pair
-make sv-crosscheck
-
-# Publish to registry (requires REGISTRY and VERSION or defaults)
-make publish
+make build              # all four images as iec61850-interop-<stack>:local
+make validate-fixtures  # fixtures, RELEASE.md notes, generated docs (no Docker)
+make smoke              # binaries, fixtures, ready events, client/server pairs
+make goose-crosscheck   # every GOOSE publisher -> subscriber pair
+make sv-crosscheck      # every SV publisher -> subscriber pair
+make ci                 # all of the above, as CI runs it
 ```
 
-Docker Compose is provided for manual inspection:
+Run a consumer's interop tests against the local images:
 
 ```bash
-docker compose up libiec61850-mms-server
-docker compose down
-```
-
-## Running interop tests
-
-Interop tests live in the Go repositories. To run them against locally built images:
-
-```bash
-# In go-mms
-LIBIEC61850_IMAGE=mms-interop-libiec61850:local make interop
-
-# In go-iec61850
-LIBIEC61850_IMAGE=mms-interop-libiec61850:local \
-IEC61850BEAN_IMAGE=mms-interop-iec61850bean:local \
-DSCSYSTEMS_IMAGE=mms-interop-dscsystems:local \
-IEC61850RUST_IMAGE=mms-interop-iec61850-rust:local \
+LIBIEC61850_IMAGE=iec61850-interop-libiec61850:local \
+IEC61850BEAN_IMAGE=iec61850-interop-iec61850bean:local \
+DSCSYSTEMS_IMAGE=iec61850-interop-dscsystems:local \
+IEC61850RUST_IMAGE=iec61850-interop-iec61850-rust:local \
 make interop
 ```
 
-## Prerequisites
+`docker compose --profile libiec61850 up` and `--profile goose` start a
+server and a GOOSE pair for manual inspection.
 
-- Docker with BuildKit / buildx
-- Make
+## Releases
 
-## License
+[RELEASE.md](RELEASE.md) has the notes of every version and how a release is
+made: tag `vX.Y.Z` (or run the Release workflow), which builds each image
+on native amd64 and arm64 runners, publishes the multi-arch manifests to
+GHCR and creates the GitHub release with `manifest.json`. Tags are
+immutable; a fix is a new version.
 
-The repository's original code and documentation are MIT-licensed unless otherwise noted.
+## Repository layout
 
-Third-party source code, Docker images and generated artifacts retain their respective upstream licenses. libiec61850 is GPLv3; iec61850bean is Apache-2.0; dscsystems/go-iec61850 is GPLv3; csp0924/iec61850-rust is MIT OR Apache-2.0. `adapters/dscsystems/` links dscsystems/go-iec61850 and is therefore GPL-3.0 itself (see its `LICENSE` and `NOTICE`). Distribution of images containing any of these libraries must preserve the applicable upstream notices and source obligations.
+```
+adapters/
+  libiec61850/     C adapter, built against a pinned libiec61850
+  iec61850bean/    Java adapter (Maven)
+  dscsystems/      Go adapter, GPL-3.0 (LICENSE, NOTICE)
+  iec61850-rust/   Rust adapter (LICENSE-MIT, LICENSE-APACHE, NOTICE)
+fixtures/          mms/, iec61850/, goose/, sv/, capabilities.json
+docs/              contract.md, goose.md, sv.md
+scripts/           smoke test, GOOSE/SV cross-checks, fixture validation, coverage, release notes
+```

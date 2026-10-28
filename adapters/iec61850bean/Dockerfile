@@ -3,7 +3,7 @@
 # Build from repository root:
 #   docker buildx build --platform=linux/amd64 \
 #       -f adapters/iec61850bean/Dockerfile \
-#       -t mms-interop-iec61850bean:local .
+#       -t iec61850-interop-iec61850bean:local .
 #
 # The image contains four named entry points:
 #   iec61850bean-ied-server     --port <port> [--icd <path>] [--values <path>]
@@ -35,6 +35,9 @@ RUN mvn package -q -DskipTests
 # Stage 2: Minimal JRE runtime
 # ---------------------------------------------------------------------------
 FROM eclipse-temurin:21.0.7_6-jre-jammy@${JRE_DIGEST} AS runtime
+
+LABEL org.opencontainers.image.source="https://github.com/otfabric/iec61850-interop" \
+      org.opencontainers.image.description="iec61850-interop adapter on iec61850bean (IEC 61850 IED services)"
 
 RUN addgroup --system --gid 10001 adapter \
     && adduser --system --uid 10001 --ingroup adapter --no-create-home adapter
