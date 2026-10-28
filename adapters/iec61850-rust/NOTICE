@@ -1,0 +1,16 @@
+mms-interop iec61850-rust adapter
+=================================
+
+This directory (adapters/iec61850-rust/) and the image built from it,
+ghcr.io/otfabric/mms-interop-iec61850-rust, link the iec61850-rust crates
+(https://github.com/csp0924/iec61850-rust), Copyright (c) 2026 Cheng Sin
+Pang, licensed under the MIT License or the Apache License 2.0 at your
+option (LICENSE-MIT, LICENSE-APACHE).
+
+Pinned upstream: github.com/csp0924/iec61850-rust commit
+d4e895217f367ed4caebf21611d2c16ee46035c0 (tag v0.2.0), the `rev` of the
+git dependencies in Cargo.toml, locked in Cargo.lock. The crates are
+fetched at that commit when the image is built; they are neither patched
+nor vendored here.
+
+The adapter code in this directory is MIT, like the rest of mms-interop.

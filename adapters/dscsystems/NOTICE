@@ -1,0 +1,23 @@
+mms-interop dscsystems adapter
+==============================
+
+This directory (adapters/dscsystems/) and the image built from it,
+ghcr.io/otfabric/mms-interop-dscsystems, contain and link
+dscsystems/go-iec61850 (https://github.com/dscsystems/go-iec61850),
+which is licensed under the GNU General Public License version 3.
+
+Because the adapter programs link that library, the source code in this
+directory is distributed under the GNU General Public License version 3
+as well (see LICENSE), unlike the rest of mms-interop, which is MIT.
+
+Pinned upstream: github.com/dscsystems/go-iec61850 commit
+6bf3f370c6fb95d3835e34d9d1539f313e00b157 (v0.6.5-1-g6bf3f37), as recorded
+in go.mod and go.sum. Corresponding source: that commit of the upstream
+repository, and this directory at the mms-interop tag the image was
+built from.
+
+Licensing boundary: no code from dscsystems/go-iec61850, and no code from
+this directory, may be copied or vendored into the MIT-licensed
+otfabric/go-mms or otfabric/go-iec61850 libraries. They talk to this
+adapter only over the network (MMS over TCP, GOOSE over Ethernet) and
+its JSON Lines output, as separate programs.

@@ -9,6 +9,9 @@ Checks:
   4. Every attribute reference in values.json resolves to an ICD object.
   5. Every dataset member references an object that exists in the ICD.
   6. Every URCB DatSet references a dataset that exists in the ICD.
+  7. goose.json and interop-goose.cid — the GOOSE fixture: interop.icd's
+     model unchanged, every control block's GSEControl, GSE address,
+     dataset members and typed values agree.
 
 Exit code: 0 if all checks pass, 1 if any check fails.
 """
@@ -23,6 +26,8 @@ ROOT = Path(__file__).parent.parent
 MMS_FIXTURE   = ROOT / "fixtures" / "mms" / "interop.json"
 VALUES_JSON   = ROOT / "fixtures" / "iec61850" / "values.json"
 INTEROP_ICD   = ROOT / "fixtures" / "iec61850" / "interop.icd"
+GOOSE_JSON    = ROOT / "fixtures" / "goose" / "goose.json"
+GOOSE_SCL     = ROOT / "fixtures" / "goose" / "interop-goose.cid"
 
 SCL_NS = "http://www.iec.ch/61850/2003/SCL"
 
@@ -422,6 +427,161 @@ def validate_urcb_datasets(rcbs: list[dict], datasets: dict[str, list[str]]) -> 
         ok(f"URCBs — all {urcb_count} URCB DatSet references are valid")
 
 
+
+# ---------------------------------------------------------------------------
+# 7. GOOSE fixture
+# ---------------------------------------------------------------------------
+
+GOOSE_TYPES = {"boolean", "integer", "unsigned", "float32", "float64",
+               "visible-string", "mms-string", "octet-string", "bit-string",
+               "utc-time", "binary-time", "array", "structure"}
+
+
+def _canonical(elem: ET.Element | None) -> str:
+    if elem is None:
+        return ""
+    for e in elem.iter():
+        e.tail = (e.tail or "").strip() or None
+        e.text = (e.text or "").strip() or None
+    return ET.tostring(elem, encoding="unicode")
+
+
+def _ln_name(ln: ET.Element) -> str:
+    if ln.tag == tag("LN0"):
+        return "LLN0"
+    return f"{ln.get('prefix', '')}{ln.get('lnClass', '')}{ln.get('inst', '')}"
+
+
+def _model_shape(root: ET.Element) -> list[tuple]:
+    shape = []
+    for ld in root.iter(tag("LDevice")):
+        for ln in list(ld.iter(tag("LN0"))) + list(ld.iter(tag("LN"))):
+            shape.append((ld.get("inst"), _ln_name(ln), ln.get("lnType")))
+    return sorted(shape)
+
+
+def _typed_ok(v, path: str) -> bool:
+    if not isinstance(v, dict) or v.get("type") not in GOOSE_TYPES or "value" not in v:
+        err(f"goose.json {path}: not a typed value {v!r}")
+        return False
+    t, val = v["type"], v["value"]
+    good = True
+    if t == "boolean":
+        good = isinstance(val, bool)
+    elif t in ("integer", "unsigned", "float32", "float64"):
+        good = isinstance(val, (int, float)) and not isinstance(val, bool)
+        if t == "unsigned" and good:
+            good = val >= 0
+    elif t == "bit-string":
+        good = isinstance(val, str) and set(val) <= {"0", "1"}
+    elif t in ("utc-time", "binary-time"):
+        try:
+            datetime.strptime(val, "%Y-%m-%dT%H:%M:%S.%fZ")
+        except (TypeError, ValueError):
+            good = False
+    elif t in ("array", "structure"):
+        good = isinstance(val, list) and all(_typed_ok(c, f"{path}[{i}]") for i, c in enumerate(val))
+    else:
+        good = isinstance(val, str)
+    if not good:
+        err(f"goose.json {path}: value {val!r} does not fit type {t}")
+    return good
+
+
+def validate_goose(icd_root: ET.Element) -> None:
+    try:
+        data = json.loads(GOOSE_JSON.read_text())
+        ok("goose.json — valid JSON")
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        err(f"goose.json — {e}")
+        return
+    try:
+        cid = ET.parse(GOOSE_SCL).getroot()
+        ok("interop-goose.cid — valid XML")
+    except (FileNotFoundError, ET.ParseError) as e:
+        err(f"interop-goose.cid — {e}")
+        return
+
+    if data.get("revision") != "goose-v1":
+        err(f"goose.json revision {data.get('revision')!r}, expected 'goose-v1'")
+
+    # The GOOSE SCL is interop.icd plus GOOSE: same types, same model.
+    if _canonical(cid.find(tag("DataTypeTemplates"))) != _canonical(icd_root.find(tag("DataTypeTemplates"))):
+        err("interop-goose.cid DataTypeTemplates differ from interop.icd")
+    else:
+        ok("interop-goose.cid — DataTypeTemplates identical to interop.icd")
+    if _model_shape(cid) != _model_shape(icd_root):
+        err("interop-goose.cid logical devices/nodes differ from interop.icd")
+    else:
+        ok("interop-goose.cid — logical devices and nodes identical to interop.icd")
+
+    ied = cid.find(tag("IED"))
+    ied_name = ied.get("name", "") if ied is not None else ""
+    if ied_name != data.get("iedName"):
+        err(f"goose.json iedName {data.get('iedName')!r} != SCL IED {ied_name!r}")
+    paths = collect_icd_paths(cid)
+    datasets = collect_datasets(cid)
+    gse = {g.get("cbName"): g for g in cid.iter(tag("GSE"))}
+    gsecs = {}
+    for ld in cid.iter(tag("LDevice")):
+        for gc in ld.iter(tag("GSEControl")):
+            gsecs[gc.get("name")] = (ld.get("inst"), gc)
+
+    for name, cb in data.get("controlBlocks", {}).items():
+        where = f"goose.json controlBlocks.{name}"
+        if name not in gsecs:
+            err(f"{where}: no GSEControl {name} in interop-goose.cid")
+            continue
+        ld_inst, gc = gsecs[name]
+        ld_ref = f"{ied_name}{ld_inst}"
+        expect = {
+            "gocbRef": f"{ld_ref}/LLN0$GO${name}",
+            "datSet": f"{ld_ref}/LLN0${gc.get('datSet')}",
+            "goID": gc.get("appID"),
+            "confRev": int(gc.get("confRev", "0")),
+        }
+        g = gse.get(name)
+        if g is None:
+            err(f"{where}: no GSE address for {name} in the Communication section")
+            continue
+        p = {e.get("type"): (e.text or "").strip() for e in g.iter(tag("P"))}
+        expect.update({
+            "dst": p.get("MAC-Address", "").replace("-", ":").lower(),
+            "appID": f"0x{int(p.get('APPID', '0'), 16):04x}",
+            "vlanId": int(p.get("VLAN-ID", "0"), 16),
+            "vlanPrio": int(p.get("VLAN-PRIORITY", "0")),
+            "minTime": int(g.findtext(tag("MinTime"), "0")),
+            "maxTime": int(g.findtext(tag("MaxTime"), "0")),
+        })
+        bad = [f"{k}={cb.get(k)!r} (SCL {v!r})" for k, v in expect.items() if cb.get(k) != v]
+        if bad:
+            err(f"{where}: disagrees with interop-goose.cid: {', '.join(bad)}")
+        else:
+            ok(f"{where}: references, address and timing match the SCL")
+
+        members = cb.get("members", [])
+        ds_members = datasets.get(f"{ld_inst}/LLN0.{gc.get('datSet')}", [])
+        if [m.get("ref") for m in members] != ds_members:
+            err(f"{where}: members {[m.get('ref') for m in members]} != dataset {ds_members}")
+        missing = [m["ref"] for m in members if m.get("ref") not in paths]
+        if missing:
+            err(f"{where}: members not in the model: {missing}")
+        fcs = [f.get("fc") for ds in cid.iter(tag("DataSet")) if ds.get("name") == gc.get("datSet")
+               for f in ds.iter(tag("FCDA"))]
+        if [m.get("fc") for m in members] != fcs:
+            err(f"{where}: member FCs {[m.get('fc') for m in members]} != dataset FCs {fcs}")
+        for key in ("values", "update"):
+            vals = cb.get(key, [])
+            if len(vals) != len(members):
+                err(f"{where}.{key}: {len(vals)} values for {len(members)} members")
+                continue
+            typed = all(_typed_ok(v, f"{name}.{key}[{i}]") for i, v in enumerate(vals))
+            types = [v["type"] for v in vals] == [m.get("type") for m in members]
+            if not types:
+                err(f"{where}.{key}: value types differ from member types")
+            if typed and types:
+                ok(f"{where}.{key}: {len(vals)} typed values match the members")
+
 # ===========================================================================
 # Main
 # ===========================================================================
@@ -463,6 +623,10 @@ def main() -> int:
 
         if rcbs:
             validate_urcb_datasets(rcbs, datasets)
+
+        print()
+        print("--- goose.json / interop-goose.cid ---")
+        validate_goose(icd_root)
 
     print()
     print(f"Results: {PASS} passed  {FAIL} failed")

@@ -1,0 +1,73 @@
+# SPDX-License-Identifier: MIT
+#
+# mms-interop adapter on csp0924/iec61850-rust (MIT OR Apache-2.0).
+#
+# The upstream crates are pinned to one commit through `rev`; the Dockerfile
+# documents the same commit in IEC61850_RUST_SHA and checks it against this
+# file. Cargo.lock is committed so the whole dependency graph is fixed.
+
+[package]
+name = "mms-interop-iec61850-rust"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+license = "MIT"
+publish = false
+description = "mms-interop adapter commands on iec61850-rust (MMS, IEC 61850, GOOSE)"
+
+[lib]
+name = "adapter"
+path = "src/lib.rs"
+
+[[bin]]
+name = "iec61850-rust-mms-server"
+path = "src/bin/mms_server.rs"
+
+[[bin]]
+name = "iec61850-rust-mms-client"
+path = "src/bin/mms_client.rs"
+
+[[bin]]
+name = "iec61850-rust-ied-server"
+path = "src/bin/ied_server.rs"
+
+[[bin]]
+name = "iec61850-rust-ied-client"
+path = "src/bin/ied_client.rs"
+
+[[bin]]
+name = "iec61850-rust-ied-controller"
+path = "src/bin/ied_controller.rs"
+
+[[bin]]
+name = "iec61850-rust-ied-reporter"
+path = "src/bin/ied_reporter.rs"
+
+[[bin]]
+name = "iec61850-rust-goose-publisher"
+path = "src/bin/goose_publisher.rs"
+
+[[bin]]
+name = "iec61850-rust-goose-subscriber"
+path = "src/bin/goose_subscriber.rs"
+
+[dependencies]
+# csp0924/iec61850-rust v0.2.0 (d4e8952)
+iec61850-mms = { git = "https://github.com/csp0924/iec61850-rust", rev = "d4e895217f367ed4caebf21611d2c16ee46035c0" }
+iec61850-model = { git = "https://github.com/csp0924/iec61850-rust", rev = "d4e895217f367ed4caebf21611d2c16ee46035c0" }
+iec61850-client = { git = "https://github.com/csp0924/iec61850-rust", rev = "d4e895217f367ed4caebf21611d2c16ee46035c0" }
+iec61850-server = { git = "https://github.com/csp0924/iec61850-rust", rev = "d4e895217f367ed4caebf21611d2c16ee46035c0", default-features = false, features = ["std", "full-server"] }
+iec61850-scl = { git = "https://github.com/csp0924/iec61850-rust", rev = "d4e895217f367ed4caebf21611d2c16ee46035c0" }
+iec61850-goose = { git = "https://github.com/csp0924/iec61850-rust", rev = "d4e895217f367ed4caebf21611d2c16ee46035c0" }
+iec61850-hal = { git = "https://github.com/csp0924/iec61850-rust", rev = "d4e895217f367ed4caebf21611d2c16ee46035c0", features = ["ethernet-linux-afpacket", "transport-tokio"] }
+
+bytes = "1"
+libc = "0.2"
+serde_json = { version = "1", features = ["preserve_order"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "sync", "signal", "io-util"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 16
+strip = true

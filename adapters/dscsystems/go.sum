@@ -1,0 +1,4 @@
+github.com/dscsystems/go-iec61850 v0.6.6-0.20261018161308-6bf3f370c6fb h1:dcybwDwNgRRA+gI9x+Pabk/XYqOX3EqHArHAvunTxW0=
+github.com/dscsystems/go-iec61850 v0.6.6-0.20261018161308-6bf3f370c6fb/go.mod h1:u/lE4S7EnpBM49VKV9FYXg/h9Ylx45IBIcXCseR68q4=
+golang.org/x/sys v0.47.0 h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=
+golang.org/x/sys v0.47.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=

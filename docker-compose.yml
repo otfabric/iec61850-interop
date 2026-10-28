@@ -49,3 +49,56 @@ services:
       - "/fixtures/mms/interop.json"
       - "--port"
       - "1102"
+
+  # -------------------------------------------------------------------------
+  # GOOSE (layer 2): a libiec61850 publisher and a dscsystems subscriber on
+  # the bridge network below. See docs/goose.md.
+  #
+  #   make build-libiec61850 build-dscsystems
+  #   docker compose --profile goose up
+  #
+  # The host side of the segment is the bridge device goose0: a Go test on
+  # a Linux host opens goose0 (CAP_NET_RAW) to exchange frames with these
+  # containers.
+  # -------------------------------------------------------------------------
+  libiec61850-goose-publisher:
+    profiles: ["goose"]
+    image: mms-interop-libiec61850:local
+    platform: linux/amd64
+    networks: [goose]
+    cap_drop: [ALL]
+    cap_add: [NET_RAW, NET_ADMIN]
+    stdin_open: true
+    entrypoint: ["libiec61850-goose-publisher"]
+    command:
+      - "--iface"
+      - "eth0"
+      - "--gocb-ref"
+      - "InteropIEDInteropLD/LLN0$$GO$$gcbBool"
+      - "--go-id"
+      - "InteropGooseBool"
+      - "--dataset"
+      - "InteropIEDInteropLD/LLN0$$dsGooseBool"
+      - "--app-id"
+      - "0x1002"
+      - "--dst"
+      - "01:0c:cd:01:00:02"
+      - "--values"
+      - '[{"type":"boolean","value":false},{"type":"bit-string","value":"0000000000000"}]'
+
+  dscsystems-goose-subscriber:
+    profiles: ["goose"]
+    image: mms-interop-dscsystems:local
+    platform: linux/amd64
+    networks: [goose]
+    cap_drop: [ALL]
+    cap_add: [NET_RAW, NET_ADMIN]
+    entrypoint: ["dscsystems-goose-subscriber"]
+    command: ["--iface", "eth0", "--app-id", "0x1002"]
+
+networks:
+  goose:
+    name: mms-interop-goose
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: goose0
