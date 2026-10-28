@@ -4,7 +4,7 @@ Availability of adapter commands across the four images. Compatibility matrices 
 
 This file is generated from `fixtures/capabilities.json`; do not edit manually. Run `./scripts/gen-coverage.sh`.
 
-Adapter version: `1.0.0` · Fixture revisions: `mms-v2`, `iec61850-v3`, `goose-v1`, `sv-v1`
+Adapter version: `1.0.1` · Fixture revisions: `mms-v2`, `iec61850-v3`, `goose-v1`, `sv-v1`
 
 ## Stack × capability
 
