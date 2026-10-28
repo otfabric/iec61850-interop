@@ -247,6 +247,8 @@ Primary directions (tests live in `go-mms`, `go-iec61850`, and consumer CLIs suc
 | go-iec61850 SV publisher → libiec61850 / dscsystems / iec61850-rust subscriber | SV | Publisher | `*-sv-subscriber` | 6 |
 | libiec61850 / dscsystems / iec61850-rust publisher → go-iec61850 SV subscriber | SV | Subscriber | `*-sv-publisher` | 6 |
 
+Fixed-sequence `*-ied-client` adapters read `GGIO1.SPS1.stVal[ST]`, `MMXU1.TotW.mag.f[MX]`, `GGIO1.DPS1.stVal[ST]` (Dbpos as its enumeration, `2` = on), `MMTR1.TotVAh.actVal[ST]`, `LLN0.Mod.ctlModel[CF]` and `LLN0.Mod.d[DC]`, emitting `{"operation":"read","target":"<IED><LD>/<ref>[<FC>]","ok":true,"value":<v>}`; every IED server serves the `values.json` values (`DPS1.stVal` 2, `TotVAh.actVal` 42).
+
 Fixed-sequence `*-ied-client` adapters exit `3` when any operation emits `ok:false` (after attempting conclude). Connection failure remains exit `2`.
 
 ## Building and publishing adapter images

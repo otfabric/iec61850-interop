@@ -135,6 +135,7 @@ public class IedServer {
         setInt32(model, pfx + "LLN0.Beh.stVal",       Fc.ST, fv.getInt("InteropLD/LLN0.Beh.stVal"));
         setBool( model, pfx + "GGIO1.SPS1.stVal",     Fc.ST, fv.getBoolean("InteropLD/GGIO1.SPS1.stVal"));
         setStr(  model, pfx + "GGIO1.SPS1.d",         Fc.DC, fv.getString("InteropLD/GGIO1.SPS1.d"));
+        setDbpos(model, pfx + "GGIO1.DPS1.stVal",     Fc.ST, fv.getInt("InteropLD/GGIO1.DPS1.stVal"));
         setBool( model, pfx + "GGIO1.SPCSO1.stVal",   Fc.ST, fv.getBoolean("InteropLD/GGIO1.SPCSO1.stVal"));
         setInt8( model, pfx + "GGIO1.SPCSO1.ctlModel",Fc.CF, fv.getInt("InteropLD/GGIO1.SPCSO1.ctlModel"));
         setBool( model, pfx + "GGIO1.SPCSO2.stVal",   Fc.ST, fv.getBoolean("InteropLD/GGIO1.SPCSO2.stVal"));
@@ -142,6 +143,7 @@ public class IedServer {
         setBool( model, pfx + "GGIO1.SPCSO3.stVal",   Fc.ST, fv.getBoolean("InteropLD/GGIO1.SPCSO3.stVal"));
         setInt8( model, pfx + "GGIO1.SPCSO3.ctlModel",Fc.CF, fv.getInt("InteropLD/GGIO1.SPCSO3.ctlModel"));
         setFloat(model, pfx + "MMXU1.TotW.mag.f",     Fc.MX, fv.getFloat("InteropLD/MMXU1.TotW.mag.f"));
+        setUInt32(model, pfx + "MMTR1.TotVAh.actVal", Fc.ST, fv.getInt("InteropLD/MMTR1.TotVAh.actVal"));
         setInt32(model, pfx + "GGIO1.SetInt1.setVal", Fc.SP, fv.getInt("InteropLD/GGIO1.SetInt1.setVal"));
     }
 
@@ -187,6 +189,30 @@ public class IedServer {
             bda.setFloat(value);
         } else {
             warn(ref, fc, "BdaFloat32", node);
+        }
+    }
+
+    private static void setDbpos(ServerModel model, String ref, Fc fc, int value) {
+        ModelNode node = model.findModelNode(ref, fc);
+        if (node instanceof BdaDoubleBitPos bda) {
+            for (BdaDoubleBitPos.DoubleBitPos p : BdaDoubleBitPos.DoubleBitPos.values()) {
+                if (p.getIntValue() == value) {
+                    bda.setDoubleBitPos(p);
+                    return;
+                }
+            }
+            System.err.printf("ied-server: WARNING: %s[%s] invalid Dbpos %d%n", ref, fc, value);
+        } else {
+            warn(ref, fc, "BdaDoubleBitPos", node);
+        }
+    }
+
+    private static void setUInt32(ServerModel model, String ref, Fc fc, int value) {
+        ModelNode node = model.findModelNode(ref, fc);
+        if (node instanceof BdaInt32U bda) {
+            bda.setValue(value);
+        } else {
+            warn(ref, fc, "BdaInt32U", node);
         }
     }
 

@@ -4,7 +4,7 @@ Availability of adapter commands across the four images. Compatibility matrices 
 
 This file is generated from `fixtures/capabilities.json`; do not edit manually. Run `./scripts/gen-coverage.sh`.
 
-Adapter version: `0.4.0` · Fixture revisions: `mms-v2`, `iec61850-v3`, `goose-v1`, `sv-v1`
+Adapter version: `0.4.1` · Fixture revisions: `mms-v2`, `iec61850-v3`, `goose-v1`, `sv-v1`
 
 | Adapter command | Image | Available |
 |----------------|-------|:---------:|
@@ -88,6 +88,7 @@ Adapter version: `0.4.0` · Fixture revisions: `mms-v2`, `iec61850-v3`, `goose-v
 - All commands emit JSON Lines to stdout; diagnostics go to stderr.
 - Each adapter command supports `--capabilities` (emit JSON and exit) and `--version` (emit version JSON and exit).
 - Fixed-sequence IED clients exit non-zero when any operation emits `ok:false` (connection failures remain exit 2).
+- Every IED server seeds its values from `fixtures/iec61850/values.json` (as of 0.4.1 including `GGIO1.DPS1.stVal` = 2 and `MMTR1.TotVAh.actVal` = 42). Every fixed-sequence IED client reads, in this order: `GGIO1.SPS1.stVal[ST]`, `MMXU1.TotW.mag.f[MX]`, `GGIO1.DPS1.stVal[ST]` (Dbpos, reported as its enumeration 0..3, 2 = on), `MMTR1.TotVAh.actVal[ST]` (INT32U), `LLN0.Mod.ctlModel[CF]`, `LLN0.Mod.d[DC]`.
 - GOOSE commands (`*-goose-publisher`, `*-goose-subscriber`) need a raw socket: run them with `--cap-add NET_RAW` on a shared Docker network; see [`docs/goose.md`](docs/goose.md).
 - Sampled Values commands (`*-sv-publisher`, `*-sv-subscriber`) need the same; see [`docs/sv.md`](docs/sv.md). iec61850bean has no SV support, so `mms-interop-iec61850bean` has no SV commands.
 - `mms-interop-dscsystems` is built from GPL-3.0 code (dscsystems/go-iec61850); see `adapters/dscsystems/NOTICE`.
