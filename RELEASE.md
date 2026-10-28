@@ -4,7 +4,7 @@
 
 1. Write the notes of the version below, as the first `## vX.Y.Z` section. `make validate-fixtures` (and CI) fails when the newest section is missing, empty or not closed by `---`.
 2. `make ci` on the commit to release.
-3. Tag `vX.Y.Z` and push the tag. The release workflow validates the fixtures and the notes of the tag before anything is built, builds both adapter images for linux/amd64 and linux/arm64 with `ADAPTER_VERSION` set to the tag, pushes them to GHCR as `<image>:X.Y.Z`, `X.Y` and `X`, and creates the GitHub release with `manifest.json` (upstream pins and image digests) and `checksums.txt`.
+3. Publish that commit, either by tagging `vX.Y.Z` and pushing the tag, or by running **Actions → Release → Run workflow** on the branch with bump `patch` (default), `minor` or `major`. A manual run takes the highest existing `vX.Y.Z` tag, increments the chosen component, and tags the selected commit with the result (so the notes for that next version must already be in the tree). The workflow validates the fixtures and the notes of the tag before anything is built, then builds each adapter image on native `ubuntu-24.04` (linux/amd64) and `ubuntu-24.04-arm` (linux/arm64) runners in parallel — no QEMU — merges the two digests into one multi-arch manifest, pushes `<image>:vX.Y.Z`, `:X.Y.Z`, `:X.Y`, `:X` and `:latest` to GHCR, and creates the GitHub release with `manifest.json` (upstream pins and image digests) and `checksums.txt`.
 4. Consumers pin the digests from the release or from `manifest.json`.
 
 The notes are the body of the GitHub release, followed by the image digests

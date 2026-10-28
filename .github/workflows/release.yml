@@ -1,36 +1,119 @@
 name: Release
 
+# Tag push: publish that tag. Manual run: bump the latest vX.Y.Z tag
+# (patch by default) on the selected branch and publish that.
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Semver component to increment from the latest vX.Y.Z tag
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions:
-  contents: write   # create GitHub release
+  contents: write   # create the git tag and the GitHub release
   packages: write   # push to GHCR
 
+env:
+  REGISTRY: ghcr.io/otfabric
+
 jobs:
-  release:
-    name: Build, push and release
-    runs-on: ubuntu-latest
-
+  version:
+    name: Resolve version
+    runs-on: ubuntu-24.04
     outputs:
-      libiec61850-digest:  ${{ steps.push-libiec61850.outputs.digest }}
-      iec61850bean-digest: ${{ steps.push-iec61850bean.outputs.digest }}
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+      major: ${{ steps.resolve.outputs.major }}
+      minor: ${{ steps.resolve.outputs.minor }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
+      - name: Resolve tag
+        id: resolve
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          BUMP: ${{ github.event.inputs.bump || 'patch' }}
+        run: |
+          set -euo pipefail
+          git fetch --tags --force origin
+          if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
+            tag="$(scripts/next-version.sh "${BUMP}")"
+            if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+              echo "::error::tag ${tag} already exists"
+              exit 1
+            fi
+          else
+            tag="${REF_NAME}"
+          fi
+          [[ "${tag}" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]] \
+            || { echo "::error::${tag} is not vX.Y.Z"; exit 1; }
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+          echo "major=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          echo "minor=${BASH_REMATCH[1]}.${BASH_REMATCH[2]}" >> "$GITHUB_OUTPUT"
+          echo "releasing ${tag} (from ${EVENT_NAME})"
+
+  validate:
+    name: Validate fixtures and notes
+    needs: version
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
 
-      - name: Validate fixtures and release notes before release
+      - name: Validate fixtures and release notes
         env:
-          VERSION: ${{ github.ref_name }}
+          VERSION: ${{ needs.version.outputs.tag }}
         run: |
           python3 scripts/validate-fixtures.py
-          # The notes of this version become the body of the GitHub release.
-          scripts/release-notes.sh "${VERSION}" > /dev/null || { echo "::error::RELEASE.md has no notes for ${VERSION}"; exit 1; }
+          scripts/release-notes.sh "${VERSION}" > /dev/null \
+            || { echo "::error::RELEASE.md has no notes for ${VERSION}"; exit 1; }
 
-      - name: Set up QEMU (multi-platform emulation)
-        uses: docker/setup-qemu-action@v4
+  build:
+    name: ${{ matrix.image }} (${{ matrix.platform }})
+    needs: [version, validate]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: libiec61850
+            file: adapters/libiec61850/Dockerfile
+            platform: linux/amd64
+            runner: ubuntu-24.04
+            slug: libiec61850-linux-amd64
+          - image: libiec61850
+            file: adapters/libiec61850/Dockerfile
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            slug: libiec61850-linux-arm64
+          - image: iec61850bean
+            file: adapters/iec61850bean/Dockerfile
+            platform: linux/amd64
+            runner: ubuntu-24.04
+            slug: iec61850bean-linux-amd64
+          - image: iec61850bean
+            file: adapters/iec61850bean/Dockerfile
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            slug: iec61850bean-linux-arm64
+    steps:
+      - uses: actions/checkout@v7
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -42,90 +125,149 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Derive version and semver tag variants from the pushed tag.
-      # v0.2.0  →  v0.2.0, v0.2, v0, latest
-      - name: Compute image tags — libiec61850
-        id: meta-libiec61850
-        uses: docker/metadata-action@v6
-        with:
-          images: ghcr.io/otfabric/mms-interop-libiec61850
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Compute image tags — iec61850bean
-        id: meta-iec61850bean
-        uses: docker/metadata-action@v6
-        with:
-          images: ghcr.io/otfabric/mms-interop-iec61850bean
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push libiec61850 (linux/amd64, linux/arm64)
-        id: push-libiec61850
+      # One platform per native runner. QEMU is not used: linux/amd64 builds
+      # on ubuntu-24.04, linux/arm64 on ubuntu-24.04-arm. Images are pushed
+      # by digest only; tags are applied after both platforms exist.
+      # provenance/sbom are off so the digest is the image, not an attestation.
+      - name: Build and push by digest
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: adapters/libiec61850/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
+          file: ${{ matrix.file }}
+          platforms: ${{ matrix.platform }}
+          provenance: false
+          sbom: false
           build-args: |
-            ADAPTER_VERSION=${{ github.ref_name }}
-          tags: ${{ steps.meta-libiec61850.outputs.tags }}
-          labels: ${{ steps.meta-libiec61850.outputs.labels }}
+            ADAPTER_VERSION=${{ needs.version.outputs.tag }}
+          outputs: type=image,name=${{ env.REGISTRY }}/mms-interop-${{ matrix.image }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.slug }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.slug }}
 
-      - name: Build and push iec61850bean (linux/amd64, linux/arm64)
-        id: push-iec61850bean
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: adapters/iec61850bean/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          build-args: |
-            ADAPTER_VERSION=${{ github.ref_name }}
-          tags: ${{ steps.meta-iec61850bean.outputs.tags }}
-          labels: ${{ steps.meta-iec61850bean.outputs.labels }}
-
-      # Generate a machine-readable release manifest.
-      - name: Generate manifest.json
+      - name: Export digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          SLUG: ${{ matrix.slug }}
         run: |
-          LIBIEC61850_SHA=$(grep 'LIBIEC61850_SHA=' adapters/libiec61850/Dockerfile \
-            | head -1 | cut -d= -f2)
-          IEC61850BEAN_VERSION=$(grep -oP '(?<=<version>)[^<]+' \
-            adapters/iec61850bean/pom.xml | head -1 || echo "1.9.0")
+          set -euo pipefail
+          [ -n "${DIGEST}" ] || { echo "::error::build produced no digest"; exit 1; }
+          mkdir -p "${RUNNER_TEMP}/digests"
+          printf '%s' "${DIGEST}" > "${RUNNER_TEMP}/digests/${SLUG}"
 
-          cat > manifest.json <<EOF
-          {
-            "version": "${{ github.ref_name }}",
-            "fixture": "iec61850-v1",
-            "libiec61850": "${LIBIEC61850_SHA}",
-            "iec61850bean": "${IEC61850BEAN_VERSION}",
-            "images": {
-              "libiec61850":  "${{ steps.push-libiec61850.outputs.digest }}",
-              "iec61850bean": "${{ steps.push-iec61850bean.outputs.digest }}"
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.slug }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Merge multi-arch manifests
+    needs: [version, build]
+    runs-on: ubuntu-24.04
+    outputs:
+      libiec61850-digest: ${{ steps.manifests.outputs.libiec61850 }}
+      iec61850bean-digest: ${{ steps.manifests.outputs.iec61850bean }}
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digest-*
+          merge-multiple: true
+
+      - name: Create manifests
+        id: manifests
+        env:
+          TAG: ${{ needs.version.outputs.tag }}
+          VERSION: ${{ needs.version.outputs.version }}
+          MAJOR: ${{ needs.version.outputs.major }}
+          MINOR: ${{ needs.version.outputs.minor }}
+        run: |
+          set -euo pipefail
+          publish() {
+            local image="$1"
+            local dest="${REGISTRY}/mms-interop-${image}"
+            local refs=()
+            local f
+            for f in "${RUNNER_TEMP}/digests/${image}-linux-"*; do
+              refs+=("${dest}@$(cat "${f}")")
+            done
+            [ "${#refs[@]}" -eq 2 ] || {
+              echo "::error::expected 2 platform digests for ${image}, got ${#refs[@]}"
+              ls -l "${RUNNER_TEMP}/digests" || true
+              exit 1
             }
+            docker buildx imagetools create \
+              -t "${dest}:${TAG}" \
+              -t "${dest}:${VERSION}" \
+              -t "${dest}:${MINOR}" \
+              -t "${dest}:${MAJOR}" \
+              -t "${dest}:latest" \
+              "${refs[@]}"
+            local digest
+            digest="$(docker buildx imagetools inspect "${dest}:${TAG}" \
+              | awk '/^Digest:/{print $2; exit}')"
+            [ -n "${digest}" ] || { echo "::error::no digest for ${dest}:${TAG}"; exit 1; }
+            echo "${image}=${digest}" >> "$GITHUB_OUTPUT"
+            echo "${image} ${digest}"
           }
-          EOF
-          cat manifest.json
+          publish libiec61850
+          publish iec61850bean
 
-      - name: Generate checksums.txt
+  release:
+    name: GitHub release
+    needs: [version, merge]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Write manifest.json
+        env:
+          VERSION: ${{ needs.version.outputs.tag }}
+          LIBIEC61850_DIGEST: ${{ needs.merge.outputs.libiec61850-digest }}
+          IEC61850BEAN_DIGEST: ${{ needs.merge.outputs.iec61850bean-digest }}
         run: |
-          sha256sum manifest.json > checksums.txt
-          cat checksums.txt
+          set -euo pipefail
+          python3 - <<'PY' > manifest.json
+          import json, pathlib, re
 
-      # The body is the section of this version in RELEASE.md (up to its
-      # "---", as in every otfabric repository), followed by the images.
+          dockerfile = pathlib.Path("adapters/libiec61850/Dockerfile").read_text()
+          sha_match = re.search(r"^ARG LIBIEC61850_SHA=(\S+)", dockerfile, re.M)
+          pom = pathlib.Path("adapters/iec61850bean/pom.xml").read_text()
+          pom_match = re.search(r"<version>([^<]+)</version>", pom)
+          caps = json.loads(pathlib.Path("fixtures/capabilities.json").read_text())
+
+          print(json.dumps({
+              "version": __import__("os").environ["VERSION"],
+              "fixture": caps.get("fixtureRevision", ""),
+              "libiec61850": sha_match.group(1) if sha_match else "",
+              "iec61850bean": pom_match.group(1) if pom_match else "1.9.0",
+              "images": {
+                  "libiec61850": __import__("os").environ["LIBIEC61850_DIGEST"],
+                  "iec61850bean": __import__("os").environ["IEC61850BEAN_DIGEST"],
+              },
+          }, indent=2))
+          PY
+          cat manifest.json
+          sha256sum manifest.json | tee checksums.txt
+
       - name: Write the release body
         env:
-          VERSION: ${{ github.ref_name }}
-          LIBIEC61850_DIGEST: ${{ steps.push-libiec61850.outputs.digest }}
-          IEC61850BEAN_DIGEST: ${{ steps.push-iec61850bean.outputs.digest }}
+          VERSION: ${{ needs.version.outputs.tag }}
+          LIBIEC61850_DIGEST: ${{ needs.merge.outputs.libiec61850-digest }}
+          IEC61850BEAN_DIGEST: ${{ needs.merge.outputs.iec61850bean-digest }}
         run: |
           {
             scripts/release-notes.sh "${VERSION}"
@@ -151,6 +293,8 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           body_path: ${{ runner.temp }}/release-body.md
           files: |
             manifest.json
