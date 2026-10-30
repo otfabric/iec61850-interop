@@ -99,6 +99,7 @@ validate-fixtures: ## JSON/XML syntax + cross-reference checks, the notes of the
 	@python3 scripts/check-versions.py
 	@scripts/release-notes.sh > /dev/null && echo "ok   RELEASE.md has the notes of the newest version"
 	@scripts/gen-coverage.sh --check
+	@python3 -m unittest discover -q -s scripts -p 'test_*.py'
 
 clone-libiec61850: ## Clone libiec61850 at the pinned SHA into $(LIBIEC61850_CLONE).
 	$(eval LIBIEC61850_SHA := $(shell grep 'LIBIEC61850_SHA=' adapters/libiec61850/Dockerfile | head -1 | cut -d= -f2))

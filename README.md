@@ -292,7 +292,7 @@ Requires Docker with BuildKit/buildx and Make.
 ```bash
 make build              # all four images as iec61850-interop-<stack>:local
 make validate-fixtures  # fixtures, RELEASE.md notes, generated docs (no Docker)
-make smoke              # binaries, fixtures, ready events, client/server pairs
+make smoke              # binaries, fixtures, ready events, client/server pairs; writes reports/results.json (interop-result-v1)
 make goose-crosscheck   # every GOOSE publisher -> subscriber pair
 make sv-crosscheck      # every SV publisher -> subscriber pair
 make ci                 # all of the above, as CI runs it

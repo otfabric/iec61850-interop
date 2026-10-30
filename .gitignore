@@ -21,3 +21,4 @@ adapters/*/dist/
 *.swo
 .DS_Store
 !adapters/iec61850-rust/src/bin/
+reports/
