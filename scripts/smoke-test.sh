@@ -523,7 +523,7 @@ sv_check() {
 # check must fail with nothing received. When one starts to pass, the
 # limitation is gone and has to be removed here and in capabilities.json.
 SV_SMPMOD_WAIVER=libiec61850-sv-two-octet-smpmod
-SV_SMPMOD_EVIDENCE=https://github.com/mz-automation/libiec61850/tree/6e265c54af66ea686453b6d31c4dcce1cf7ad2bd
+SV_SMPMOD_EVIDENCE=https://github.com/mz-automation/libiec61850/blob/6e265c54af66ea686453b6d31c4dcce1cf7ad2bd/src/sampled_values/sv_subscriber.c#L525-L528
 sv_known() {
     local out
     at_cross sv "$2" "$4" "$5"
