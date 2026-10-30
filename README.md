@@ -253,7 +253,7 @@ as assumed-success write targets.
 Each reads the images from `LIBIEC61850_IMAGE`, `IEC61850BEAN_IMAGE`,
 `DSCSYSTEMS_IMAGE` and `IEC61850RUST_IMAGE` (the stacks it tests), pins them
 by digest and runs its tests with `-tags=interop`
-(`make interop`). A test starts the adapter container, waits for `ready`,
+(`make -C ../go-iec61850 interop`, or the same target of the consumer). A test starts the adapter container, waits for `ready`,
 exercises the library, reads the adapter's JSON Lines, and stops the
 container; nothing runs beforehand.
 
@@ -305,7 +305,7 @@ LIBIEC61850_IMAGE=iec61850-interop-libiec61850:local \
 IEC61850BEAN_IMAGE=iec61850-interop-iec61850bean:local \
 DSCSYSTEMS_IMAGE=iec61850-interop-dscsystems:local \
 IEC61850RUST_IMAGE=iec61850-interop-iec61850-rust:local \
-make interop
+make -C ../go-iec61850 interop
 ```
 
 `docker compose --profile libiec61850 up` and `--profile goose` start a

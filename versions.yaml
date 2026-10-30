@@ -1,0 +1,56 @@
+# Machine-readable version manifest of iec61850-interop. The Dockerfiles and
+# pom.xml are the source of truth for a build; scripts/check-versions.py
+# (make validate-fixtures) fails when this file disagrees with them.
+# Upstreams are pinned by commit or exact version; no source archive hash is
+# recorded. Which command exists in which image: fixtures/capabilities.json.
+
+interop_version: "1.0.1"
+contract_version: "1.0"        # docs/contract.md, semver from v1.0.0
+
+protocol:
+  name: "IEC 61850 (MMS, GOOSE, Sampled Values)"
+
+implementations:
+  libiec61850:
+    upstream: "MZ Automation libiec61850"
+    repository: "https://github.com/mz-automation/libiec61850"
+    revision: "6e265c54af66ea686453b6d31c4dcce1cf7ad2bd"
+    license: "GPL-3.0-only (or commercial)"
+    roles: [mms, ied, goose, sv]
+    published: true
+    pinned_in:
+      - adapters/libiec61850/Dockerfile
+  iec61850bean:
+    upstream: "beanit iec61850bean"
+    repository: "https://github.com/beanit/iec61850bean"
+    version: "1.9.0"
+    license: "Apache-2.0"
+    roles: [mms, ied]
+    published: true
+    pinned_in:
+      - adapters/iec61850bean/pom.xml
+  dscsystems:
+    upstream: "dscsystems go-iec61850"
+    repository: "https://github.com/dscsystems/go-iec61850"
+    revision: "6bf3f370c6fb95d3835e34d9d1539f313e00b157"
+    license: "GPL-3.0"
+    roles: [mms, ied, goose, sv]
+    published: true
+    pinned_in:
+      - adapters/dscsystems/Dockerfile
+  iec61850-rust:
+    upstream: "iec61850-rust"
+    repository: "https://github.com/csp0924/iec61850-rust"
+    revision: "d4e895217f367ed4caebf21611d2c16ee46035c0"
+    license: "MIT OR Apache-2.0"
+    roles: [mms, ied, goose, sv]
+    published: true
+    pinned_in:
+      - adapters/iec61850-rust/Dockerfile
+
+base_images:
+  debian: "docker.io/library/debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818"
+  golang: "docker.io/library/golang:1.27.3-bookworm@sha256:972b4110ba0f47539a975c31e52c64765e1ff19f2d74469ae4a595c6676e80a5"
+  rust: "docker.io/library/rust:1.95.0-bookworm@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1"
+  maven: "docker.io/library/maven:3.9.9-eclipse-temurin-21@sha256:3a4ab3276a087bf276f79cae96b1af04f53731bec53fb2e651aca79e4b10211e"
+  temurin_jre: "docker.io/library/eclipse-temurin:21.0.7_6-jre-jammy@sha256:c4e6542e774de504da9b4729ff8d761287c965c1d788528ca78da30024efdb23"

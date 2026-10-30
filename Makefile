@@ -96,6 +96,7 @@ publish-iec61850-rust: build-iec61850-rust ## Tag and push the iec61850-rust ada
 
 validate-fixtures: ## JSON/XML syntax + cross-reference checks, the notes of the newest version in RELEASE.md, and the generated COVERAGE.md/README matrix (no Docker, no network).
 	python3 scripts/validate-fixtures.py
+	@python3 scripts/check-versions.py
 	@scripts/release-notes.sh > /dev/null && echo "ok   RELEASE.md has the notes of the newest version"
 	@scripts/gen-coverage.sh --check
 
