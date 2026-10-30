@@ -15,7 +15,7 @@
 #   IEC61850RUST_IMAGE=iec61850-interop-iec61850-rust:local \
 #   ./scripts/smoke-test.sh
 #
-# Exit code: 0 if all checks pass, 1 if any check fails.
+# Exit code: 0 if all checks pass, 1 if any check fails or none passes.
 
 set -euo pipefail
 
@@ -24,6 +24,14 @@ IEC61850BEAN_IMAGE="${IEC61850BEAN_IMAGE:-iec61850-interop-iec61850bean:local}"
 DSCSYSTEMS_IMAGE="${DSCSYSTEMS_IMAGE:-iec61850-interop-dscsystems:local}"
 IEC61850RUST_IMAGE="${IEC61850RUST_IMAGE:-iec61850-interop-iec61850-rust:local}"
 SCRIPTS="$(cd "$(dirname "$0")" && pwd)"
+
+# Every check also goes to results.json (interop-result-v1), in REPORT_DIR
+# (default reports/). A run with no pass, or a waiver that no longer reproduces, fails.
+# shellcheck source=scripts/results.sh
+source "$(dirname "${BASH_SOURCE[0]}")/results.sh"
+trap results_abort EXIT
+results_open smoke "${REPORT_DIR:-$(dirname "${SCRIPTS}")/reports}" "./scripts/smoke-test.sh"
+export RESULT_IMAGE="${LIBIEC61850_IMAGE/libiec61850/\{\}}"
 
 PASS=0
 FAIL=0
@@ -35,9 +43,30 @@ else
     RED=''; GREEN=''; YELLOW=''; RESET=''
 fi
 
-pass() { echo -e "${GREEN}PASS${RESET} $*"; PASS=$((PASS + 1)); }
-fail() { echo -e "${RED}FAIL${RESET} $*"; FAIL=$((FAIL + 1)); }
+pass() { echo -e "${GREEN}PASS${RESET} $*"; PASS=$((PASS + 1)); result pass; }
+fail() { echo -e "${RED}FAIL${RESET} $*"; FAIL=$((FAIL + 1)); result fail "$*"; }
 info() { echo -e "${YELLOW}INFO${RESET} $*"; }
+
+# stack <command>: the implementation of an adapter command, by its prefix.
+stack() { echo "$1" | sed -E 's/-(mms|ied|goose|sv)-.*$//'; }
+# image_stack <image>: the implementation of an image.
+image_stack() {
+    case "$1" in
+        "$LIBIEC61850_IMAGE") echo libiec61850 ;;
+        "$IEC61850BEAN_IMAGE") echo iec61850bean ;;
+        "$DSCSYSTEMS_IMAGE") echo dscsystems ;;
+        "$IEC61850RUST_IMAGE") echo iec61850-rust ;;
+        *) echo "$1" ;;
+    esac
+}
+# slug <text>: the text as a part of a scenario id.
+slug() { echo "$1" | tr 'A-Z' 'a-z' | sed -E 's/ -> /./g; s/[^a-z0-9._-]+/-/g; s/^-+//; s/-+$//'; }
+# at_label <kind> <label>: the scenario of a check whose label is an adapter
+# command, or "<client command> -> <server command>".
+at_label() {
+    local client="${2%% -> *}" server="${2##* -> }"
+    at "$1.$(slug "$2")" "$(stack "${client}")" "$(stack "${server}")"
+}
 
 # ---------------------------------------------------------------------------
 # Helper: start a server container, capture the ready line, return it.
@@ -129,6 +158,7 @@ run_client_pair() {
 # ---------------------------------------------------------------------------
 check_ready_event() {
     local label="$1" ready="$2"
+    at_label ready "${label}"
 
     if [ -z "$ready" ]; then
         fail "${label}: no ready event received within 30 s"
@@ -164,6 +194,7 @@ check_ready_event() {
 # ---------------------------------------------------------------------------
 check_json_lines() {
     local label="$1" output="$2"
+    at_label json-lines "${label}"
 
     if [ -z "$output" ]; then
         fail "${label}: no JSON Lines output"
@@ -191,6 +222,7 @@ check_json_lines() {
 # ---------------------------------------------------------------------------
 check_ied_client_ops() {
     local label="$1" output="$2"
+    at_label ied-ops "${label}"
     if ! echo "$output" | grep -q '"operation":"associate"'; then
         fail "${label}: missing associate operation"
         return
@@ -236,6 +268,7 @@ if bad:
 # ---------------------------------------------------------------------------
 check_cdc_values() {
     local label="$1" output="$2" got
+    at_label cdc-values "${label}"
     got=$(echo "$output" | python3 -c '
 import sys, json
 want = {"GGIO1.DPS1.stVal[ST]": 2, "MMTR1.TotVAh.actVal[ST]": 42}
@@ -265,6 +298,7 @@ print("; ".join(bad))
 # ---------------------------------------------------------------------------
 check_binary() {
     local image="$1" bin="$2"
+    at "binary.${bin}" "" "$(image_stack "${image}")"
     if docker run --rm --entrypoint sh "${image}" -c "command -v ${bin}" >/dev/null 2>&1; then
         pass "binary ${bin} in ${image}"
     else
@@ -277,6 +311,7 @@ check_binary() {
 # ---------------------------------------------------------------------------
 check_fixture_file() {
     local image="$1" path="$2"
+    at "fixture.$(slug "${path#/fixtures/}")" "" "$(image_stack "${image}")"
     if docker run --rm --entrypoint sh "${image}" -c "test -f ${path}" >/dev/null 2>&1; then
         pass "fixture ${path} in ${image}"
     else
@@ -311,6 +346,7 @@ info "=== Capabilities declare IED clients ==="
 check_capabilities_command() {
     local image="$1" entrypoint="$2" required="$3"
     local out
+    at "capabilities.${entrypoint}.${required}" "" "$(image_stack "${image}")"
     out=$(docker run --rm --entrypoint "$entrypoint" "$image" --capabilities 2>/dev/null || true)
     if echo "$out" | grep -q "\"$required\""; then
         pass "${entrypoint} --capabilities includes ${required}"
@@ -441,8 +477,14 @@ done
 info ""
 info "=== GOOSE publisher -> subscriber (L2, Docker bridge) ==="
 
+# at_cross <goose|sv> <publisher command> <subscriber command> <control block>:
+# the scenario of a crosscheck. The roles are publisher and subscriber.
+at_cross() {
+    at "$1.$(slug "$4")$([ "${FLAGS:-}" = plain ] && echo .plain)$([ "${HOST_SIDE:-}" = 1 ] && echo .host-side)" "$(stack "$2")" "$(stack "$3")"
+}
 goose_check() {
     local out
+    at_cross goose "$2" "$4" "$5"
     if out=$("$SCRIPTS/goose-crosscheck.sh" "$@" 2>&1); then
         pass "${out#PASS }"
     else
@@ -470,6 +512,7 @@ info "=== Sampled Values publisher -> subscriber (L2, Docker bridge) ==="
 
 sv_check() {
     local out
+    at_cross sv "$2" "$4" "$5"
     if out=$("$SCRIPTS/sv-crosscheck.sh" "$@" 2>&1); then
         pass "${out#PASS }"
     else
@@ -479,13 +522,20 @@ sv_check() {
 # Pairs that fail for a known limitation (fixtures/capabilities.json): the
 # check must fail with nothing received. When one starts to pass, the
 # limitation is gone and has to be removed here and in capabilities.json.
+SV_SMPMOD_WAIVER=libiec61850-sv-two-octet-smpmod
+SV_SMPMOD_EVIDENCE=https://github.com/mz-automation/libiec61850/tree/6e265c54af66ea686453b6d31c4dcce1cf7ad2bd
 sv_known() {
     local out
+    at_cross sv "$2" "$4" "$5"
     if out=$("$SCRIPTS/sv-crosscheck.sh" "$@" 2>&1); then
+        waiver "${SV_SMPMOD_WAIVER}" subscriber@libiec61850 "${SV_SMPMOD_EVIDENCE}" false
         fail "known limitation no longer reproduces, update capabilities.json: ${out#PASS }"
     elif echo "$out" | grep -q "received 0 of"; then
         out="${out%%:*}"
-        pass "known limitation reproduced: ${out#FAIL }"
+        waiver "${SV_SMPMOD_WAIVER}" subscriber@libiec61850 "${SV_SMPMOD_EVIDENCE}" true
+        echo -e "${YELLOW}KNOWN${RESET} known limitation reproduced: ${out#FAIL }"
+        PASS=$((PASS + 1))
+        result known-difference "known limitation reproduced (fixtures/capabilities.json): ${out#FAIL }" "${SV_SMPMOD_WAIVER}"
     else
         fail "$out"
     fi
@@ -525,5 +575,6 @@ done
 
 echo ""
 echo "Results: ${GREEN}${PASS} passed${RESET}  ${RED}${FAIL} failed${RESET}"
+results_close || FAIL=$((FAIL + 1))
 
 [ $FAIL -eq 0 ]
