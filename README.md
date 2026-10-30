@@ -319,6 +319,15 @@ on native amd64 and arm64 runners, publishes the multi-arch manifests to
 GHCR and creates the GitHub release with `manifest.json`. Tags are
 immutable; a fix is a new version.
 
+The **Upstream** workflow (`.github/workflows/upstream.yml`) compares every
+pin with the latest upstream every day (`scripts/latest-upstream.py`: the
+head of libiec61850, dscsystems/go-iec61850 and csp0924/iec61850-rust, the
+latest iec61850bean on Maven Central) and checks whether the tag of every
+digest-pinned base image has moved. An adapter that is behind is built at the
+latest upstream as a candidate (`scripts/build-candidate.sh`). When a pin is
+behind it opens an issue (or updates the open one) with the table, and closes
+it once every pin is current again. Pins are only moved by a reviewed change.
+
 ## Repository layout
 
 ```
@@ -329,5 +338,6 @@ adapters/
   iec61850-rust/   Rust adapter (LICENSE-MIT, LICENSE-APACHE, NOTICE)
 fixtures/          mms/, iec61850/, goose/, sv/, capabilities.json
 docs/              contract.md, goose.md, sv.md
-scripts/           smoke test, GOOSE/SV cross-checks, fixture validation, coverage, release notes
+scripts/           smoke test, GOOSE/SV cross-checks, fixture validation, coverage, release notes,
+                   upstream check and candidate build
 ```
