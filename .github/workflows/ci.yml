@@ -7,6 +7,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   validate-fixtures:
     name: Validate fixtures
@@ -16,6 +19,9 @@ jobs:
 
       - name: Validate fixture syntax and cross-references
         run: python3 scripts/validate-fixtures.py
+
+      - name: versions.yaml agrees with the build inputs
+        run: python3 scripts/check-versions.py
 
       - name: RELEASE.md has the notes of the newest version
         run: scripts/release-notes.sh > /dev/null
