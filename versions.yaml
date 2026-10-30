@@ -25,7 +25,7 @@ implementations:
     repository: "https://github.com/beanit/iec61850bean"
     version: "1.9.0"
     license: "Apache-2.0"
-    roles: [mms, ied]
+    roles: [ied]
     published: true
     pinned_in:
       - adapters/iec61850bean/pom.xml
