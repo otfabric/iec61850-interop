@@ -24,6 +24,17 @@ Tags are immutable. A fix is a new version.
 
 ---
 
+## v1.1.0
+
+**Date:** 2026-10-31
+**Previous release:** v1.0.1
+
+### Fixed
+
+- dscsystems adapter: `mmsjson.ToValue` turned a non-string octet-string into an empty value; `DataAccessError` and `ErrNotDeleted` match when wrapped; Go floor 1.26.10.
+
+---
+
 ## v1.0.1
 
 **Date:** 2026-10-28

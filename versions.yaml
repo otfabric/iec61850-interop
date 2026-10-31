@@ -4,7 +4,7 @@
 # Upstreams are pinned by commit or exact version; no source archive hash is
 # recorded. Which command exists in which image: fixtures/capabilities.json.
 
-interop_version: "1.0.1"
+interop_version: "1.1.0"
 contract_version: "1.0"        # docs/contract.md, semver from v1.0.0
 
 protocol:
