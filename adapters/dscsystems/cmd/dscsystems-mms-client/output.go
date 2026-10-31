@@ -67,7 +67,7 @@ func jsonString(s string) string {
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)
 	enc.SetEscapeHTML(false)
-	enc.Encode(s)
+	_ = enc.Encode(s)
 	return strings.TrimRight(b.String(), "\n")
 }
 

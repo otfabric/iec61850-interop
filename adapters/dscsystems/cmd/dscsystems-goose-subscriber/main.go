@@ -146,7 +146,7 @@ func main() {
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
-	go func() { <-sig; sock.Close(); os.Exit(0) }()
+	go func() { <-sig; _ = sock.Close(); os.Exit(0) }()
 
 	goosecli.EmitReady("subscriber", *iface, goosecli.FormatMAC(srcMAC), *gocbRef)
 

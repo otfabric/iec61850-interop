@@ -187,7 +187,7 @@ func main() {
 	st := &stats{}
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
-	go func() { <-sig; sock.Close(); st.emit(); os.Exit(0) }()
+	go func() { <-sig; _ = sock.Close(); st.emit(); os.Exit(0) }()
 
 	svcli.EmitReady("subscriber", *iface, goosecli.FormatMAC(srcMAC), "")
 	go func() {

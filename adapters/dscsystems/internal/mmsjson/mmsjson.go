@@ -167,7 +167,10 @@ func ToValue(t Typed) (*mms.Value, error) {
 		}
 		return mms.NewVisibleString(s), nil
 	case "octet-string":
-		s, _ := t.Value.(string)
+		s, ok := t.Value.(string)
+		if !ok {
+			return nil, fmt.Errorf("octet-string: value %v is not a hex string", t.Value)
+		}
 		b, err := hex.DecodeString(s)
 		if err != nil {
 			return nil, fmt.Errorf("octet-string: %w", err)

@@ -95,7 +95,7 @@ func main() {
 	jl.Log("file store at %s", storeDir)
 	cleanup := func() {
 		if filestoreArg == "" {
-			os.RemoveAll(storeDir)
+			_ = os.RemoveAll(storeDir)
 		}
 	}
 
@@ -118,7 +118,7 @@ func main() {
 	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
 	go func() {
 		<-sigs
-		ln.Close()
+		_ = ln.Close()
 	}()
 
 	for {

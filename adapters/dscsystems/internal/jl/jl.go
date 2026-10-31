@@ -58,7 +58,7 @@ func Emit(v any) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	os.Stdout.Write(append(b, '\n'))
+	_, _ = os.Stdout.Write(append(b, '\n'))
 }
 
 // Log writes a diagnostic line on stderr.

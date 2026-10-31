@@ -47,7 +47,7 @@ type openFile struct {
 
 func (h *handler) closeFiles() {
 	for id, o := range h.files {
-		o.f.Close()
+		_ = o.f.Close()
 		delete(h.files, id)
 	}
 }
@@ -193,15 +193,15 @@ func (h *handler) fileOpen(content []byte) (*asn1.Element, error) {
 	}
 	st, err := f.Stat()
 	if err != nil || st.IsDir() {
-		f.Close()
+		_ = f.Close()
 		return nil, errFileNonExistent
 	}
 	if int64(pos) > st.Size() {
-		f.Close()
+		_ = f.Close()
 		return nil, errFilePositionInvalid
 	}
 	if _, err := f.Seek(int64(pos), io.SeekStart); err != nil {
-		f.Close()
+		_ = f.Close()
 		return nil, errFilePositionInvalid
 	}
 	id := h.nextFRSM
@@ -256,7 +256,7 @@ func (h *handler) fileClose(content []byte) (*asn1.Element, error) {
 	if err != nil {
 		return nil, err
 	}
-	o.f.Close()
+	_ = o.f.Close()
 	delete(h.files, id)
 	return asn1.Prim(asn1.ContextPrimitive(svcFileClose), nil), nil
 }
@@ -303,7 +303,7 @@ func (h *handler) fileRename(content []byte) (*asn1.Element, error) {
 // reading sourceFile from the client.
 func (h *handler) obtainFile(req *mms.Request) (*asn1.Element, error) {
 	dec := asn1.NewDecoder(req.Content)
-	dec.Optional(asn1.ContextConstructed(0))
+	_, _, _ = dec.Optional(asn1.ContextConstructed(0))
 	sc, err := dec.Expect(asn1.ContextConstructed(1))
 	if err != nil {
 		return nil, errInvalidArgument
@@ -375,7 +375,7 @@ func fetchFromClient(ctx context.Context, conn *mms.ServerConn, name string) ([]
 		return nil, errFileOther
 	}
 	id, _ := asn1.DecodeInt(idb)
-	defer call(asn1.IntElem(asn1.ContextPrimitive(svcFileClose), id))
+	defer func() { _, _ = call(asn1.IntElem(asn1.ContextPrimitive(svcFileClose), id)) }()
 
 	var data []byte
 	for {

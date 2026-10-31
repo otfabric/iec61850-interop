@@ -3,8 +3,11 @@
         smoke smoke-servers goose-crosscheck sv-crosscheck verify-binaries verify-fixtures \
         validate-fixtures genmodel clone-libiec61850 \
         ci pr \
-        test \
+        test go-test go-lint go-vuln \
         clean
+
+# A parent go.work must not change the adapter's dependencies.
+export GOWORK := off
 
 PLATFORM            ?= linux/amd64
 LIBIEC61850_IMAGE   ?= iec61850-interop-libiec61850:local
@@ -125,6 +128,21 @@ genmodel: clone-libiec61850 ## Run genmodel.jar against interop.icd — mirrors 
 	java -jar "$(GENMODEL)" fixtures/iec61850/interop.icd -ied InteropIED -ap AP1
 	@test -s static_model.c && echo "static_model.c: OK" || (echo "static_model.c: MISSING"; exit 1)
 	@test -s static_model.h && echo "static_model.h: OK" || (echo "static_model.h: MISSING"; exit 1)
+
+# ---------------------------------------------------------------------------
+# Go code of the harness: adapters/dscsystems (no Docker required)
+# ---------------------------------------------------------------------------
+
+DSCSYSTEMS_DIR := adapters/dscsystems
+
+go-test: ## Unit tests of the dscsystems adapter with the race detector.
+	cd $(DSCSYSTEMS_DIR) && go test -race -count=1 ./...
+
+go-lint: ## golangci-lint on the dscsystems adapter (.golangci.yml at the root).
+	cd $(DSCSYSTEMS_DIR) && golangci-lint run ./...
+
+go-vuln: ## govulncheck on the dscsystems adapter.
+	cd $(DSCSYSTEMS_DIR) && go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
 # ---------------------------------------------------------------------------
 # Adapter self-tests (require Docker)
