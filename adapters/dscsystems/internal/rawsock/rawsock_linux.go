@@ -38,7 +38,7 @@ func Open(iface string, etherType uint16) (*Socket, int, error) {
 		return nil, 0, fmt.Errorf("rawsock: socket: %w", err)
 	}
 	if err := unix.Bind(fd, &unix.SockaddrLinklayer{Protocol: htons(etherType), Ifindex: ifi.Index}); err != nil {
-		unix.Close(fd)
+		_ = unix.Close(fd)
 		return nil, 0, fmt.Errorf("rawsock: bind %s: %w", iface, err)
 	}
 	// SO_RCVBUFFORCE passes rmem_max with CAP_NET_ADMIN; without it,
@@ -49,7 +49,7 @@ func Open(iface string, etherType uint16) (*Socket, int, error) {
 	got, _ := unix.GetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_RCVBUF)
 	tv := unix.NsecToTimeval(int64(pollInterval))
 	if err := unix.SetsockoptTimeval(fd, unix.SOL_SOCKET, unix.SO_RCVTIMEO, &tv); err != nil {
-		unix.Close(fd)
+		_ = unix.Close(fd)
 		return nil, 0, fmt.Errorf("rawsock: SO_RCVTIMEO: %w", err)
 	}
 	return &Socket{fd: fd, buf: make([]byte, 9216)}, got, nil

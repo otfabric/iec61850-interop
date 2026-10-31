@@ -115,7 +115,7 @@ func main() {
 	if err != nil {
 		jl.Fatal(1, "goose-publisher: %v (needs CAP_NET_RAW)", err)
 	}
-	defer sock.Close()
+	defer func() { _ = sock.Close() }()
 
 	// The frame always carries an 802.1Q tag, as libiec61850's publisher
 	// does: priority tagging is how GOOSE gets its precedence.
@@ -140,7 +140,7 @@ func main() {
 
 	var once sync.Once
 	done := make(chan struct{})
-	stop := func() { once.Do(func() { pub.Close(); close(done) }) }
+	stop := func() { once.Do(func() { _ = pub.Close(); close(done) }) }
 
 	if err := pub.Publish(values); err != nil {
 		goosecli.EmitError("publish: %v", err)

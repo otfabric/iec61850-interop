@@ -169,7 +169,7 @@ func (s *server) serve(raw net.Conn) {
 	sc, err := mms.AcceptConnOpts(raw, acceptOptions())
 	if err != nil {
 		jl.Log("association from %s refused: %v", raw.RemoteAddr(), err)
-		raw.Close()
+		_ = raw.Close()
 		return
 	}
 	jl.Log("association from %s", raw.RemoteAddr())
@@ -180,7 +180,7 @@ func (s *server) serve(raw net.Conn) {
 	h := &handler{s: s, sc: sc, aaNVLs: map[string]*nvl{}, files: map[int32]*openFile{}}
 	err = sc.Serve(h)
 	h.closeFiles()
-	sc.Close()
+	_ = sc.Close()
 
 	s.connMu.Lock()
 	delete(s.conns, sc)
@@ -197,9 +197,9 @@ func (s *server) close() {
 	s.connMu.Lock()
 	defer s.connMu.Unlock()
 	for sc := range s.conns {
-		sc.Abort()
+		_ = sc.Abort()
 	}
-	s.store.Close()
+	_ = s.store.Close()
 }
 
 // handler serves one association; requests arrive one at a time.
@@ -556,7 +556,7 @@ func (h *handler) parseVariableAccess(tag asn1.Tag, content []byte) ([]accessSpe
 		}
 		out := make([]accessSpec, len(l.members))
 		for i, m := range l.members {
-			out[i] = accessSpec{ref: m.ref, alt: m.alt}
+			out[i] = accessSpec(m)
 		}
 		return out, nil
 	}
@@ -755,7 +755,7 @@ func (h *handler) defineNVL(content []byte) (*asn1.Element, error) {
 		if _, _, ok := h.resolve(a.ref, a.alt); !ok {
 			return nil, errObjectUndefined
 		}
-		l.members = append(l.members, nvlMember{ref: a.ref, alt: a.alt})
+		l.members = append(l.members, nvlMember(a))
 	}
 	m[n.item] = l
 	return asn1.Prim(asn1.ContextPrimitive(svcDefineNVL), nil), nil

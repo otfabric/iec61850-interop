@@ -176,7 +176,7 @@ func main() {
 	if err != nil {
 		fail("%v (needs CAP_NET_RAW)", err)
 	}
-	defer sock.Close()
+	defer func() { _ = sock.Close() }()
 
 	svcli.EmitReady("publisher", *iface, goosecli.FormatMAC(srcMAC), *svID)
 
@@ -269,7 +269,7 @@ func main() {
 		Frames  uint64 `json:"frames"`
 		Samples uint64 `json:"samples"`
 	}{"stopped", frames, samples})
-	sock.Close()
+	_ = sock.Close()
 	os.Exit(0)
 }
 

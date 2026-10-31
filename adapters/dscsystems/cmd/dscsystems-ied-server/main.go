@@ -105,10 +105,12 @@ func main() {
 	signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
 	select {
 	case <-sig:
-		srv.Close()
-		<-served
+		_ = srv.Close()
+		if err := <-served; err != nil && !errors.Is(err, net.ErrClosed) {
+			jl.Log("ied-server: serve: %v", err)
+		}
 	case err := <-served:
-		srv.Close()
+		_ = srv.Close()
 		if err != nil && !errors.Is(err, net.ErrClosed) {
 			jl.Fatal(1, "ied-server: serve: %v", err)
 		}

@@ -521,7 +521,7 @@ func runServerAbort(addr string) {
 		emitFail("server-abort", "", errName(err))
 		return
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	_, werr := conn.Write(ctx, "interop", []string{"report-trigger"}, []*mms.Value{mms.NewInt32(-1)})
 	cancel()

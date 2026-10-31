@@ -42,6 +42,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -122,7 +123,8 @@ func jlFail(op, reason string) {
 // access error by name, any other failure by its coarse name.
 func readResult(target string, v *mms.Value, err error, render func(*mms.Value) raw) {
 	if err != nil {
-		if dae, ok := err.(mms.DataAccessError); ok {
+		var dae mms.DataAccessError
+		if errors.As(err, &dae) {
 			emitFail("read", target, daeName(dae))
 		} else {
 			emitFail("read", target, coarseErrName(err))
@@ -139,7 +141,8 @@ func writeResult(target string, err error) {
 		emitOK("write", target)
 		return
 	}
-	if dae, ok := err.(mms.DataAccessError); ok {
+	var dae mms.DataAccessError
+	if errors.As(err, &dae) {
 		emitFail("write", target, daeName(dae))
 		return
 	}
@@ -261,7 +264,7 @@ func runSequence(addr string, full bool) int {
 	if err := conn.Err(); err != nil {
 		jlFail("conclude", coarseErrName(err))
 	} else {
-		conn.Close()
+		_ = conn.Close()
 		jlOK("conclude")
 	}
 	return 0
@@ -400,7 +403,8 @@ func anyFailed(res []error) bool {
 // reports a list that was not deleted as a false result with MmsError
 // none; the library reports it as an error.
 func deleteErrName(err error, name func(error) string) string {
-	if _, ok := err.(mms.DataAccessError); ok || err == mms.ErrNotDeleted {
+	var dae mms.DataAccessError
+	if errors.As(err, &dae) || errors.Is(err, mms.ErrNotDeleted) {
 		return "none"
 	}
 	return name(err)

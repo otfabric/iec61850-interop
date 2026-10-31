@@ -34,6 +34,7 @@ This repository follows **otfabric/engineering policy 1.1**, profile **interoper
 |---|---|
 | anything | `make validate-fixtures` |
 | an adapter | `make build-<stack> smoke` |
+| Go in adapters/dscsystems | `make go-test go-lint go-vuln` |
 | GOOSE or SV | `make goose-crosscheck sv-crosscheck` |
 | everything | `make ci` |
 

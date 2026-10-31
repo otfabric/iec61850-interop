@@ -56,7 +56,7 @@ func run(c *client.Client, initial bool) {
 	// The C closes without a conclude line when get-rcb or enable-rcb fails.
 	concluded := false
 	defer func() {
-		c.Close()
+		_ = c.Close()
 		if concluded {
 			ied.OK("conclude", "")
 		}

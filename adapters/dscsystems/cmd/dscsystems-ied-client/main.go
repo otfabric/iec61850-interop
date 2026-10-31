@@ -67,7 +67,7 @@ func main() {
 	ok = write(c, ld+"/LLN0.Mod.stVal", model.ST, mms.NewInt32(5)) && ok
 	ok = readDataSet(c, ld+"/LLN0$dsInterop") && ok
 
-	c.Close()
+	_ = c.Close()
 	ied.OK("conclude", "")
 	if !ok {
 		os.Exit(3)

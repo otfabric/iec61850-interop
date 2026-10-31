@@ -58,7 +58,7 @@ func main() {
 		jl.Fatal(2, "ied-controller: connect %s: %v", addr, err)
 	}
 	defer func() {
-		c.Close()
+		_ = c.Close()
 		ied.OK("conclude", "")
 	}()
 

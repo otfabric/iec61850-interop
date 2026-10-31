@@ -1,0 +1,35 @@
+# golangci-lint v2 baseline for OT Fabric Go repositories (policy 1.1,
+# rule GO-005). Add linters per repository; never disable baseline ones to
+# pass CI. Every exclusion needs a reason.
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck      # unchecked errors
+    - govet         # vet analyzers
+    - ineffassign   # ineffectual assignments
+    - staticcheck   # includes gosimple and unused
+    - misspell
+    - nilerr        # returns nil when err != nil
+    - errorlint     # errors.Is/As and %w
+  exclusions:
+    rules:
+      # Tests close resources in defers whose errors do not matter.
+      - path: _test\.go
+        linters: [errcheck]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+run:
+  timeout: 5m
+  # Lint build-tagged suites too, so they do not rot.
+  build-tags:
+    - interop
