@@ -6,7 +6,7 @@ Independent IEC 61850 stacks (libiec61850, iec61850bean, dscsystems/go-iec61850,
 
 ## Organisation standards
 
-This repository follows **otfabric/engineering policy 1.1**, profile **interoperability** (`.otfabric/policy.yaml`, mode `enforce`). Where this file and the organisation standards disagree, this file wins here — say so in your report.
+This repository follows **otfabric/engineering policy 1.2**, profile **interoperability** (`.otfabric/policy.yaml`, mode `enforce`). Where this file and the organisation standards disagree, this file wins here — say so in your report.
 
 ## Where the truth lives
 

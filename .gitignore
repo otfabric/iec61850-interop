@@ -2,7 +2,7 @@
 *.test
 *.out
 coverage.html
-bin/
+/bin/
 
 # Go workspace (local only, not committed)
 go.work
@@ -20,5 +20,20 @@ adapters/*/dist/
 *.swp
 *.swo
 .DS_Store
-!adapters/iec61850-rust/src/bin/
 reports/
+
+# Build artefacts live in /bin/ and /release/ (otfabric/engineering REPO-005)
+/release/
+coverage.out
+
+# Output of a bare `go build`, anchored so it can never hide a source folder
+/adapters/dscsystems/cmd/dscsystems-goose-publisher/dscsystems-goose-publisher
+/adapters/dscsystems/cmd/dscsystems-goose-subscriber/dscsystems-goose-subscriber
+/adapters/dscsystems/cmd/dscsystems-ied-client/dscsystems-ied-client
+/adapters/dscsystems/cmd/dscsystems-ied-controller/dscsystems-ied-controller
+/adapters/dscsystems/cmd/dscsystems-ied-reporter/dscsystems-ied-reporter
+/adapters/dscsystems/cmd/dscsystems-ied-server/dscsystems-ied-server
+/adapters/dscsystems/cmd/dscsystems-mms-client/dscsystems-mms-client
+/adapters/dscsystems/cmd/dscsystems-mms-server/dscsystems-mms-server
+/adapters/dscsystems/cmd/dscsystems-sv-publisher/dscsystems-sv-publisher
+/adapters/dscsystems/cmd/dscsystems-sv-subscriber/dscsystems-sv-subscriber
