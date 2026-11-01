@@ -24,6 +24,17 @@ Tags are immutable. A fix is a new version.
 
 ---
 
+## v1.1.1
+
+**Date:** 2026-11-01
+**Previous release:** v1.1.0
+
+### Changed
+
+- Policy 1.2: build output in `bin/` and `release/`, and shared CI at v3.3.0.
+
+---
+
 ## v1.1.0
 
 **Date:** 2026-10-31
