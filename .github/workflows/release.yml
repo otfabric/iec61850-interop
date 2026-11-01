@@ -1,7 +1,9 @@
 name: Release
+run-name: "Release ${{ inputs.bump && format('({0}) from {1}', inputs.bump, github.ref_name) || github.ref_name }}"
 
-# Tag push: publish that tag. Manual run: bump the latest vX.Y.Z tag
-# (patch by default) on the selected branch and publish that.
+# Tag push: publish that tag. Manual run: bump the latest vX.Y.Z tag (patch by
+# default) and publish that from main; the git tag is created with the GitHub
+# release, its last step, so a failed run leaves no tag behind.
 on:
   push:
     tags:
@@ -48,11 +50,16 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           REF_NAME: ${{ github.ref_name }}
-          BUMP: ${{ github.event.inputs.bump || 'patch' }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          BUMP: ${{ inputs.bump || 'patch' }}
         run: |
           set -euo pipefail
           git fetch --tags --force origin
           if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
+            if [ "${REF_NAME}" != "${DEFAULT_BRANCH}" ]; then
+              echo "::error::Releases are only allowed from ${DEFAULT_BRANCH}, not ${REF_NAME}"
+              exit 1
+            fi
             tag="$(scripts/next-version.sh "${BUMP}")"
             if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
               echo "::error::tag ${tag} already exists"
@@ -63,6 +70,10 @@ jobs:
           fi
           [[ "${tag}" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]] \
             || { echo "::error::${tag} is not vX.Y.Z"; exit 1; }
+          grep -qF "interop_version: \"${tag#v}\"" versions.yaml \
+            || { echo "::error::versions.yaml does not say interop_version: \"${tag#v}\""; exit 1; }
+          scripts/release-notes.sh "${tag}" > /dev/null \
+            || { echo "::error::RELEASE.md has no notes for ${tag}"; exit 1; }
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
           echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
           echo "major=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
