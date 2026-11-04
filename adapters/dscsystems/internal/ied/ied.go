@@ -127,9 +127,18 @@ func ErrString(err error) string {
 func Flags(name string) string {
 	host := flag.String("host", "localhost", "server host")
 	port := flag.Int("port", 1102, "server port")
+	localTsel := flag.String("local-tsel", "", "calling T-selector (unsupported)")
+	remoteTsel := flag.String("remote-tsel", "", "called T-selector (unsupported)")
 	flag.Parse()
 	if *port <= 0 || *port > 65535 {
 		jl.Fatal(1, "%s: invalid port %d", name, *port)
+	}
+	if *localTsel != "" || *remoteTsel != "" {
+		// dscsystems/go-iec61850's client.Dial has no option for the COTP
+		// selectors (it always sends 0001/0001).
+		jl.Emit(map[string]string{"event": "error", "code": "unsupported", "command": "dscsystems-" + name,
+			"reason": "--local-tsel/--remote-tsel: the dscsystems client sends T-selector 0001/0001 and cannot be configured"})
+		os.Exit(4)
 	}
 	return net.JoinHostPort(*host, strconv.Itoa(*port))
 }

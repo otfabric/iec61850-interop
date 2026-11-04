@@ -107,6 +107,22 @@ server and exit. Each operation is one line:
   `{"operation":"receive-report","ok":true,"rptID":...,"seqNum":N,"inclusion":[...],"values":[...],"reasons":["data-change"]}`,
   disables the URCB.
 
+`*-ied-client` also takes `--local-tsel HEX` and `--remote-tsel HEX`, the
+calling and called COTP T-selectors of 1 to 4 octets in hex (`01`, `0001`,
+`00000001`), so a consumer can check that its server accepts the selectors
+real clients send. Without them each stack sends its own defaults, which are
+part of what is tested:
+
+| Stack | Calling T-selector | Called T-selector | With `--local-tsel`/`--remote-tsel` |
+|-------|:--:|:--:|---|
+| libiec61850 | `0001` | `0001` | sent as given (S-selector `0001`, P-selector `00000001` unchanged) |
+| iec61850bean | `0000` | `0001` | sent as given |
+| iec61850-rust | `0001` | `0001` | sent as given |
+| dscsystems | `0001` | `0001` | unsupported (exit 4): the library cannot set them |
+
+An invalid value (odd length, not hex, more than 4 octets) is an argument
+error (exit 1).
+
 `error` is free text and not part of the contract; `ok` is.
 
 Exit codes: `0` sequence completed (each line's `ok` is the result), `1`

@@ -199,10 +199,26 @@ async fn run(conn: &IedConnection) -> bool {
 
 fn main() {
     jl::handle_meta_flags();
-    let (host, port) = adapter::ied::host_port(PROG, |_, _| {});
+    // Upstream's defaults (T-selector 0001/0001) unless --local-tsel or
+    // --remote-tsel is given.
+    let mut params: Option<adapter::ied::IsoConnectionParameters> = None;
+    let (host, port) = adapter::ied::host_port(PROG, |flag, val| {
+        if flag != "--local-tsel" && flag != "--remote-tsel" {
+            return;
+        }
+        let Some(tsel) = adapter::ied::parse_tsel(val) else {
+            jl::fatal(1, &format!("{PROG}: invalid {flag} {val} (1..4 octets in hex)"));
+        };
+        let p = params.get_or_insert_with(Default::default);
+        if flag == "--local-tsel" {
+            p.local_t_sel = tsel;
+        } else {
+            p.remote_t_sel = tsel;
+        }
+    });
     let rt = adapter::ied::runtime();
     let code = rt.block_on(async {
-        let conn = match adapter::ied::connect(&host, port).await {
+        let conn = match adapter::ied::connect_with(&host, port, params).await {
             Ok(c) => c,
             Err(e) => {
                 jl::log(&format!("{PROG}: connect {host}:{port}: {e}"));

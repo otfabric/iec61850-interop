@@ -139,7 +139,7 @@ run_client_pair() {
             --network "$net" \
             --entrypoint "${cmd_client}" \
             "${image_client}" \
-            --host "smoke-server-$$" --port 1102 \
+            --host "smoke-server-$$" --port 1102 ${SMOKE_CLIENT_ARGS:-} \
             2>/dev/null || true)
         echo "$output" | grep -q '"operation":"associate","ok":false' || break
         echo "${cmd_client} -> ${cmd_server}: association failed (try ${try}): $(echo "$output" | head -1)" >&2
@@ -473,6 +473,31 @@ for stack in "$DSCSYSTEMS_IMAGE dscsystems" "$IEC61850RUST_IMAGE iec61850-rust";
     output=$(run_client_pair "$LIBIEC61850_IMAGE" libiec61850-ied-server "$img" "$p-ied-controller")
     check_json_lines "$p-ied-controller -> libiec61850-ied-server" "$output"
 done
+
+info ""
+info "=== ied-client --local-tsel / --remote-tsel ==="
+
+# Each client that can set its COTP T-selectors associates with them (the
+# libiec61850 server accepts any selector); an invalid value is an argument
+# error (exit 1); dscsystems answers unsupported (exit 4).
+for stack in "$LIBIEC61850_IMAGE libiec61850" "$IEC61850BEAN_IMAGE iec61850bean" "$IEC61850RUST_IMAGE iec61850-rust"; do
+    set -- $stack
+    img="$1"; p="$2"
+    for tsel in "01 01" "0001 00000001"; do
+        set -- $tsel
+        output=$(SMOKE_CLIENT_ARGS="--local-tsel $1 --remote-tsel $2" \
+            run_client_pair "$LIBIEC61850_IMAGE" libiec61850-ied-server "$img" "$p-ied-client")
+        check_ied_client_ops "$p-ied-client --local-tsel $1 --remote-tsel $2 -> libiec61850-ied-server" "$output"
+    done
+    code=0
+    docker run --rm --entrypoint "$p-ied-client" "$img" --remote-tsel 0000000001 >/dev/null 2>&1 || code=$?
+    if [ "$code" = 1 ]; then pass "$p-ied-client: 5-octet --remote-tsel exits 1"
+    else fail "$p-ied-client: 5-octet --remote-tsel exit $code, want 1"; fi
+done
+code=0
+out=$(docker run --rm --entrypoint dscsystems-ied-client "$DSCSYSTEMS_IMAGE" --remote-tsel 0001 2>/dev/null) || code=$?
+if [ "$code" = 4 ] && echo "$out" | grep -q '"code":"unsupported"'; then pass "dscsystems-ied-client: --remote-tsel unsupported (exit 4)"
+else fail "dscsystems-ied-client: --remote-tsel exit $code ($out), want unsupported exit 4"; fi
 
 info ""
 info "=== GOOSE publisher -> subscriber (L2, Docker bridge) ==="

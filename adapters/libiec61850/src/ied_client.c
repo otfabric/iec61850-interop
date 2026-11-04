@@ -38,6 +38,8 @@
  *   3  — one or more operations emitted ok:false (conclude still attempted)
  */
 
+#include <ctype.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -375,25 +377,71 @@ static bool op_read_dataset(IedConnection conn, const char* dsRef)
  * main
  * ---------------------------------------------------------------------- */
 
+/* parse_tsel reads a T-selector of 1..4 octets written as hex ("0001");
+ * returns false on any other input. */
+static bool parse_tsel(const char* hex, TSelector* out)
+{
+    size_t n = strlen(hex);
+    if (n == 0 || n % 2 != 0 || n / 2 > sizeof(out->value))
+        return false;
+    for (size_t i = 0; i < n / 2; i++) {
+        unsigned int b;
+        if (!isxdigit((unsigned char)hex[2 * i]) || !isxdigit((unsigned char)hex[2 * i + 1]) ||
+            sscanf(hex + 2 * i, "%2x", &b) != 1)
+            return false;
+        out->value[i] = (uint8_t)b;
+    }
+    out->size = (uint8_t)(n / 2);
+    return true;
+}
+
 int main(int argc, char** argv)
 {
     jl_handle_meta_flags(argc, argv, "libiec61850");
     const char* host = "localhost";
     int         port = 1102;
+    const char* localTsel  = NULL;
+    const char* remoteTsel = NULL;
 
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--host") && i + 1 < argc)
             host = argv[++i];
         else if (!strcmp(argv[i], "--port") && i + 1 < argc)
             port = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--local-tsel") && i + 1 < argc)
+            localTsel = argv[++i];
+        else if (!strcmp(argv[i], "--remote-tsel") && i + 1 < argc)
+            remoteTsel = argv[++i];
     }
     if (port <= 0 || port > 65535) {
         fprintf(stderr, "ied-client: invalid port %d\n", port);
         return 1;
     }
 
+    /* libiec61850's own defaults (mms_client_connection.c); only the
+     * T-selectors given on the command line differ. */
+    TSelector localT  = { 2, { 0, 1 } };
+    TSelector remoteT = { 2, { 0, 1 } };
+    if (localTsel && !parse_tsel(localTsel, &localT)) {
+        fprintf(stderr, "ied-client: invalid --local-tsel %s (1..4 octets in hex)\n", localTsel);
+        return 1;
+    }
+    if (remoteTsel && !parse_tsel(remoteTsel, &remoteT)) {
+        fprintf(stderr, "ied-client: invalid --remote-tsel %s (1..4 octets in hex)\n", remoteTsel);
+        return 1;
+    }
+
     IedConnection conn = IedConnection_create();
     IedClientError err;
+
+    if (localTsel || remoteTsel) {
+        PSelector pSel = { 4, { 0, 0, 0, 1 } };
+        SSelector sSel = { 2, { 0, 1 } };
+        IsoConnectionParameters params =
+            MmsConnection_getIsoConnectionParameters(IedConnection_getMmsConnection(conn));
+        IsoConnectionParameters_setLocalAddresses(params, pSel, sSel, localT);
+        IsoConnectionParameters_setRemoteAddresses(params, pSel, sSel, remoteT);
+    }
 
     IedConnection_connect(conn, &err, host, port);
     if (err != IED_ERROR_OK) {

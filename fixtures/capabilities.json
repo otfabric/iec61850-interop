@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "adapterVersion": "1.0.1",
+  "adapterVersion": "1.2.0",
   "fixtureRevision": "iec61850-v3",
   "mmsFixtureRevision": "mms-v2",
   "commands": {
@@ -239,6 +239,14 @@
       "capability": "smpRate 0 / empty datSet",
       "reason": "sv.Parse returns smpRate 0 and datSet \"\" for absent fields, so a present smpRate of 0 or an empty datSet is reported as null",
       "reproducedBy": ""
+    },
+    {
+      "stack": "dscsystems",
+      "version": "6bf3f370c6fb95d3835e34d9d1539f313e00b157",
+      "direction": "dscsystems-client → go-server",
+      "capability": "--local-tsel / --remote-tsel of dscsystems-ied-client",
+      "reason": "client.Dial has no option for the COTP selectors; the client always sends T-selector 0001/0001, so the flags answer unsupported (exit 4)",
+      "reproducedBy": "TestPeerClientTSelectors"
     }
   ],
   "upstreams": {
