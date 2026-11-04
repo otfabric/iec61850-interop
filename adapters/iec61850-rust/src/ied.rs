@@ -3,7 +3,9 @@
 // Shared pieces of the IED client commands (ied-client, ied-controller,
 // ied-reporter) on iec61850_client::IedConnection.
 
+pub use iec61850_client::IsoConnectionParameters;
 use iec61850_client::{ClientError, IedConnection};
+use iec61850_mms::iso::cotp::TSelector;
 use iec61850_mms::DataAccessError;
 
 /// The libiec61850 IedClientError string of a DataAccessError, as the C
@@ -72,7 +74,32 @@ pub async fn resolve(host: &str, port: u16) -> String {
 
 /// Connects, mapping a failure to the libiec61850 string.
 pub async fn connect(host: &str, port: u16) -> Result<IedConnection, String> {
-    let conn = IedConnection::new();
+    connect_with(host, port, None).await
+}
+
+/// Parses a T-selector of 1..4 octets written as hex ("0001").
+pub fn parse_tsel(hex: &str) -> Option<TSelector> {
+    if hex.is_empty() || hex.len() % 2 != 0 || !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return None;
+    }
+    let bytes: Vec<u8> = (0..hex.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).ok())
+        .collect::<Option<Vec<u8>>>()?;
+    TSelector::from_slice(&bytes).ok()
+}
+
+/// Like [`connect`], with the given ISO parameters instead of upstream's
+/// defaults when `params` is set.
+pub async fn connect_with(
+    host: &str,
+    port: u16,
+    params: Option<IsoConnectionParameters>,
+) -> Result<IedConnection, String> {
+    let conn = match params {
+        Some(p) => IedConnection::with_iso_parameters(p),
+        None => IedConnection::new(),
+    };
     let ip = resolve(host, port).await;
     match conn.connect(&ip, port).await {
         Ok(()) => Ok(conn),

@@ -4,7 +4,7 @@ Availability of adapter commands across the four images. Compatibility matrices 
 
 This file is generated from `fixtures/capabilities.json`; do not edit manually. Run `./scripts/gen-coverage.sh`.
 
-Adapter version: `1.0.1` · Fixture revisions: `mms-v2`, `iec61850-v3`, `goose-v1`, `sv-v1`
+Adapter version: `1.2.0` · Fixture revisions: `mms-v2`, `iec61850-v3`, `goose-v1`, `sv-v1`
 
 ## Stack × capability
 
@@ -85,6 +85,7 @@ SVCB over MMS: the IED server exposes `LLN0$MS$MSVCB02` of the IED fixture as MM
 | `iec61850-rust` | v0.2.0-0-gd4e8952 | * → iec61850-rust-sv-subscriber, iec61850-rust-sv-publisher → * | More than 10 ASDUs per SV frame | — |
 | `iec61850-rust` | v0.2.0-0-gd4e8952 | * → iec61850-rust-sv-subscriber | SV receive buffer | — |
 | `dscsystems` | v0.6.5-1-g6bf3f37 | * → dscsystems-sv-subscriber | smpRate 0 / empty datSet | — |
+| `dscsystems` | 6bf3f370c6fb95d3835e34d9d1539f313e00b157 | dscsystems-client → go-server | --local-tsel / --remote-tsel of dscsystems-ied-client | `TestPeerClientTSelectors` |
 
 ## Notes
 

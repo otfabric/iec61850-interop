@@ -30,11 +30,15 @@ public class IedClient {
     public static void run(String[] args) throws Exception {
         String host = "localhost";
         int    port = 1102;
+        byte[] localTsel  = null;
+        byte[] remoteTsel = null;
 
         for (int i = 0; i < args.length - 1; i++) {
             switch (args[i]) {
                 case "--host" -> host = args[++i];
                 case "--port" -> port = Integer.parseInt(args[++i]);
+                case "--local-tsel" -> localTsel = parseTsel("--local-tsel", args[++i]);
+                case "--remote-tsel" -> remoteTsel = parseTsel("--remote-tsel", args[++i]);
             }
         }
         if (port <= 0 || port > 65535) {
@@ -42,7 +46,14 @@ public class IedClient {
             System.exit(1);
         }
 
+        // iec61850bean's own defaults (calling 0000, called 0001) unless given.
         ClientSap clientSap = new ClientSap();
+        if (localTsel != null) {
+            clientSap.setTSelLocal(localTsel);
+        }
+        if (remoteTsel != null) {
+            clientSap.setTSelRemote(remoteTsel);
+        }
         ClientAssociation assoc;
         try {
             assoc = clientSap.associate(InetAddress.getByName(host), port, null, null);
@@ -297,5 +308,18 @@ public class IedClient {
         if (member instanceof BdaFloat32 bda)      return String.valueOf(bda.getFloat());
         if (member instanceof BdaVisibleString bda) return JsonLines.quote(bda.getStringValue());
         return "null";
+    }
+
+    /** Parses a T-selector of 1..4 octets written as hex ("0001"); exits 1 otherwise. */
+    static byte[] parseTsel(String flag, String hex) {
+        if (hex.isEmpty() || hex.length() % 2 != 0 || hex.length() / 2 > 4 || !hex.matches("[0-9A-Fa-f]+")) {
+            System.err.println("ied-client: invalid " + flag + " " + hex + " (1..4 octets in hex)");
+            System.exit(1);
+        }
+        byte[] out = new byte[hex.length() / 2];
+        for (int i = 0; i < out.length; i++) {
+            out[i] = (byte) Integer.parseInt(hex.substring(2 * i, 2 * i + 2), 16);
+        }
+        return out;
     }
 }

@@ -1,0 +1,15 @@
+<configuration>
+  <!--
+    Redirect all iec61850bean internal logging to stderr so it does not
+    pollute the JSON Lines output written to stdout.
+  -->
+  <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+    <target>System.err</target>
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+  <root level="WARN">
+    <appender-ref ref="STDERR"/>
+  </root>
+</configuration>

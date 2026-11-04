@@ -24,6 +24,18 @@ Tags are immutable. A fix is a new version.
 
 ---
 
+## v1.2.0
+
+**Date:** 2026-11-04
+**Previous release:** v1.1.1
+
+### Added
+
+- `*-ied-client --local-tsel HEX --remote-tsel HEX`: the calling and called COTP T-selectors (1 to 4 octets in hex) for libiec61850, iec61850bean and iec61850-rust. Without them each stack sends its own defaults, now documented in docs/contract.md (libiec61850 and iec61850-rust `0001`/`0001`, iec61850bean `0000`/`0001`). Consumers use this to run independent clients with the selectors IEDs and engineering tools use (`01`, `0001`, `00000001`) against a server that accepts any selector or requires one. Motivated by otfabric/go-iec61850#28, where an IED refused a client that sent none. Contract 1.1 (a minor addition: new flags, old behaviour by default).
+- dscsystems: `dscsystems/go-iec61850` cannot set the selectors, so its clients answer the flags with `unsupported` (exit 4), recorded as a known limitation.
+
+---
+
 ## v1.1.1
 
 **Date:** 2026-11-01
