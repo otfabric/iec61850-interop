@@ -42,8 +42,8 @@ field() { python3 -c "import json,sys;s=json.load(open('$FIXTURE'))['streams']['
 
 # wait_ready FILE: block until FILE has a ready event (at most 30 s).
 wait_ready() {
-    local i
-    for i in $(seq 300); do
+    local _
+    for _ in $(seq 300); do
         grep -q '"event":"ready"' "$1" 2>/dev/null && return 0
         sleep 0.1
     done

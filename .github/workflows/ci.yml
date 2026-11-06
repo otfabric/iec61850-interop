@@ -29,8 +29,22 @@ jobs:
       - name: Unit tests of the result scripts
         run: python3 -m unittest discover -q -s scripts -p 'test_*.py'
 
-      - name: COVERAGE.md and the README matrix match capabilities.json
+      - name: docs/CAPABILITIES.md and the README matrix match capabilities.json
         run: scripts/gen-coverage.sh --check
+
+      - name: Shellcheck
+        run: make lint
+
+      - name: No reference to a library under test
+        # REQUIREMENTS.md R1: adapters, fixtures, scripts and schemas must not
+        # know any consumer. Documentation may name consumers as examples.
+        # The bare name go-iec61850 is also dscsystems' upstream
+        # (dscsystems/go-iec61850), so the pattern names our organisation;
+        # a NOTICE may state that no code goes into our libraries.
+        run: |
+          if grep -rInE 'otfabric/go-|iec61850ctl|mmsctl' --exclude=NOTICE adapters fixtures schemas scripts Makefile compose.yaml; then
+            echo "::error::consumer-specific reference found"; exit 1
+          fi
 
   dscsystems-go:
     name: dscsystems adapter (go vet, gofmt)
@@ -90,20 +104,20 @@ jobs:
       - name: Verify fixture files in images
         run: make verify-fixtures
 
-      # Run the full smoke suite: server ready events, client JSON Lines
-      # output (same stack, and libiec61850 <-> dscsystems / iec61850-rust in
-      # both directions), and GOOSE publisher -> subscriber between
-      # libiec61850, dscsystems and iec61850-rust for every pair, including
-      # the host side of the bridge network as a Go test on a Linux host
-      # uses it; the same for Sampled Values (both fixture streams, loss
-      # reported per pair, known-limitation pairs checked to still fail).
+      # Each image's contract smoke test (scripts/smoke.sh: commands,
+      # fixtures, ready events, same-stack clients, T-selectors), then the
+      # cross-stack self-test (scripts/interop.sh): every stack's MMS and
+      # IED clients and servers against libiec61850 in both directions, and
+      # GOOSE and Sampled Values between every publisher and subscriber of
+      # libiec61850, dscsystems and iec61850-rust, including the host side
+      # of the bridge network as a Go test on a Linux host uses it (both SV
+      # fixture streams, loss reported per pair, known-limitation pairs
+      # checked to still fail).
       - name: Run adapter smoke tests
-        run: |
-          LIBIEC61850_IMAGE=iec61850-interop-libiec61850:local \
-          IEC61850BEAN_IMAGE=iec61850-interop-iec61850bean:local \
-          DSCSYSTEMS_IMAGE=iec61850-interop-dscsystems:local \
-          IEC61850RUST_IMAGE=iec61850-interop-iec61850-rust:local \
-          ./scripts/smoke-test.sh
+        run: make smoke
+
+      - name: Cross-stack self-test
+        run: make interop
 
       - name: Results (interop-result-v1)
         if: always()

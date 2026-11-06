@@ -1,7 +1,8 @@
-.PHONY: help build build-libiec61850 build-iec61850bean build-dscsystems build-iec61850-rust \
+.PHONY: help all build images build-libiec61850 build-iec61850bean build-dscsystems build-iec61850-rust \
         publish publish-libiec61850 publish-iec61850bean publish-dscsystems publish-iec61850-rust \
-        smoke smoke-servers goose-crosscheck sv-crosscheck verify-binaries verify-fixtures \
-        validate-fixtures genmodel clone-libiec61850 \
+        smoke interop capabilities print-adapters print-published-adapters lint \
+        goose-crosscheck sv-crosscheck verify-binaries verify-fixtures \
+        validate validate-fixtures genmodel clone-libiec61850 \
         ci pr \
         test go-test go-lint go-vuln \
         clean
@@ -20,6 +21,17 @@ PORT                ?= 1102
 REGISTRY            ?= ghcr.io/otfabric
 VERSION             ?= latest
 
+# Every adapter: built, smoke-tested and cross-tested everywhere. The first
+# is the hub of scripts/interop.sh. Override to work on one:
+# make smoke ADAPTERS=libiec61850
+ADAPTERS            ?= libiec61850 iec61850bean dscsystems iec61850-rust
+# The adapters whose images are released: all four (THIRD_PARTY_NOTICES.md).
+PUBLISHED_ADAPTERS  ?= libiec61850 iec61850bean dscsystems iec61850-rust
+
+# scripts/lib.sh (image_of) takes iec61850-interop-<adapter>:local, the
+# images built here; VERSION=vX.Y.Z the release images; ADAPTER_IMAGE_<adapter>
+# (or LIBIEC61850_IMAGE and the like, given on the command line) any other.
+
 # Scratch directory for locally cloned libiec61850 (used by genmodel target).
 LIBIEC61850_CLONE   ?= /tmp/iec61850-interop-libiec61850-src
 
@@ -30,7 +42,17 @@ help: ## Show this help
 # Build targets
 # ---------------------------------------------------------------------------
 
+all: validate build ## Validate fixtures and build the local images
+
 build: build-libiec61850 build-iec61850bean build-dscsystems build-iec61850-rust ## Build all adapter images.
+
+images: build ## Build all adapter images (same as build).
+
+print-adapters: ## Print the adapters (ADAPTERS)
+	@echo $(ADAPTERS)
+
+print-published-adapters: ## Print the adapters whose images are released
+	@echo $(PUBLISHED_ADAPTERS)
 
 build-libiec61850: ## Build the libiec61850 adapter image (server + client).
 	@echo "Building the libiec61850 adapter image..."
@@ -97,7 +119,9 @@ publish-iec61850-rust: build-iec61850-rust ## Tag and push the iec61850-rust ada
 # Fixture validation (no Docker required)
 # ---------------------------------------------------------------------------
 
-validate-fixtures: ## JSON/XML syntax + cross-reference checks, the notes of the newest version in RELEASE.md, and the generated COVERAGE.md/README matrix (no Docker, no network).
+validate: validate-fixtures ## Same as validate-fixtures
+
+validate-fixtures: ## JSON/XML syntax + cross-reference checks, the notes of the newest version in RELEASE.md, and the generated docs/CAPABILITIES.md/README matrix (no Docker, no network).
 	python3 scripts/validate-fixtures.py
 	@python3 scripts/check-versions.py
 	@scripts/release-notes.sh > /dev/null && echo "ok   RELEASE.md has the notes of the newest version"
@@ -148,19 +172,22 @@ go-vuln: ## govulncheck on the dscsystems adapter.
 # Adapter self-tests (require Docker)
 # ---------------------------------------------------------------------------
 
-smoke: build ## Run full adapter smoke tests (binaries, fixtures, ready events, JSON Lines).
-	LIBIEC61850_IMAGE=$(LIBIEC61850_IMAGE) \
-	IEC61850BEAN_IMAGE=$(IEC61850BEAN_IMAGE) \
-	DSCSYSTEMS_IMAGE=$(DSCSYSTEMS_IMAGE) \
-	IEC61850RUST_IMAGE=$(IEC61850RUST_IMAGE) \
-	./scripts/smoke-test.sh
+smoke: ## Contract smoke test of each image of ADAPTERS (scripts/smoke.sh; build first: make build)
+	@rc=0; for a in $(ADAPTERS); do scripts/smoke.sh $$a || rc=1; done; exit $$rc
 
-smoke-servers: build ## Verify only the server adapters start and emit valid ready events.
-	LIBIEC61850_IMAGE=$(LIBIEC61850_IMAGE) \
-	IEC61850BEAN_IMAGE=$(IEC61850BEAN_IMAGE) \
-	DSCSYSTEMS_IMAGE=$(DSCSYSTEMS_IMAGE) \
-	IEC61850RUST_IMAGE=$(IEC61850RUST_IMAGE) \
-	./scripts/smoke-test.sh
+interop: ## Cross-stack self-test of ADAPTERS, the first as hub, and GOOSE/SV between every pair (scripts/interop.sh)
+	scripts/interop.sh $(ADAPTERS)
+
+capabilities: ## Print the --capabilities of each image of ADAPTERS
+	@for a in $(ADAPTERS); do bash -c 'source scripts/lib.sh && capabilities "$$0"' $$a; done
+
+lint: ## Shellcheck the scripts (the installed shellcheck, or a container when there is none)
+	@if command -v shellcheck >/dev/null 2>&1; then \
+		shellcheck --severity=warning -x -P scripts scripts/*.sh; \
+	else \
+		docker run --rm -v "$(CURDIR):/mnt:ro" -w /mnt docker.io/koalaman/shellcheck:stable \
+			--severity=warning -x -P scripts scripts/*.sh; \
+	fi
 
 goose-crosscheck: build-libiec61850 build-dscsystems build-iec61850-rust ## GOOSE publisher -> subscriber between libiec61850, dscsystems and iec61850-rust, every pair.
 	@for pub in "$(LIBIEC61850_IMAGE) libiec61850" "$(DSCSYSTEMS_IMAGE) dscsystems" "$(IEC61850RUST_IMAGE) iec61850-rust"; do \
@@ -259,13 +286,13 @@ verify-fixtures: build ## Verify fixture files are present inside the adapter im
 
 # Mirrors pr.yml: validate fixtures + build + verify + smoke.
 # Run this before opening a PR.
-pr: validate-fixtures build verify-binaries verify-fixtures smoke goose-crosscheck sv-crosscheck ## Mirror pr.yml locally (no publish).
+pr: validate-fixtures build verify-binaries verify-fixtures smoke interop ## Mirror pr.yml locally (no publish).
 	@echo ""
 	@echo "PR checks passed."
 
 # Mirrors ci.yml: validate fixtures + build + smoke + provenance record.
 # Run this to confirm a push to main would succeed.
-ci: validate-fixtures build verify-binaries verify-fixtures smoke goose-crosscheck sv-crosscheck ## Mirror ci.yml locally (no publish).
+ci: validate-fixtures lint build verify-binaries verify-fixtures smoke interop ## Mirror ci.yml locally (no publish).
 	@echo ""
 	@echo "--- Provenance ---"
 	@echo "iec61850-interop SHA : $$(git rev-parse HEAD 2>/dev/null || echo 'unknown')"
@@ -277,12 +304,10 @@ ci: validate-fixtures build verify-binaries verify-fixtures smoke goose-crossche
 	@echo ""
 	@echo "CI checks passed."
 
-test: build smoke ## Build images and run full adapter smoke tests.
+test: build smoke interop ## Build images, smoke-test each and cross-test them.
 	@echo ""
 	@echo "Adapter images built and smoke-tested."
-	@echo "Run interop tests in go-mms and go-iec61850:"
-	@echo "  cd ../go-mms  && LIBIEC61850_IMAGE=$(LIBIEC61850_IMAGE) make interop"
-	@echo "  cd ../go-iec61850 && LIBIEC61850_IMAGE=$(LIBIEC61850_IMAGE) IEC61850BEAN_IMAGE=$(IEC61850BEAN_IMAGE) DSCSYSTEMS_IMAGE=$(DSCSYSTEMS_IMAGE) IEC61850RUST_IMAGE=$(IEC61850RUST_IMAGE) make interop"
+	@echo "The consumer repositories run their interop tests against these images (README.md, Consumer repositories)."
 
 # ---------------------------------------------------------------------------
 # Maintenance

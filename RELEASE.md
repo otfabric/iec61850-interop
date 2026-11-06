@@ -24,6 +24,24 @@ Tags are immutable. A fix is a new version.
 
 ---
 
+## v1.3.0
+
+**Date:** 2026-11-06
+**Previous release:** v1.2.0
+
+### Added
+
+- `own/go-iec61850/`: OT Fabric's own stack (go-iec61850 and the go-mms it is built on) behind the same contract, as adapter `otfabric` with the commands `otfabric-mms-server`, `otfabric-mms-client`, `otfabric-ied-*`, `otfabric-goose-*` and `otfabric-sv-*`. The manual workflow **Own stack (go-iec61850)** builds it from the latest go-iec61850 and go-mms releases, tests it against the reference images of the latest harness release and publishes `ghcr.io/otfabric/iec61850-interop-otfabric:<go-iec61850 version>` and `:latest`. It is not an independent implementation, and it is not in this release or its `manifest.json` (ADR-0012); results against it are at most "Tested".
+- Contract 1.2 (minor): `--version` and `--capabilities` may carry `upstream` (`name`, `version`, `revision`, `license`, `independentEngine`). The reference images do not, and are recorded as independent; `results.json` takes `independent` from what an image says of itself.
+- `scripts/smoke.sh <adapter>` (the contract smoke test of one image, driven by its `--capabilities`) and `scripts/interop.sh <adapters…>` (MMS and IED clients and servers of every adapter against the first in both directions, GOOSE and Sampled Values between every publisher and subscriber), `make smoke`, `make interop`, `make lint`, `make print-adapters`, `ADAPTERS`. Any image can stand in for an adapter with `ADAPTER_IMAGE_<adapter>`.
+
+### Changed
+
+- The layout follows the other harnesses: `docs/contract.md` is `docs/CONTAINER_CONTRACT.md`, `COVERAGE.md` is `docs/CAPABILITIES.md`, `docker-compose.yml` is `compose.yaml`; `scripts/smoke-test.sh` is split into `scripts/lib.sh`, `scripts/smoke.sh` and `scripts/interop.sh`. Each stack's clients now also run against its own server, and the hub's reporter and controller against every other stack's server. The root `go.mod` (no packages) is gone. The image names, commands and contract are unchanged.
+- CI runs shellcheck and the REQUIREMENTS.md R1 check (no reference to a library under test outside `own/`).
+
+---
+
 ## v1.2.0
 
 **Date:** 2026-11-04

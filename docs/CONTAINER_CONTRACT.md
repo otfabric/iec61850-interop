@@ -2,14 +2,25 @@
 
 Every adapter command of every image speaks the same contract, so a
 consumer harness switches stack by image and command prefix alone
-(`libiec61850-`, `iec61850bean-`, `dscsystems-`, `iec61850-rust-`). This file
+(`libiec61850-`, `iec61850bean-`, `dscsystems-`, `iec61850-rust-`, and
+`otfabric-` for OT Fabric's own stack, below). This file
 covers what all commands share and the MMS and IED (client/server) commands.
 The layer-2 commands have their own pages: [GOOSE](goose.md) and
 [Sampled Values](sv.md).
 
 Which command exists in which image is declared in
 [`fixtures/capabilities.json`](../fixtures/capabilities.json) (rendered in
-[`COVERAGE.md`](../COVERAGE.md)); the README prose is not a capability claim.
+[`CAPABILITIES.md`](CAPABILITIES.md)); the README prose is not a capability claim.
+
+## Adapters
+
+| Adapter (command prefix) | Image | Stack |
+|---|---|---|
+| `libiec61850` | `ghcr.io/otfabric/iec61850-interop-libiec61850` | reference |
+| `iec61850bean` | `ghcr.io/otfabric/iec61850-interop-iec61850bean` | reference |
+| `dscsystems` | `ghcr.io/otfabric/iec61850-interop-dscsystems` | reference |
+| `iec61850-rust` | `ghcr.io/otfabric/iec61850-interop-iec61850-rust` | reference |
+| `otfabric` | `ghcr.io/otfabric/iec61850-interop-otfabric` | OT Fabric's go-iec61850 and go-mms, not independent, not in a release ([own/go-iec61850](../own/go-iec61850/README.md)) |
 
 ## Stability (v1)
 
@@ -49,6 +60,12 @@ limitation`.
 - `--capabilities` emits
   `{"event":"capabilities","adapterVersion":V,"fixtureRevision":"iec61850-v3","commands":[...]}`
   (the commands of that image) and exits 0.
+- Both may carry `upstream` (contract 1.2):
+  `{"name":N,"version":V,"revision":SHA,"license":L,"independentEngine":B}`,
+  the stack behind the image. `independentEngine` is `false` for an image of
+  OT Fabric's own stack (`otfabric`): results against it are not independent
+  evidence. An image without `upstream` is a reference of `versions.yaml`
+  (`independentEngine` true); the four reference images have none.
 - `V` is the image version, `ADAPTER_VERSION` at build time (the release
   tag, e.g. `v1.0.0`), `dev` for a local build.
 - A command a stack cannot provide answers

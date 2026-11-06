@@ -12,30 +12,33 @@ This repository follows **otfabric/engineering policy 1.2**, profile **interoper
 
 | Question | Source |
 |---|---|
-| Adapter contract | docs/contract.md, docs/goose.md, docs/sv.md |
-| Which command exists in which image | fixtures/capabilities.json, rendered in COVERAGE.md |
+| Adapter contract | docs/CONTAINER_CONTRACT.md, docs/goose.md, docs/sv.md |
+| Which command exists in which image | fixtures/capabilities.json, rendered in docs/CAPABILITIES.md |
 | Pins | versions.yaml, checked by `make validate-fixtures` |
 | Fixtures | fixtures/ |
 | What this repository must and must not do | REQUIREMENTS.md |
 | What is done and what is next | PLAN.md |
+| OT Fabric's own stack (not a reference) | own/go-iec61850/README.md, ADR-0012 |
 
 ## Hard rules
 
 1. Nothing floats: upstreams by commit or exact version, base images by digest.
 2. Capabilities live in fixtures/capabilities.json, not in prose; regenerate with `scripts/gen-coverage.sh`.
 3. Nothing from `adapters/dscsystems/` (GPL-3.0) may be copied outside that directory.
-4. The contract follows semantic versioning from v1.0.0 (docs/contract.md).
+4. The contract follows semantic versioning from v1.0.0 (docs/CONTAINER_CONTRACT.md).
 5. Licences: every redistributed component in THIRD_PARTY_NOTICES.md.
 6. `interop_version` in versions.yaml equals the newest section of RELEASE.md and the tag.
+7. REQUIREMENTS.md R1: only `own/` and its workflow know a library under test; the scripts take its image through `ADAPTER_IMAGE_otfabric`.
 
 ## Commands
 
 | When you change… | Run |
 |---|---|
-| anything | `make validate-fixtures` |
-| an adapter | `make build-<stack> smoke` |
+| anything | `make validate-fixtures lint` |
+| an adapter | `make build-<stack>`, `make smoke ADAPTERS=<stack>`, `make interop` |
 | Go in adapters/dscsystems | `make go-test go-lint go-vuln` |
-| GOOSE or SV | `make goose-crosscheck sv-crosscheck` |
+| GOOSE or SV | `make interop` (or `make goose-crosscheck sv-crosscheck`) |
+| own/go-iec61850 | `make -f own/go-iec61850/Makefile image smoke interop` |
 | everything | `make ci` |
 
 ## Git and releases

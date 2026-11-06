@@ -50,9 +50,13 @@ def load(directory):
     return records
 
 
-def implementation(name, pins, image):
-    pin = pins.get(name, {})
-    i = {"name": name, "version": pin.get("version") or pin.get("revision", "unknown")[:12], "independent": True}
+def implementation(name, pins, image, seen=None):
+    """seen is what the image said of itself; an image outside versions.yaml has only that."""
+    seen = (seen or {}).get(name, {})
+    pin = pins.get(name) or seen
+    independent = seen.get("independent")
+    i = {"name": name, "version": pin.get("version") or pin.get("revision", "unknown")[:12],
+         "independent": True if independent is None else independent}
     for key in ("upstream", "revision", "license"):
         if pin.get(key):
             i[key] = pin[key]
@@ -63,13 +67,15 @@ def implementation(name, pins, image):
 
 
 def convert(records, pins, image=None):
-    results, waivers, runs = [], {}, []
+    results, waivers, runs, seen = [], {}, [], {}
     for r in records:
         if r["kind"] == "run":
             runs.append(r)
         elif r["kind"] == "waiver":
             w = waivers.setdefault(r["id"], {k: r[k] for k in ("id", "scope", "evidence")} | {"reproduced": False})
             w["reproduced"] = w["reproduced"] or r["reproduced"]
+        elif r["kind"] == "implementation":
+            seen[r["name"]] = r
         else:
             roles = {k: r[k] for k in ("client", "server") if r.get(k)} or {"harness": "selftest"}
             # The crosschecks record the publisher as client, the subscriber as server.
@@ -90,13 +96,16 @@ def convert(records, pins, image=None):
             "gitSha": interop_result.git_sha(ROOT),
             "startedAt": min((r["startedAt"] for r in runs), default=interop_result.now()),
             "finishedAt": interop_result.now(), "host": interop_result.host(),
-            "implementations": [implementation(n, pins, image) for n in names] or [{"name": "none", "version": "none"}],
+            "implementations": [implementation(n, pins, image, seen) for n in names] or [{"name": "none", "version": "none"}],
             "waivers": list(waivers.values()),
             "reproduce": " && ".join(dict.fromkeys(r["reproduce"] for r in runs)) or "none", "results": results}
 
 
 def image_of(name):
-    """The digest of the image the run used; a local build has none."""
+    """The digest of the image the run used, as scripts/lib.sh image_of picks it; a local build has none."""
+    for var in ("ADAPTER_IMAGE_" + name.replace("-", "_"), name.replace("-", "").upper() + "_IMAGE"):
+        if os.environ.get(var):
+            return interop_result.repo_digest(os.environ[var])
     template = os.environ.get("RESULT_IMAGE", "ghcr.io/otfabric/" + REPOSITORY.split("/")[1] + "-{}:" + os.environ.get("VERSION", "dev"))
     return interop_result.repo_digest(template.format(name))
 
