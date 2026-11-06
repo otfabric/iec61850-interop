@@ -1,6 +1,6 @@
 module github.com/otfabric/iec61850-interop/adapters/cbsigma
 
-go 1.26.0
+go 1.26.10
 
 require (
 	github.com/cB-Sigma/iec61850 v0.1.0
