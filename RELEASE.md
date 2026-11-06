@@ -24,6 +24,31 @@ Tags are immutable. A fix is a new version.
 
 ---
 
+## v1.4.0
+
+**Date:** 2026-11-06
+**Previous release:** v1.3.0
+
+### Added
+
+- Adapter `cbsigma`, image `ghcr.io/otfabric/iec61850-interop-cbsigma`: a fifth independent reference, in Go, on [cB-Sigma/iec61850](https://github.com/cB-Sigma/iec61850) `v0.1.0` (MMS client, the IEC 61850 client services, GOOSE) and [cB-Sigma/iec61850-sim](https://github.com/cB-Sigma/iec61850-sim) `v0.1.0` (the simulated IED), both Apache-2.0 and pinned by tag (cB-Sigma publishes no releases). Commands: `cbsigma-ied-server` (the fixture IED built by the simulator's own SCL loader from `interop.icd`: logical nodes, data sets, report control blocks and the three controls with their ctlModel, then `values.json`), `cbsigma-ied-client`, `cbsigma-ied-controller` (direct, SBO and SBOw through the library's `Operate`, which runs the whole sequence of the control model), `cbsigma-ied-reporter`, `cbsigma-goose-publisher` and `cbsigma-goose-subscriber` (frames encoded and decoded by the library). No MMS or SV commands: the simulator is an IED, not a generic MMS server, and SV is out of this adapter's scope; they answer `unsupported`. The ICCP / TASE.2 simulator is not used.
+- `adapters/cbsigma/go.mod` holds the pins (and `golang.org/x/net` raised to v0.62.0 past the advisories of v0.58.0); the Dockerfile fails when its `IEC61850_VERSION`/`IEC61850_SIM_VERSION` differ from go.mod, and `scripts/check-versions.py` when versions.yaml, the Dockerfile, go.mod and the NOTICE disagree. The image carries the licence and notice of every linked module under `/licenses`.
+- CI builds and smoke-tests the image, runs its MMS and IED commands against libiec61850 in both directions and GOOSE between it and every other publisher and subscriber, and vets, lints, tests (`-race`) and govulnchecks the adapter. The Release workflow builds and publishes it for linux/amd64 and linux/arm64; `manifest.json` gains `cbsigma` (`iec61850`, `iec61850-sim`, `independent: true`) and its image digest. The Upstream workflow compares both tags with the latest ones (`scripts/latest-upstream.py cbsigma`, `scripts/build-candidate.sh cbsigma "iec61850@<tag> iec61850-sim@<tag>"`).
+- `fixtures/capabilities.json`: the cbsigma commands and upstreams, and four known limitations found with it (below).
+
+### Changed
+
+- The **Own stack (go-iec61850)** workflow takes the reference adapters from `make print-published-adapters` of the harness release it tests against, so OT Fabric's own image is tested against cbsigma once this release is the latest.
+
+### Known limitations
+
+- `cbsigma-ied-server` refuses writes of ST and MX (object-access-denied), as IEC 61850-7-2 makes them read-only, so a reporter cannot make the data change it waits for; reports from the simulator's own changes are tested in the adapter's unit tests.
+- The simulator describes Enum attributes as Integer(32), so the iec61850bean client cannot map `LLN0.Mod.ctlModel[CF]`.
+- iec61850bean's server reads a data set only with `specificationWithResult` TRUE, which cB-Sigma's client leaves at its default (FALSE).
+- iec61850-rust accepts only an 11-bit `parameterCBB` in MMS Initiate; cB-Sigma sends the 18 bits of ISO 9506:2003, so the two cannot associate in either direction.
+
+---
+
 ## v1.3.0
 
 **Date:** 2026-11-06

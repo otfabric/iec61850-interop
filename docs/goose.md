@@ -10,8 +10,9 @@ a layer-2 segment shared with the peer under test.
 | `libiec61850-goose-publisher`, `libiec61850-goose-subscriber` | `iec61850-interop-libiec61850` |
 | `dscsystems-goose-publisher`, `dscsystems-goose-subscriber` | `iec61850-interop-dscsystems` |
 | `iec61850-rust-goose-publisher`, `iec61850-rust-goose-subscriber` | `iec61850-interop-iec61850-rust` |
+| `cbsigma-goose-publisher`, `cbsigma-goose-subscriber` | `iec61850-interop-cbsigma` |
 
-All three stacks implement the same command line and JSON Lines contract, so a
+All four stacks implement the same command line and JSON Lines contract, so a
 test switches peer by image and command name only.
 
 iec61850bean has no GOOSE support. The rules every command shares
@@ -202,7 +203,7 @@ Two options, both used by CI:
 
 `scripts/goose-crosscheck.sh PUB_IMAGE PUB_CMD SUB_IMAGE SUB_CMD [CB]`
 is the reference for driving a publisher/subscriber pair: it is what CI
-runs between every pair of libiec61850, dscsystems and iec61850-rust.
+runs between every pair of libiec61850, dscsystems, iec61850-rust and cbsigma.
 
 ### macOS (and Windows) hosts
 

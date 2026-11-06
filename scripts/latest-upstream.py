@@ -15,7 +15,9 @@ Prints key=value lines (the format of $GITHUB_OUTPUT):
 
 libiec61850, dscsystems and iec61850-rust are pinned by commit and compared
 with the head of the upstream default branch; iec61850bean is compared with
-the latest stable release on Maven Central. Nothing is modified.
+the latest stable release on Maven Central; cbsigma's two modules
+(cB-Sigma/iec61850 and iec61850-sim, tags only) with their latest stable
+tags, as "iec61850@<tag> iec61850-sim@<tag>". Nothing is modified.
 """
 
 import re
@@ -99,11 +101,36 @@ def iec61850bean():
     return "library", pin, latest, "", "yes" if key(latest) != key(pin) else "no", "Maven Central"
 
 
+def latest_tag(repository):
+    """The latest stable vX.Y.Z tag of a git repository."""
+    out = subprocess.check_output(["git", "ls-remote", "--tags", repository], text=True)
+    tags = {line.split()[1].removeprefix("refs/tags/").removesuffix("^{}") for line in out.splitlines()}
+    stable = [t for t in tags if t.startswith("v") and key(t)]
+    if not stable:
+        raise SystemExit(f"{repository} has no vX.Y.Z tag")
+    return max(stable, key=key)
+
+
+def cbsigma():
+    dockerfile = (ROOT / "adapters" / "cbsigma" / "Dockerfile").read_text()
+    pins, latest = [], []
+    for module, arg in (("iec61850", "IEC61850_VERSION"), ("iec61850-sim", "IEC61850_SIM_VERSION")):
+        match = re.search(rf"^ARG {arg}=(v\S+)$", dockerfile, re.M)
+        if not match:
+            raise SystemExit(f"adapters/cbsigma/Dockerfile has no ARG {arg}=<tag>")
+        pins.append((module, match.group(1)))
+        latest.append((module, latest_tag(f"https://github.com/cB-Sigma/{module}.git")))
+    label = lambda pairs: " ".join(f"{m}@{v}" for m, v in pairs)
+    behind = any(key(p) != key(l) for (_, p), (_, l) in zip(pins, latest))
+    return "library", label(pins), label(latest), "", "yes" if behind else "no", "tags of cB-Sigma/iec61850 and iec61850-sim"
+
+
 RESOLVERS = {
     "libiec61850": libiec61850,
     "iec61850bean": iec61850bean,
     "dscsystems": dscsystems,
     "iec61850-rust": iec61850_rust,
+    "cbsigma": cbsigma,
 }
 
 

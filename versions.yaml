@@ -4,7 +4,7 @@
 # Upstreams are pinned by commit or exact version; no source archive hash is
 # recorded. Which command exists in which image: fixtures/capabilities.json.
 
-interop_version: "1.3.0"
+interop_version: "1.4.0"
 contract_version: "1.2"        # docs/CONTAINER_CONTRACT.md, semver from v1.0.0
 
 protocol:
@@ -47,15 +47,42 @@ implementations:
     published: true
     pinned_in:
       - adapters/iec61850-rust/Dockerfile
+  cbsigma:
+    upstream: "cB-Sigma iec61850 and iec61850-sim"
+    repository: "https://github.com/cB-Sigma/iec61850"
+    module: "github.com/cB-Sigma/iec61850"
+    version: "v0.1.0"            # tag; cB-Sigma publishes no releases
+    revision: "f121ba3464665ea06a0e7f7bc81316beb7312dd2"
+    sim_repository: "https://github.com/cB-Sigma/iec61850-sim"
+    sim_module: "github.com/cB-Sigma/iec61850-sim"
+    sim_version: "v0.1.0"
+    sim_revision: "92530d85723c40afd8514ec45e3b89184a5eae1e"
+    license: "Apache-2.0"
+    language: "Go"
+    independent_engine: true
+    roles: [ied, goose]
+    published: true
+    note: >-
+      The client (MMS, IEC 61850 services, GOOSE) is cB-Sigma/iec61850, the
+      server the simulated IED of cB-Sigma/iec61850-sim, which builds its
+      model from the fixture ICD with its own SCL loader. The ICCP / TASE.2
+      simulator is out of scope. Its own modules iotsec, iotcrypto and xsd
+      are Apache-2.0; golang.org/x/net, x/sys and x/text BSD-3-Clause;
+      gopkg.in/yaml.v3 Apache-2.0 and MIT. The versions of every module are
+      in adapters/cbsigma/go.mod.
+    pinned_in:
+      - adapters/cbsigma/Dockerfile
+      - adapters/cbsigma/go.mod
+      - adapters/cbsigma/NOTICE
 
 base_images:
   # Multi-arch index digests, pinned in the Dockerfiles.
   debian:
     image: "docker.io/library/debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818"
-    used_by: [libiec61850, dscsystems, iec61850-rust, otfabric]
+    used_by: [libiec61850, dscsystems, iec61850-rust, cbsigma, otfabric]
   golang:
     image: "docker.io/library/golang:1.27.3-bookworm@sha256:972b4110ba0f47539a975c31e52c64765e1ff19f2d74469ae4a595c6676e80a5"
-    used_by: [dscsystems, otfabric]
+    used_by: [dscsystems, cbsigma, otfabric]
   rust:
     image: "docker.io/library/rust:1.95.0-bookworm@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1"
     used_by: [iec61850-rust]

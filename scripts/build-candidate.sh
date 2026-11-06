@@ -4,7 +4,8 @@
 #   scripts/build-candidate.sh <adapter> <commit|version>
 #
 # libiec61850, dscsystems and iec61850-rust take an upstream commit,
-# iec61850bean a Maven version. The pin is moved in the working tree only
+# iec61850bean a Maven version, cbsigma "iec61850@<tag> iec61850-sim@<tag>"
+# (either part may be left out). The pin is moved in the working tree only
 # (Dockerfile ARG, go.mod/go.sum, Cargo.toml/Cargo.lock, pom.xml) and the
 # image is built with `make build-<adapter>` as iec61850-interop-<adapter>:local.
 # Used by the Upstream workflow on a throwaway checkout; locally, `git checkout
@@ -19,7 +20,7 @@ cd "$(dirname "$0")/.."
 adapter="${1:-}"
 want="${2:-}"
 if [[ -z "${adapter}" || -z "${want}" ]]; then
-  echo "usage: build-candidate.sh libiec61850|iec61850bean|dscsystems|iec61850-rust <commit|version>" >&2
+  echo "usage: build-candidate.sh libiec61850|iec61850bean|dscsystems|iec61850-rust|cbsigma <commit|version>" >&2
   exit 2
 fi
 
@@ -70,6 +71,19 @@ PY
     set_arg adapters/iec61850-rust/Dockerfile IEC61850_RUST_SHA "${want}"
     # Re-resolves only the moved git source into Cargo.lock.
     cargo metadata --format-version 1 --manifest-path adapters/iec61850-rust/Cargo.toml > /dev/null
+    ;;
+  cbsigma)
+    for part in ${want}; do
+      module="${part%@*}" version="${part#*@}"
+      case "${module}" in
+        iec61850) arg=IEC61850_VERSION ;;
+        iec61850-sim) arg=IEC61850_SIM_VERSION ;;
+        *) echo "build-candidate: cbsigma takes iec61850@<tag> iec61850-sim@<tag>, not ${part}" >&2; exit 2 ;;
+      esac
+      (cd adapters/cbsigma && go get "github.com/cB-Sigma/${module}@${version}" && go mod tidy)
+      sed -i.bak -E "s|^ARG ${arg}=[^[:space:]]+$|ARG ${arg}=${version}|" adapters/cbsigma/Dockerfile && rm -f adapters/cbsigma/Dockerfile.bak
+      grep -q "^ARG ${arg}=${version}$" adapters/cbsigma/Dockerfile || { echo "build-candidate: no ARG ${arg} in adapters/cbsigma/Dockerfile" >&2; exit 1; }
+    done
     ;;
   *)
     echo "build-candidate: unknown adapter ${adapter}" >&2
