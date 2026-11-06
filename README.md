@@ -221,7 +221,7 @@ revisions (`mms-v2`, `iec61850-v3`, `goose-v1`, `sv-v1`) and the schemas of
 major version. Minor versions add (commands, optional fields, new fixture
 revisions next to the old ones); patch versions fix adapters to match the
 contract and update known limitations. Consumers ignore fields and events
-they do not know. Details in [docs/contract.md](docs/contract.md#stability-v1).
+they do not know. Details in [docs/CONTAINER_CONTRACT.md](docs/CONTAINER_CONTRACT.md#stability-v1).
 
 ## Fixtures
 
