@@ -2,7 +2,7 @@
 
 ## What this is
 
-Independent IEC 61850 stacks (libiec61850, iec61850bean, dscsystems/go-iec61850, iec61850-rust) as containers behind one adapter contract, covering MMS, IED services, GOOSE and Sampled Values, used as oracles by go-mms, go-iec61850 and iec61850ctl. Renamed from `mms-interop`. Profile: **interoperability**.
+Independent IEC 61850 stacks (libiec61850, iec61850bean, dscsystems/go-iec61850, iec61850-rust, cB-Sigma iec61850 with iec61850-sim) as containers behind one adapter contract, covering MMS, IED services, GOOSE and Sampled Values, used as oracles by go-mms, go-iec61850 and iec61850ctl. Renamed from `mms-interop`. Profile: **interoperability**.
 
 ## Organisation standards
 

@@ -1,0 +1,26 @@
+iec61850-interop cbsigma adapter
+================================
+
+This directory (adapters/cbsigma/) and the image built from it,
+ghcr.io/otfabric/iec61850-interop-cbsigma, link two Go modules of cB-Sigma,
+Copyright 2026 Abhinav Gautam, licensed under the Apache License 2.0:
+
+- iec61850 (https://github.com/cB-Sigma/iec61850): the MMS client, the
+  IEC 61850 client services, SCL and GOOSE;
+- iec61850-sim (https://github.com/cB-Sigma/iec61850-sim): the simulated
+  IED behind cbsigma-ied-server.
+
+Their own dependencies (cB-Sigma's iotsec, iotcrypto and xsd: Apache-2.0,
+iotcrypto's bigmod package BSD-3-Clause; golang.org/x/net, x/sys and
+x/text: BSD-3-Clause; gopkg.in/yaml.v3: Apache-2.0 and MIT) are linked
+too. The image carries the LICENSE and NOTICE of every linked module under
+/licenses, with the list in /licenses/BUNDLED-MODULES.txt.
+
+Pinned upstreams (tags; cB-Sigma publishes no releases):
+  github.com/cB-Sigma/iec61850      v0.1.0 (commit f121ba3464665ea06a0e7f7bc81316beb7312dd2)
+  github.com/cB-Sigma/iec61850-sim  v0.1.0 (commit 92530d85723c40afd8514ec45e3b89184a5eae1e)
+The versions are in go.mod, their checksums in go.sum. The modules are
+fetched from the Go module proxy when the image is built; they are neither
+patched nor vendored here.
+
+The adapter code in this directory is MIT, like the rest of iec61850-interop.

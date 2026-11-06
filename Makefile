@@ -1,5 +1,5 @@
-.PHONY: help all build images build-libiec61850 build-iec61850bean build-dscsystems build-iec61850-rust \
-        publish publish-libiec61850 publish-iec61850bean publish-dscsystems publish-iec61850-rust \
+.PHONY: help all build images build-libiec61850 build-iec61850bean build-dscsystems build-iec61850-rust build-cbsigma \
+        publish publish-libiec61850 publish-iec61850bean publish-dscsystems publish-iec61850-rust publish-cbsigma \
         smoke interop capabilities print-adapters print-published-adapters lint \
         goose-crosscheck sv-crosscheck verify-binaries verify-fixtures \
         validate validate-fixtures genmodel clone-libiec61850 \
@@ -15,6 +15,7 @@ LIBIEC61850_IMAGE   ?= iec61850-interop-libiec61850:local
 IEC61850BEAN_IMAGE  ?= iec61850-interop-iec61850bean:local
 DSCSYSTEMS_IMAGE    ?= iec61850-interop-dscsystems:local
 IEC61850RUST_IMAGE  ?= iec61850-interop-iec61850-rust:local
+CBSIGMA_IMAGE       ?= iec61850-interop-cbsigma:local
 ADAPTER_VERSION     ?= dev
 FIXTURE             ?= fixtures/mms/interop.json
 PORT                ?= 1102
@@ -24,9 +25,9 @@ VERSION             ?= latest
 # Every adapter: built, smoke-tested and cross-tested everywhere. The first
 # is the hub of scripts/interop.sh. Override to work on one:
 # make smoke ADAPTERS=libiec61850
-ADAPTERS            ?= libiec61850 iec61850bean dscsystems iec61850-rust
-# The adapters whose images are released: all four (THIRD_PARTY_NOTICES.md).
-PUBLISHED_ADAPTERS  ?= libiec61850 iec61850bean dscsystems iec61850-rust
+ADAPTERS            ?= libiec61850 iec61850bean dscsystems iec61850-rust cbsigma
+# The adapters whose images are released: all five (THIRD_PARTY_NOTICES.md).
+PUBLISHED_ADAPTERS  ?= libiec61850 iec61850bean dscsystems iec61850-rust cbsigma
 
 # scripts/lib.sh (image_of) takes iec61850-interop-<adapter>:local, the
 # images built here; VERSION=vX.Y.Z the release images; ADAPTER_IMAGE_<adapter>
@@ -44,7 +45,7 @@ help: ## Show this help
 
 all: validate build ## Validate fixtures and build the local images
 
-build: build-libiec61850 build-iec61850bean build-dscsystems build-iec61850-rust ## Build all adapter images.
+build: build-libiec61850 build-iec61850bean build-dscsystems build-iec61850-rust build-cbsigma ## Build all adapter images.
 
 images: build ## Build all adapter images (same as build).
 
@@ -93,11 +94,21 @@ build-iec61850-rust: ## Build the csp0924/iec61850-rust adapter image.
 	  -t $(IEC61850RUST_IMAGE) \
 	  .
 
+build-cbsigma: ## Build the cB-Sigma/iec61850 and iec61850-sim adapter image.
+	@echo "Building the cbsigma adapter image..."
+	docker buildx build \
+	  --platform=$(PLATFORM) \
+	  --load \
+	  --build-arg ADAPTER_VERSION=$(ADAPTER_VERSION) \
+	  -f adapters/cbsigma/Dockerfile \
+	  -t $(CBSIGMA_IMAGE) \
+	  .
+
 # ---------------------------------------------------------------------------
 # Publish targets
 # ---------------------------------------------------------------------------
 
-publish: publish-libiec61850 publish-iec61850bean publish-dscsystems publish-iec61850-rust ## Publish adapter images to $(REGISTRY).
+publish: publish-libiec61850 publish-iec61850bean publish-dscsystems publish-iec61850-rust publish-cbsigma ## Publish adapter images to $(REGISTRY).
 
 publish-libiec61850: build-libiec61850 ## Tag and push the libiec61850 adapter image.
 	docker tag $(LIBIEC61850_IMAGE) $(REGISTRY)/iec61850-interop-libiec61850:$(VERSION)
@@ -114,6 +125,10 @@ publish-dscsystems: build-dscsystems ## Tag and push the dscsystems adapter imag
 publish-iec61850-rust: build-iec61850-rust ## Tag and push the iec61850-rust adapter image.
 	docker tag $(IEC61850RUST_IMAGE) $(REGISTRY)/iec61850-interop-iec61850-rust:$(VERSION)
 	docker push $(REGISTRY)/iec61850-interop-iec61850-rust:$(VERSION)
+
+publish-cbsigma: build-cbsigma ## Tag and push the cbsigma adapter image.
+	docker tag $(CBSIGMA_IMAGE) $(REGISTRY)/iec61850-interop-cbsigma:$(VERSION)
+	docker push $(REGISTRY)/iec61850-interop-cbsigma:$(VERSION)
 
 # ---------------------------------------------------------------------------
 # Fixture validation (no Docker required)
@@ -189,9 +204,9 @@ lint: ## Shellcheck the scripts (the installed shellcheck, or a container when t
 			--severity=warning -x -P scripts scripts/*.sh; \
 	fi
 
-goose-crosscheck: build-libiec61850 build-dscsystems build-iec61850-rust ## GOOSE publisher -> subscriber between libiec61850, dscsystems and iec61850-rust, every pair.
-	@for pub in "$(LIBIEC61850_IMAGE) libiec61850" "$(DSCSYSTEMS_IMAGE) dscsystems" "$(IEC61850RUST_IMAGE) iec61850-rust"; do \
-	  for sub in "$(LIBIEC61850_IMAGE) libiec61850" "$(DSCSYSTEMS_IMAGE) dscsystems" "$(IEC61850RUST_IMAGE) iec61850-rust"; do \
+goose-crosscheck: build-libiec61850 build-dscsystems build-iec61850-rust build-cbsigma ## GOOSE publisher -> subscriber between libiec61850, dscsystems, iec61850-rust and cbsigma, every pair.
+	@for pub in "$(LIBIEC61850_IMAGE) libiec61850" "$(DSCSYSTEMS_IMAGE) dscsystems" "$(IEC61850RUST_IMAGE) iec61850-rust" "$(CBSIGMA_IMAGE) cbsigma"; do \
+	  for sub in "$(LIBIEC61850_IMAGE) libiec61850" "$(DSCSYSTEMS_IMAGE) dscsystems" "$(IEC61850RUST_IMAGE) iec61850-rust" "$(CBSIGMA_IMAGE) cbsigma"; do \
 	    set -- $$pub $$sub; \
 	    ./scripts/goose-crosscheck.sh $$1 $$2-goose-publisher $$3 $$4-goose-subscriber || exit 1; \
 	  done; \
@@ -228,6 +243,13 @@ verify-binaries: build ## Verify all required binaries are present in the adapte
 	            iec61850-rust-goose-publisher iec61850-rust-goose-subscriber \
 	            iec61850-rust-sv-publisher iec61850-rust-sv-subscriber; do \
 	  docker run --rm --entrypoint sh $(IEC61850RUST_IMAGE) -c "command -v $$bin" \
+	    && echo "  OK: $$bin" || echo "  MISSING: $$bin"; \
+	done
+	@echo "--- Checking binaries in $(CBSIGMA_IMAGE) ---"
+	@for bin in cbsigma-ied-server cbsigma-ied-client \
+	            cbsigma-ied-controller cbsigma-ied-reporter \
+	            cbsigma-goose-publisher cbsigma-goose-subscriber; do \
+	  docker run --rm --entrypoint sh $(CBSIGMA_IMAGE) -c "command -v $$bin" \
 	    && echo "  OK: $$bin" || echo "  MISSING: $$bin"; \
 	done
 	@echo "--- Checking binaries in $(DSCSYSTEMS_IMAGE) ---"
@@ -274,6 +296,14 @@ verify-fixtures: build ## Verify fixture files are present inside the adapter im
 	  docker run --rm --entrypoint sh $(DSCSYSTEMS_IMAGE) -c "test -f $$f" \
 	    && echo "  OK: $$f" || echo "  MISSING: $$f"; \
 	done
+	@echo "--- Checking fixtures in $(CBSIGMA_IMAGE) ---"
+	@for f in /fixtures/iec61850/interop.icd \
+	           /fixtures/iec61850/values.json \
+	           /fixtures/goose/goose.json \
+	           /fixtures/goose/interop-goose.cid; do \
+	  docker run --rm --entrypoint sh $(CBSIGMA_IMAGE) -c "test -f $$f" \
+	    && echo "  OK: $$f" || echo "  MISSING: $$f"; \
+	done
 	@echo "--- Checking fixtures in $(IEC61850BEAN_IMAGE) ---"
 	@for f in /fixtures/iec61850/interop.icd /fixtures/iec61850/values.json; do \
 	  docker run --rm --entrypoint sh $(IEC61850BEAN_IMAGE) -c "test -f $$f" \
@@ -300,6 +330,7 @@ ci: validate-fixtures lint build verify-binaries verify-fixtures smoke interop #
 	@echo "iec61850bean    : $$(grep -A1 '<artifactId>iec61850bean</artifactId>' adapters/iec61850bean/pom.xml | sed -nE 's|.*<version>([^<]+)</version>.*|\1|p')"
 	@echo "dscsystems      : $$(grep 'ARG DSCSYSTEMS_SHA=' adapters/dscsystems/Dockerfile | cut -d= -f2)"
 	@echo "iec61850-rust   : $$(grep 'ARG IEC61850_RUST_SHA=' adapters/iec61850-rust/Dockerfile | cut -d= -f2)"
+	@echo "cbsigma         : iec61850 $$(grep 'ARG IEC61850_VERSION=' adapters/cbsigma/Dockerfile | cut -d= -f2), iec61850-sim $$(grep 'ARG IEC61850_SIM_VERSION=' adapters/cbsigma/Dockerfile | cut -d= -f2)"
 	@echo "platform        : $(PLATFORM)"
 	@echo ""
 	@echo "CI checks passed."
@@ -319,3 +350,4 @@ clean: ## Clean up build artifacts, generated model files and container images.
 	@docker rmi $(IEC61850BEAN_IMAGE) 2>/dev/null || true
 	@docker rmi $(DSCSYSTEMS_IMAGE) 2>/dev/null || true
 	@docker rmi $(IEC61850RUST_IMAGE) 2>/dev/null || true
+	@docker rmi $(CBSIGMA_IMAGE) 2>/dev/null || true

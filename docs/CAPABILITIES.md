@@ -1,6 +1,6 @@
 # Capabilities
 
-Availability of adapter commands across the four reference images. The compatibility matrices of the consumers are in their own repositories ([README.md](../README.md#consumer-repositories)).
+Availability of adapter commands across the five reference images. The compatibility matrices of the consumers are in their own repositories ([README.md](../README.md#consumer-repositories)).
 
 The `otfabric` image (`iec61850-interop-otfabric`, [`own/`](../own/)) is not in this table or in `fixtures/capabilities.json`: it is not a release image, and its `--capabilities` says which commands it has.
 
@@ -16,6 +16,7 @@ Adapter version: `1.2.0` · Fixture revisions: `mms-v2`, `iec61850-v3`, `goose-v
 | iec61850bean | `iec61850-interop-iec61850bean` | — | — | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — |
 | dscsystems | `iec61850-interop-dscsystems` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | iec61850-rust | `iec61850-interop-iec61850-rust` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| cbsigma | `iec61850-interop-cbsigma` | — | — | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | — | — |
 
 SVCB over MMS: the IED server exposes `LLN0$MS$MSVCB02` of the IED fixture as MMS variables.
 
@@ -57,6 +58,16 @@ SVCB over MMS: the IED server exposes `LLN0$MS$MSVCB02` of the IED fixture as MM
 | `dscsystems-sv-subscriber` | `iec61850-interop-dscsystems` | ✓ |
 | `iec61850-rust-sv-publisher` | `iec61850-interop-iec61850-rust` | ✓ |
 | `iec61850-rust-sv-subscriber` | `iec61850-interop-iec61850-rust` | ✓ |
+| `cbsigma-mms-server` | `iec61850-interop-cbsigma` | — |
+| `cbsigma-mms-client` | `iec61850-interop-cbsigma` | — |
+| `cbsigma-ied-server` | `iec61850-interop-cbsigma` | ✓ |
+| `cbsigma-ied-client` | `iec61850-interop-cbsigma` | ✓ |
+| `cbsigma-ied-controller` | `iec61850-interop-cbsigma` | ✓ |
+| `cbsigma-ied-reporter` | `iec61850-interop-cbsigma` | ✓ |
+| `cbsigma-goose-publisher` | `iec61850-interop-cbsigma` | ✓ |
+| `cbsigma-goose-subscriber` | `iec61850-interop-cbsigma` | ✓ |
+| `cbsigma-sv-publisher` | `iec61850-interop-cbsigma` | — |
+| `cbsigma-sv-subscriber` | `iec61850-interop-cbsigma` | — |
 
 ## Known limitations (verified upstream gaps)
 
@@ -88,6 +99,10 @@ SVCB over MMS: the IED server exposes `LLN0$MS$MSVCB02` of the IED fixture as MM
 | `iec61850-rust` | v0.2.0-0-gd4e8952 | * → iec61850-rust-sv-subscriber | SV receive buffer | — |
 | `dscsystems` | v0.6.5-1-g6bf3f37 | * → dscsystems-sv-subscriber | smpRate 0 / empty datSet | — |
 | `dscsystems` | 6bf3f370c6fb95d3835e34d9d1539f313e00b157 | dscsystems-client → go-server | --local-tsel / --remote-tsel of dscsystems-ied-client | `TestPeerClientTSelectors` |
+| `cbsigma` | v0.1.0 (iec61850-sim) | * → cbsigma-ied-server | Write of FC ST or MX (and the dchg report the reporter triggers with it) | — |
+| `cbsigma` | v0.1.0 (iec61850-sim) | iec61850bean-client → cbsigma-ied-server | GetVariableAccessAttributes type of Enum (read LLN0.Mod.ctlModel[CF]) | — |
+| `iec61850bean` | 1.9.0 | cbsigma-client → iec61850bean-ied-server | GetDataSetValues (read of LLN0$dsInterop) | — |
+| `iec61850-rust` | v0.2.0-0-gd4e8952 | cbsigma-client → iec61850-rust-ied-server, iec61850-rust-client → cbsigma-ied-server | MMS Initiate with an 18-bit parameterCBB | — |
 
 ## Notes
 
@@ -98,5 +113,6 @@ SVCB over MMS: the IED server exposes `LLN0$MS$MSVCB02` of the IED fixture as MM
 - Every IED server seeds its values from `fixtures/iec61850/values.json` (including `GGIO1.DPS1.stVal` = 2 and `MMTR1.TotVAh.actVal` = 42). Every fixed-sequence IED client reads, in this order: `GGIO1.SPS1.stVal[ST]`, `MMXU1.TotW.mag.f[MX]`, `GGIO1.DPS1.stVal[ST]` (Dbpos, reported as its enumeration 0..3, 2 = on), `MMTR1.TotVAh.actVal[ST]` (INT32U), `LLN0.Mod.ctlModel[CF]`, `LLN0.Mod.d[DC]`.
 - GOOSE commands (`*-goose-publisher`, `*-goose-subscriber`) need a raw socket: run them with `--cap-add NET_RAW` on a shared Docker network; see [`goose.md`](goose.md).
 - Sampled Values commands (`*-sv-publisher`, `*-sv-subscriber`) need the same; see [`sv.md`](sv.md). iec61850bean has no SV support, so `iec61850-interop-iec61850bean` has no SV commands.
+- `iec61850-interop-cbsigma` has no MMS or SV commands: cB-Sigma's server is a simulated IED (iec61850-sim), not a generic MMS server, and this adapter covers MMS through the IED commands, reports, controls and GOOSE.
 - `iec61850-interop-dscsystems` is built from GPL-3.0 code (dscsystems/go-iec61850); see `adapters/dscsystems/NOTICE`.
 - A skipped test without a registered limitation in this table must fail CI.

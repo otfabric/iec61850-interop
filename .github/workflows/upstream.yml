@@ -5,7 +5,8 @@ run-name: "Upstream check (${{ github.event_name }})"
 # (scripts/latest-upstream.py): libiec61850, dscsystems/go-iec61850 and
 # csp0924/iec61850-rust are pinned by commit and compared with the head of
 # their default branch, iec61850bean with its latest release on Maven
-# Central; and the digest of every base image. An adapter whose pin is behind
+# Central, cbsigma (cB-Sigma/iec61850 and iec61850-sim, tags only) with
+# their latest tags; and the digest of every base image. An adapter whose pin is behind
 # is built at the latest upstream (scripts/build-candidate.sh; once per
 # pin -> latest pair, later runs reuse that result). The table goes to the Job
 # Summary and to the issue "Upstream releases: pins behind the latest", which
@@ -44,7 +45,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        adapter: [libiec61850, iec61850bean, dscsystems, iec61850-rust]
+        adapter: [libiec61850, iec61850bean, dscsystems, iec61850-rust, cbsigma]
     steps:
       - uses: actions/checkout@v7
 
@@ -109,6 +110,10 @@ jobs:
               tag in `go.mod`, which the Dockerfile's pseudo-version check does not accept yet.
             - **Library** (iec61850bean): the `com.beanit:iec61850bean` version in
               `adapters/iec61850bean/pom.xml`.
+            - **Tags** (cbsigma): `ARG IEC61850_VERSION` / `IEC61850_SIM_VERSION` in
+              `adapters/cbsigma/Dockerfile`, `go get github.com/cB-Sigma/<module>@<tag>` in
+              `adapters/cbsigma` (go.mod, go.sum), the commits in `adapters/cbsigma/NOTICE`
+              and versions.yaml.
             - Reproduce a candidate with `scripts/build-candidate.sh <adapter> <commit|version>`,
               then `make ci`. The candidate here is a build only; CI smoke-tests the bump.
             - **Base image:** replace the digest in every file that pins it.

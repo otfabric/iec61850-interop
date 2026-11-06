@@ -143,6 +143,16 @@ jobs:
             platform: linux/arm64
             runner: ubuntu-24.04-arm
             slug: iec61850-rust-linux-arm64
+          - image: cbsigma
+            file: adapters/cbsigma/Dockerfile
+            platform: linux/amd64
+            runner: ubuntu-24.04
+            slug: cbsigma-linux-amd64
+          - image: cbsigma
+            file: adapters/cbsigma/Dockerfile
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            slug: cbsigma-linux-arm64
     steps:
       - uses: actions/checkout@v7
 
@@ -202,6 +212,7 @@ jobs:
       iec61850bean-digest: ${{ steps.manifests.outputs.iec61850bean }}
       dscsystems-digest: ${{ steps.manifests.outputs.dscsystems }}
       iec61850-rust-digest: ${{ steps.manifests.outputs.iec61850-rust }}
+      cbsigma-digest: ${{ steps.manifests.outputs.cbsigma }}
     steps:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -260,6 +271,7 @@ jobs:
           publish iec61850bean
           publish dscsystems
           publish iec61850-rust
+          publish cbsigma
 
   release:
     name: GitHub release
@@ -275,6 +287,7 @@ jobs:
           IEC61850BEAN_DIGEST: ${{ needs.merge.outputs.iec61850bean-digest }}
           DSCSYSTEMS_DIGEST: ${{ needs.merge.outputs.dscsystems-digest }}
           IEC61850RUST_DIGEST: ${{ needs.merge.outputs.iec61850-rust-digest }}
+          CBSIGMA_DIGEST: ${{ needs.merge.outputs.cbsigma-digest }}
         run: |
           set -euo pipefail
           python3 - <<'PY' > manifest.json
@@ -289,6 +302,9 @@ jobs:
           dsc_match = re.search(r"^ARG DSCSYSTEMS_SHA=(\S+)", dsc, re.M)
           rust = pathlib.Path("adapters/iec61850-rust/Dockerfile").read_text()
           rust_match = re.search(r"^ARG IEC61850_RUST_SHA=(\S+)", rust, re.M)
+          cbs = pathlib.Path("adapters/cbsigma/Dockerfile").read_text()
+          cbs_lib = re.search(r"^ARG IEC61850_VERSION=(\S+)", cbs, re.M)
+          cbs_sim = re.search(r"^ARG IEC61850_SIM_VERSION=(\S+)", cbs, re.M)
 
           print(json.dumps({
               "repository": "github.com/otfabric/iec61850-interop",
@@ -301,11 +317,19 @@ jobs:
               "iec61850bean": pom_match.group(1) if pom_match else "1.9.0",
               "dscsystems": dsc_match.group(1) if dsc_match else "",
               "iec61850-rust": rust_match.group(1) if rust_match else "",
+              # Two modules, pinned by tag (adapters/cbsigma/go.mod); an
+              # independent engine like the four above.
+              "cbsigma": {
+                  "iec61850": cbs_lib.group(1) if cbs_lib else "",
+                  "iec61850-sim": cbs_sim.group(1) if cbs_sim else "",
+                  "independent": True,
+              },
               "images": {
                   "libiec61850": __import__("os").environ["LIBIEC61850_DIGEST"],
                   "iec61850bean": __import__("os").environ["IEC61850BEAN_DIGEST"],
                   "dscsystems": __import__("os").environ["DSCSYSTEMS_DIGEST"],
                   "iec61850-rust": __import__("os").environ["IEC61850RUST_DIGEST"],
+                  "cbsigma": __import__("os").environ["CBSIGMA_DIGEST"],
               },
           }, indent=2))
           PY
@@ -319,6 +343,7 @@ jobs:
           IEC61850BEAN_DIGEST: ${{ needs.merge.outputs.iec61850bean-digest }}
           DSCSYSTEMS_DIGEST: ${{ needs.merge.outputs.dscsystems-digest }}
           IEC61850RUST_DIGEST: ${{ needs.merge.outputs.iec61850-rust-digest }}
+          CBSIGMA_DIGEST: ${{ needs.merge.outputs.cbsigma-digest }}
         run: |
           {
             scripts/release-notes.sh "${VERSION}"
@@ -331,6 +356,7 @@ jobs:
             echo "| \`ghcr.io/otfabric/iec61850-interop-iec61850bean:${VERSION}\` | \`${IEC61850BEAN_DIGEST}\` |"
             echo "| \`ghcr.io/otfabric/iec61850-interop-dscsystems:${VERSION}\` (GPL-3.0) | \`${DSCSYSTEMS_DIGEST}\` |"
             echo "| \`ghcr.io/otfabric/iec61850-interop-iec61850-rust:${VERSION}\` | \`${IEC61850RUST_DIGEST}\` |"
+            echo "| \`ghcr.io/otfabric/iec61850-interop-cbsigma:${VERSION}\` | \`${CBSIGMA_DIGEST}\` |"
             echo
             echo "## Pinning in consumer repositories"
             echo
@@ -339,9 +365,10 @@ jobs:
             echo "IEC61850BEAN_IMAGE=ghcr.io/otfabric/iec61850-interop-iec61850bean@${IEC61850BEAN_DIGEST}"
             echo "DSCSYSTEMS_IMAGE=ghcr.io/otfabric/iec61850-interop-dscsystems@${DSCSYSTEMS_DIGEST}"
             echo "IEC61850RUST_IMAGE=ghcr.io/otfabric/iec61850-interop-iec61850-rust@${IEC61850RUST_DIGEST}"
+            echo "CBSIGMA_IMAGE=ghcr.io/otfabric/iec61850-interop-cbsigma@${CBSIGMA_DIGEST}"
             echo '```'
             echo
-            echo "See \`manifest.json\` for full provenance (libiec61850 commit SHA, iec61850bean version, dscsystems/go-iec61850 and iec61850-rust commit SHAs, fixture revisions)."
+            echo "See \`manifest.json\` for full provenance (libiec61850 commit SHA, iec61850bean version, dscsystems/go-iec61850 and iec61850-rust commit SHAs, cB-Sigma iec61850 and iec61850-sim tags, fixture revisions)."
           } > "${RUNNER_TEMP}/release-body.md"
           cat "${RUNNER_TEMP}/release-body.md"
 

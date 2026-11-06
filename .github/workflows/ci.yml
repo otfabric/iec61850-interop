@@ -77,6 +77,37 @@ jobs:
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
+  cbsigma-go:
+    name: cbsigma adapter (go vet, gofmt)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: adapters/cbsigma
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: adapters/cbsigma/go.mod
+          cache-dependency-path: adapters/cbsigma/go.sum
+
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+
+      - name: go vet and build
+        run: go mod verify && go vet ./... && go build -o /dev/null ./...
+
+      - name: Unit tests with the race detector
+        run: go test -race -count=1 ./...
+
+      - name: golangci-lint
+        run: |
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+          golangci-lint run ./...
+
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
   build-and-smoke:
     name: Build and smoke-test adapter images
     runs-on: ubuntu-latest
@@ -98,6 +129,9 @@ jobs:
       - name: Build iec61850-rust adapter image
         run: make build-iec61850-rust
 
+      - name: Build cbsigma adapter image
+        run: make build-cbsigma
+
       - name: Verify required binaries
         run: make verify-binaries
 
@@ -109,7 +143,7 @@ jobs:
       # cross-stack self-test (scripts/interop.sh): every stack's MMS and
       # IED clients and servers against libiec61850 in both directions, and
       # GOOSE and Sampled Values between every publisher and subscriber of
-      # libiec61850, dscsystems and iec61850-rust, including the host side
+      # libiec61850, dscsystems, iec61850-rust and cbsigma, including the host side
       # of the bridge network as a Go test on a Linux host uses it (both SV
       # fixture streams, loss reported per pair, known-limitation pairs
       # checked to still fail).
@@ -145,4 +179,5 @@ jobs:
           echo "iec61850bean    : ${IEC61850BEAN_VERSION:-1.9.0}"
           echo "dscsystems      : $(grep 'ARG DSCSYSTEMS_SHA=' adapters/dscsystems/Dockerfile | cut -d= -f2)"
           echo "iec61850-rust   : $(grep 'ARG IEC61850_RUST_SHA=' adapters/iec61850-rust/Dockerfile | cut -d= -f2)"
+          echo "cbsigma         : iec61850 $(grep 'ARG IEC61850_VERSION=' adapters/cbsigma/Dockerfile | cut -d= -f2), iec61850-sim $(grep 'ARG IEC61850_SIM_VERSION=' adapters/cbsigma/Dockerfile | cut -d= -f2)"
           echo "platform        : linux/amd64"

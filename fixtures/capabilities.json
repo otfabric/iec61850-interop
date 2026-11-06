@@ -37,7 +37,17 @@
     "dscsystems-sv-publisher": true,
     "dscsystems-sv-subscriber": true,
     "iec61850-rust-sv-publisher": true,
-    "iec61850-rust-sv-subscriber": true
+    "iec61850-rust-sv-subscriber": true,
+    "cbsigma-mms-server": false,
+    "cbsigma-mms-client": false,
+    "cbsigma-ied-server": true,
+    "cbsigma-ied-client": true,
+    "cbsigma-ied-controller": true,
+    "cbsigma-ied-reporter": true,
+    "cbsigma-goose-publisher": true,
+    "cbsigma-goose-subscriber": true,
+    "cbsigma-sv-publisher": false,
+    "cbsigma-sv-subscriber": false
   },
   "knownLimitations": [
     {
@@ -247,6 +257,38 @@
       "capability": "--local-tsel / --remote-tsel of dscsystems-ied-client",
       "reason": "client.Dial has no option for the COTP selectors; the client always sends T-selector 0001/0001, so the flags answer unsupported (exit 4)",
       "reproducedBy": "TestPeerClientTSelectors"
+    },
+    {
+      "stack": "cbsigma",
+      "version": "v0.1.0 (iec61850-sim)",
+      "direction": "* → cbsigma-ied-server",
+      "capability": "Write of FC ST or MX (and the dchg report the reporter triggers with it)",
+      "reason": "iec61850-sim refuses writes of status and measured values (object-access-denied), as IEC 61850-7-2 makes them read-only; the reporter's data change cannot be made by a client, so no report follows. Reports from the simulator's own value changes are tested in adapters/cbsigma (TestEndToEnd)",
+      "reproducedBy": ""
+    },
+    {
+      "stack": "cbsigma",
+      "version": "v0.1.0 (iec61850-sim)",
+      "direction": "iec61850bean-client → cbsigma-ied-server",
+      "capability": "GetVariableAccessAttributes type of Enum (read LLN0.Mod.ctlModel[CF])",
+      "reason": "the simulator describes every integer attribute as Integer(32) (mms.TypeOf), Enum (ENUMERATED, IEC 61850-8-1: an 8-bit Integer) included, so iec61850bean cannot map Mod.ctlModel, Mod.stVal or Beh.stVal; libiec61850, dscsystems and go-iec61850 clients are not affected",
+      "reproducedBy": ""
+    },
+    {
+      "stack": "iec61850bean",
+      "version": "1.9.0",
+      "direction": "cbsigma-client → iec61850bean-ied-server",
+      "capability": "GetDataSetValues (read of LLN0$dsInterop)",
+      "reason": "the server reads a named variable list only when the Read request has specificationWithResult TRUE (ServerAssociation.handleGetDataValuesRequest); ISO 9506-2 makes it DEFAULT FALSE, which cB-Sigma's client leaves out, and the read is answered FAILED_DUE_TO_COMMUNICATIONS_CONSTRAINT",
+      "reproducedBy": ""
+    },
+    {
+      "stack": "iec61850-rust",
+      "version": "v0.2.0-0-gd4e8952",
+      "direction": "cbsigma-client → iec61850-rust-ied-server, iec61850-rust-client → cbsigma-ied-server",
+      "capability": "MMS Initiate with an 18-bit parameterCBB",
+      "reason": "iec61850-mms takes proposedParameterCBB and negotiatedParameterCBB only as 3 octets (11 bits, initiate.rs); cB-Sigma sends the 18 bits of ISO 9506-2:2003 ParameterSupportOptions (4 octets), so the server rejects the association (AARE rejected-permanent) and the client fails it (\"invalid parametercbb bit string length (expected 3, got 4)\")",
+      "reproducedBy": ""
     }
   ],
   "upstreams": {
@@ -265,6 +307,13 @@
       "version": "v0.2.0-0-gd4e8952",
       "commit": "d4e895217f367ed4caebf21611d2c16ee46035c0",
       "license": "MIT OR Apache-2.0"
+    },
+    "cbsigma": {
+      "version": "v0.1.0",
+      "commit": "f121ba3464665ea06a0e7f7bc81316beb7312dd2",
+      "simVersion": "v0.1.0",
+      "simCommit": "92530d85723c40afd8514ec45e3b89184a5eae1e",
+      "license": "Apache-2.0"
     }
   },
   "gooseFixtureRevision": "goose-v1",
@@ -274,6 +323,7 @@
     "libiec61850": true,
     "dscsystems": true,
     "iec61850bean": false,
-    "iec61850-rust": false
+    "iec61850-rust": false,
+    "cbsigma": false
   }
 }

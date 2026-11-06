@@ -14,7 +14,8 @@ controls), **GOOSE** (IEC 61850-8-1, layer 2) and **Sampled Values**
 (IEC 61850-9-2 / 9-2LE, layer 2).
 
 The repository publishes one container image per independent IEC 61850 stack
-(libiec61850, iec61850bean, dscsystems/go-iec61850, iec61850-rust), the
+(libiec61850, iec61850bean, dscsystems/go-iec61850, iec61850-rust and
+cB-Sigma's iec61850 with its IED simulator), the
 canonical fixtures every stack loads, and a stable JSON Lines contract that
 every adapter command speaks. It does not own assertions about any library:
 interop tests and compatibility matrices live in the consumer repositories.
@@ -38,6 +39,7 @@ interop tests and compatibility matrices live in the consumer repositories.
 | iec61850bean | `iec61850-interop-iec61850bean` | — | — | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — |
 | dscsystems | `iec61850-interop-dscsystems` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | iec61850-rust | `iec61850-interop-iec61850-rust` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| cbsigma | `iec61850-interop-cbsigma` | — | — | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | — | — |
 
 <!-- capability-matrix:end -->
 
@@ -54,8 +56,9 @@ stack. [docs/CAPABILITIES.md](docs/CAPABILITIES.md) lists every command and limi
 | iec61850bean | [beanit/iec61850bean](https://github.com/beanit/iec61850bean) | Java | 1.9.0 |
 | dscsystems | [dscsystems/go-iec61850](https://github.com/dscsystems/go-iec61850) | Go | `v0.6.5-1-g6bf3f37` |
 | iec61850-rust | [csp0924/iec61850-rust](https://github.com/csp0924/iec61850-rust) | Rust | `v0.2.0` (`d4e8952`) |
+| cbsigma | [cB-Sigma/iec61850](https://github.com/cB-Sigma/iec61850) (client, GOOSE) and [cB-Sigma/iec61850-sim](https://github.com/cB-Sigma/iec61850-sim) (IED server) | Go | `v0.1.0` (`f121ba3`), `v0.1.0` (`92530d8`) |
 
-The four share no protocol code with each other or with the otfabric Go
+The five share no protocol code with each other or with the otfabric Go
 libraries, which is the point: a library that interoperates with all of them
 has not just agreed with itself.
 
@@ -67,16 +70,17 @@ has not just agreed with itself.
 | `ghcr.io/otfabric/iec61850-interop-iec61850bean` | `iec61850bean-*` |
 | `ghcr.io/otfabric/iec61850-interop-dscsystems` | `dscsystems-*` (GPL-3.0, see [Licensing](#licensing)) |
 | `ghcr.io/otfabric/iec61850-interop-iec61850-rust` | `iec61850-rust-*` |
+| `ghcr.io/otfabric/iec61850-interop-cbsigma` | `cbsigma-*` (IED and GOOSE; no MMS or SV commands) |
 
 Every image is multi-arch (`linux/amd64`, `linux/arm64`) and tagged
 `vX.Y.Z`, `X.Y.Z`, `X.Y`, `X` and `latest`. Each command is a binary on the
 `PATH`; select it with `--entrypoint`. The default entrypoint is the
-stack's MMS server (the IED server for iec61850bean) on port 1102.
+stack's MMS server (the IED server for iec61850bean and cbsigma) on port 1102.
 
 ### Pinning by digest
 
 Tags are for humans; CI pins the multi-arch digest. Every GitHub release
-lists the four digests and ships a `manifest.json` with them, the upstream
+lists the five digests and ships a `manifest.json` with them, the upstream
 pins and the fixture revisions:
 
 ```bash
@@ -95,6 +99,7 @@ LIBIEC61850_IMAGE=ghcr.io/otfabric/iec61850-interop-libiec61850@sha256:<digest>
 IEC61850BEAN_IMAGE=ghcr.io/otfabric/iec61850-interop-iec61850bean@sha256:<digest>
 DSCSYSTEMS_IMAGE=ghcr.io/otfabric/iec61850-interop-dscsystems@sha256:<digest>
 IEC61850RUST_IMAGE=ghcr.io/otfabric/iec61850-interop-iec61850-rust@sha256:<digest>
+CBSIGMA_IMAGE=ghcr.io/otfabric/iec61850-interop-cbsigma@sha256:<digest>
 ```
 
 The images are public; `docker pull` needs no login.
@@ -258,6 +263,7 @@ Each image also contains its upstream library, under that library's licence:
 | `iec61850-interop-iec61850bean` | MIT | iec61850bean — Apache-2.0 | MIT + Apache-2.0 |
 | `iec61850-interop-dscsystems` | **GPL-3.0** (`adapters/dscsystems/LICENSE`, `NOTICE`) | dscsystems/go-iec61850 — GPL-3.0 | GPL-3.0 |
 | `iec61850-interop-iec61850-rust` | MIT | iec61850-rust — MIT OR Apache-2.0 | MIT + (MIT OR Apache-2.0) |
+| `iec61850-interop-cbsigma` | MIT | cB-Sigma iec61850 and iec61850-sim — Apache-2.0 | MIT + Apache-2.0 + BSD-3-Clause |
 
 **dscsystems isolation.** The dscsystems adapter is compiled into the same Go
 binaries as the GPL-3.0 library, so `adapters/dscsystems/` is itself GPL-3.0
@@ -269,7 +275,9 @@ consumers' own licence unaffected. Redistributing any image means keeping
 the upstream notices and meeting the source obligations of its licence. The
 dscsystems and iec61850-rust images carry their `LICENSE` and `NOTICE` files
 under `/usr/share/doc/iec61850-interop-<stack>/`; the NOTICE names the
-upstream commit the image was built from.
+upstream commit the image was built from. The cbsigma image carries the
+licence and notice of every Go module it links under `/licenses`, with the
+list in `/licenses/BUNDLED-MODULES.txt`.
 
 ## OT Fabric's own stack
 
@@ -286,7 +294,7 @@ list it: see [own/go-iec61850/README.md](own/go-iec61850/README.md).
 Requires Docker with BuildKit/buildx and Make.
 
 ```bash
-make build              # all four images as iec61850-interop-<stack>:local
+make build              # all five images as iec61850-interop-<stack>:local
 make validate-fixtures  # fixtures, RELEASE.md notes, generated docs (no Docker)
 make smoke              # scripts/smoke.sh per image: commands, fixtures, ready events, same-stack clients, T-selectors
 make interop            # scripts/interop.sh: every stack against libiec61850 both ways, GOOSE and SV between every pair
@@ -325,7 +333,8 @@ immutable; a fix is a new version.
 The **Upstream** workflow (`.github/workflows/upstream.yml`) compares every
 pin with the latest upstream every day (`scripts/latest-upstream.py`: the
 head of libiec61850, dscsystems/go-iec61850 and csp0924/iec61850-rust, the
-latest iec61850bean on Maven Central) and checks whether the tag of every
+latest iec61850bean on Maven Central, the latest tags of cB-Sigma/iec61850 and
+iec61850-sim) and checks whether the tag of every
 digest-pinned base image has moved. An adapter that is behind is built at the
 latest upstream as a candidate (`scripts/build-candidate.sh`). When a pin is
 behind it opens an issue (or updates the open one) with the table, and closes
@@ -339,6 +348,7 @@ adapters/
   iec61850bean/    Java adapter (Maven)
   dscsystems/      Go adapter, GPL-3.0 (LICENSE, NOTICE)
   iec61850-rust/   Rust adapter (LICENSE-MIT, LICENSE-APACHE, NOTICE)
+  cbsigma/         Go adapter on cB-Sigma/iec61850 and iec61850-sim (NOTICE; go.mod holds the pins)
 own/go-iec61850/   OT Fabric's own stack behind the contract (not a reference, not in a release)
 fixtures/          mms/, iec61850/, goose/, sv/, capabilities.json
 docs/              CONTAINER_CONTRACT.md, CAPABILITIES.md (generated), FIXTURES.md, goose.md, sv.md

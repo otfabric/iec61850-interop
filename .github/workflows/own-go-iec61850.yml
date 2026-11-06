@@ -143,7 +143,7 @@ jobs:
 
       - name: Pull the reference images of ${{ needs.version.outputs.harness }}
         run: |
-          for a in libiec61850 iec61850bean dscsystems iec61850-rust; do
+          for a in $(make -s -C harness print-published-adapters); do
             scripts/retry.sh docker pull --quiet "ghcr.io/otfabric/iec61850-interop-${a}:${VERSION}"
             docker run --rm --entrypoint "${a}-ied-server" "ghcr.io/otfabric/iec61850-interop-${a}:${VERSION}" --version \
               | jq -r --arg image "${a}:${VERSION}" '"- \($image): adapter \(.adapterVersion)"' | tee -a "$GITHUB_STEP_SUMMARY"
@@ -155,7 +155,8 @@ jobs:
           set -o pipefail
           mkdir -p reports
           REPORT_DIR=reports scripts/smoke.sh otfabric 2>&1 | tee reports/smoke.log
-          REPORT_DIR=reports scripts/interop.sh otfabric libiec61850 iec61850bean dscsystems iec61850-rust 2>&1 | tee reports/interop.log
+          # shellcheck disable=SC2046 # one adapter per word
+          REPORT_DIR=reports scripts/interop.sh otfabric $(make -s print-published-adapters) 2>&1 | tee reports/interop.log
           python3 scripts/interop_result.py reports/results.json
           grep -hE '^(Results:|FAIL|KNOWN)' reports/smoke.log reports/interop.log | tee -a "$GITHUB_STEP_SUMMARY" || true
 
