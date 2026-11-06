@@ -147,6 +147,41 @@ pub fn host_port(prog: &str, mut extra: impl FnMut(&str, &str)) -> (String, u16)
     (host, port as u16)
 }
 
+/// The logical device of the fixture, as the SCL names it.
+pub const LD_NAME: &str = "InteropLD";
+
+/// Contract 1.3 LD choice from a server directory: "InteropLD", else the
+/// first name ending in it (an IED-name-prefixed domain such as
+/// "InteropIEDInteropLD"), else the first.
+pub fn pick_ld(names: &[String]) -> Option<String> {
+    if names.iter().any(|n| n == LD_NAME) {
+        return Some(LD_NAME.into());
+    }
+    if let Some(n) = names.iter().find(|n| n.ends_with(LD_NAME)) {
+        return Some(n.clone());
+    }
+    names.first().cloned()
+}
+
+/// The logical device of the reporter and controller: $IEC61850_RUST_LD
+/// when set, else [`pick_ld`] over the server directory, else "InteropLD"
+/// (the fallback is logged on stderr, not emitted).
+pub async fn resolve_ld(conn: &IedConnection, prog: &str) -> String {
+    if let Ok(ld) = std::env::var("IEC61850_RUST_LD") {
+        return ld;
+    }
+    match conn.get_server_directory(false).await {
+        Ok(lds) => pick_ld(&lds).unwrap_or_else(|| {
+            crate::jl::log(&format!("{prog}: server directory is empty; using {LD_NAME}"));
+            LD_NAME.into()
+        }),
+        Err(e) => {
+            crate::jl::log(&format!("{prog}: get server directory: {e}; using {LD_NAME}"));
+            LD_NAME.into()
+        }
+    }
+}
+
 /// A small multi-thread tokio runtime for the client commands.
 pub fn runtime() -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_multi_thread()
@@ -165,5 +200,22 @@ pub fn emit_error(op: &str, target: Option<&str>, e: &str) {
             crate::jl::q(e)
         )),
         None => crate::jl::line(&format!("{{\"operation\":\"{op}\",\"ok\":false,\"error\":{}}}", crate::jl::q(e))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn v(names: &[&str]) -> Vec<String> {
+        names.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn ld_resolution() {
+        assert_eq!(pick_ld(&v(&["A", "InteropLD", "XInteropLD"])).as_deref(), Some("InteropLD"));
+        assert_eq!(pick_ld(&v(&["A", "InteropIEDInteropLD"])).as_deref(), Some("InteropIEDInteropLD"));
+        assert_eq!(pick_ld(&v(&["A", "B"])).as_deref(), Some("A"));
+        assert_eq!(pick_ld(&[]), None);
     }
 }

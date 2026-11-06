@@ -10,9 +10,9 @@ Because the adapter programs link that library, the source code in this
 directory is distributed under the GNU General Public License version 3
 as well (see LICENSE), unlike the rest of iec61850-interop, which is MIT.
 
-Pinned upstream: github.com/dscsystems/go-iec61850 commit
-6bf3f370c6fb95d3835e34d9d1539f313e00b157 (v0.6.5-1-g6bf3f37), as recorded
-in go.mod and go.sum. Corresponding source: that commit of the upstream
+Pinned upstream: github.com/dscsystems/go-iec61850 v0.6.6, commit
+4833767caf3abbf1f205c4c49cd9432744beaf83, as recorded in go.mod and
+go.sum. Corresponding source: that commit of the upstream
 repository, and this directory at the iec61850-interop tag the image was
 built from.
 

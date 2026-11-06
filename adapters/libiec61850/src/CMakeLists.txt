@@ -125,8 +125,9 @@ target_link_libraries(libiec61850-ied-client
 # ---------------------------------------------------------------------------
 # libiec61850-ied-reporter   (Phase 2C)
 #
-# URCB subscriber: enables urcb01, writes SPS1.stVal to trigger a dchg report,
-# waits for the report and emits it as JSON Lines, then disables the URCB.
+# URCB subscriber: enables urcb01, triggers a dchg report (SPS1.stVal write) or
+# a GI report (--trigger gi), waits for the report and emits it as JSON Lines,
+# then disables the URCB. LD and URCB instance come from the server directory.
 # Uses the public IedConnection + ClientReportControlBlock API only.
 # ---------------------------------------------------------------------------
 add_executable(libiec61850-ied-reporter
@@ -142,8 +143,8 @@ target_link_libraries(libiec61850-ied-reporter
 # ---------------------------------------------------------------------------
 # libiec61850-ied-controller   (Phase 2E)
 #
-# Direct-control client: reads ctlModel, issues Oper on GGIO1.SPCSO1, reads
-# back stVal.  Uses public IedConnection + ControlObjectClient API only.
+# Control client: reads ctlModel, direct / SBO / SBOw control of GGIO1.SPCSO1-3
+# in the LD resolved from the server directory, reads back stVal.  Uses public IedConnection + ControlObjectClient API only.
 # ---------------------------------------------------------------------------
 add_executable(libiec61850-ied-controller
     ied_controller.c

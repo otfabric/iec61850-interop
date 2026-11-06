@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -327,6 +328,21 @@ func TestEndToEnd(t *testing.T) {
 	lines = capture(t, func() { code = run("cbsigma-ied-reporter", []string{"--port", port}) })
 	if code != exitOK || len(lines) != 6 || lines[0]["rptID"] != "interop_urcb01" || lines[1]["ok"] != true || lines[4]["ok"] != true {
 		t.Errorf("reporter: code %d, %v", code, lines)
+	}
+
+	// The general interrogation of contract 1.3: a report of both members,
+	// whatever the server allows clients to write.
+	lines = capture(t, func() { code = run("cbsigma-ied-reporter", []string{"--port", port, "--trigger", "gi"}) })
+	if code != exitOK || len(lines) != 6 || lines[2]["operation"] != "trigger-gi" || lines[2]["ok"] != true {
+		t.Fatalf("reporter --trigger gi: code %d, %v", code, lines)
+	}
+	if r := lines[3]; r["ok"] != true || fmt.Sprint(r["reasons"]) != "[gi gi]" || fmt.Sprint(r["inclusion"]) != "[true true]" ||
+		fmt.Sprint(r["values"]) != "[false 1]" {
+		t.Errorf("GI report: %v", r)
+	}
+	capture(t, func() { code = run("cbsigma-ied-reporter", []string{"--trigger", "x"}) })
+	if code != exitArgs {
+		t.Errorf("--trigger x: code %d", code)
 	}
 
 	// A report the simulator does send: a data change from its process.

@@ -4,7 +4,7 @@
 // iec61850_client::ControlObjectClient, the counterpart of
 // libiec61850-ied-controller.
 //
-//   iec61850-rust-ied-controller [--host H] [--port P] [--ctlval 0|1]
+//   iec61850-rust-ied-controller [--host H] [--port P] [--ctlval true|false|1|0]
 //                                [--do SPCSO1|SPCSO2|SPCSO3]
 //
 //   SPCSO1 (direct-normal):  read-ctlmodel, operate, read-stval, conclude
@@ -12,9 +12,11 @@
 //   SPCSO3 (sbo-enhanced):   read-ctlmodel, select-with-value, operate,
 //                            read-stval, conclude
 //
-// References are the bare "InteropLD/GGIO1.<DO>", as in the C. The
-// environment variable IEC61850_RUST_LD replaces "InteropLD" (a test aid
-// for servers that prefix the IED name; not part of the contract).
+// The logical device comes from the server directory (contract 1.3): the
+// one named "InteropLD", else the first ending in it ("InteropIEDInteropLD"),
+// else the first. Every operation and line target is "<LD>/GGIO1.<DO>".
+// IEC61850_RUST_LD, when set, replaces the resolved LD (a test aid, not
+// part of the contract).
 //
 // As libiec61850's ControlObjectClient_create, creating the control object
 // reads its ctlModel from the server; when that fails the operation line
@@ -144,7 +146,11 @@ fn main() {
     let mut ctlval = true;
     let mut do_name = "SPCSO1".to_string();
     let (host, port) = adapter::ied::host_port(PROG, |f, v| match f {
-        "--ctlval" => ctlval = adapter::atoi(v) != 0,
+        "--ctlval" => match v {
+            "true" | "1" => ctlval = true,
+            "false" | "0" => ctlval = false,
+            _ => jl::fatal(1, &format!("{PROG}: invalid --ctlval {v} (true|false|1|0)")),
+        },
         "--do" => do_name = v.to_string(),
         _ => {}
     });
@@ -154,8 +160,6 @@ fn main() {
         "SPCSO3" => 4,
         _ => jl::fatal(1, &format!("{PROG}: unknown --do {do_name} (supported: SPCSO1, SPCSO2, SPCSO3)")),
     };
-    let ld = std::env::var("IEC61850_RUST_LD").unwrap_or_else(|_| "InteropLD".into());
-    let ctl_ref = format!("{ld}/GGIO1.{do_name}");
 
     let rt = adapter::ied::runtime();
     let code = rt.block_on(async {
@@ -166,6 +170,8 @@ fn main() {
                 return 2;
             }
         };
+        let ld = adapter::ied::resolve_ld(&conn, PROG).await;
+        let ctl_ref = format!("{ld}/GGIO1.{do_name}");
         read_ctlmodel(&conn, &ctl_ref).await;
         let conclude = |conn: IedConnection| async move {
             let _ = conn.disconnect().await;

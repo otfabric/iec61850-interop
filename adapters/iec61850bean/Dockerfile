@@ -8,7 +8,7 @@
 # The image contains four named entry points:
 #   iec61850bean-ied-server     --port <port> [--icd <path>] [--values <path>]
 #   iec61850bean-ied-client     --host <host> --port <port>
-#   iec61850bean-ied-reporter   --host <host> --port <port> [--sps1-initial 0|1]
+#   iec61850bean-ied-reporter   --host <host> --port <port> [--sps1-initial 0|1] [--trigger dchg|gi]
 #   iec61850bean-ied-controller --host <host> --port <port> [--ctlval 0|1]
 #
 # All programs are dispatched via Main.java using a subcommand argument.

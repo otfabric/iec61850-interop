@@ -30,13 +30,22 @@ import java.util.concurrent.TimeUnit;
  *   --host H              server host (default: localhost)
  *   --port P              server TCP port (default: 1102)
  *   --sps1-initial 0|1    initial value of SPS1.stVal (default: 0)
+ *   --trigger dchg|gi     report trigger (default: dchg; contract 1.3)
  * </pre>
+ *
+ * <p>Names (contract 1.3): the logical device is resolved from the server
+ * model (exactly {@code InteropLD}, else one ending in it such as
+ * {@code InteropIEDInteropLD}, else the first), and the URCB in its LLN0
+ * ({@code urcb01}, else its first indexed instance such as
+ * {@code urcb0101}). Targets use the resolved LD and the SCL name
+ * {@code urcb01}.
  *
  * <p>JSON Lines output format (stdout):
  * <pre>
  *   {"operation":"get-rcb","target":"...","ok":true,"rptID":"...","rptEna":false}
  *   {"operation":"enable-rcb","target":"...","ok":true}
- *   {"operation":"write","target":"...","ok":true}
+ *   {"operation":"write","target":"...","ok":true}          (dchg)
+ *   {"operation":"trigger-gi","target":"...","ok":true}     (gi)
  *   {"operation":"receive-report","ok":true,"rptID":"...","seqNum":N,
  *    "inclusion":[true,false],"values":[<v>],"reasons":["data-change"]}
  *   {"operation":"disable-rcb","target":"...","ok":true}
@@ -46,23 +55,46 @@ import java.util.concurrent.TimeUnit;
  */
 public class IedReporter {
 
-    private static final String RCB_REF    = "InteropLD/LLN0.RP.urcb01";
-    private static final String URCB_MODEL = "InteropLD/LLN0.urcb01";
     private static final String URCB_NAME  = "urcb01";  /* SCL name, without FC/instance suffix */
-    private static final String SPS1_REF   = "InteropLD/GGIO1.SPS1.stVal";
-    private static final String SPS1_TARGET = SPS1_REF + "[ST]";
-    private static final int    DS_SIZE    = 2;
 
     public static void run(String[] args) throws Exception {
         String  host    = "localhost";
         int     port    = 1102;
         boolean initial = false;
+        String  trigger = "dchg";
 
-        for (int i = 0; i < args.length - 1; i++) {
-            switch (args[i]) {
-                case "--host"         -> host    = args[++i];
-                case "--port"         -> port    = Integer.parseInt(args[++i]);
-                case "--sps1-initial" -> initial = Integer.parseInt(args[++i]) != 0;
+        for (int i = 0; i < args.length; i++) {
+            String a = args[i];
+            if (!a.equals("--host") && !a.equals("--port")
+                    && !a.equals("--sps1-initial") && !a.equals("--trigger")) {
+                continue;
+            }
+            if (i + 1 >= args.length) {
+                argError("missing value for " + a);
+            }
+            String v = args[++i];
+            switch (a) {
+                case "--host" -> host = v;
+                case "--port" -> {
+                    try {
+                        port = Integer.parseInt(v);
+                    } catch (NumberFormatException e) {
+                        argError("invalid --port: " + v);
+                    }
+                }
+                case "--sps1-initial" -> {
+                    if (!v.equals("0") && !v.equals("1")) {
+                        argError("invalid --sps1-initial: " + v + " (want 0 or 1)");
+                    }
+                    initial = v.equals("1");
+                }
+                case "--trigger" -> {
+                    if (!v.equals("dchg") && !v.equals("gi")) {
+                        argError("invalid --trigger: " + v + " (want dchg or gi)");
+                    }
+                    trigger = v;
+                }
+                default -> { }
             }
         }
 
@@ -72,7 +104,9 @@ public class IedReporter {
         ClientEventListener listener = new ClientEventListener() {
             @Override
             public void newReport(Report report) {
-                reportHolder[0] = report;
+                if (reportHolder[0] == null) {
+                    reportHolder[0] = report;
+                }
                 reportLatch.countDown();
             }
 
@@ -106,13 +140,19 @@ public class IedReporter {
                 }
             }
 
-            // Locate the URCB by traversing all LDs/LNs to support any IED name prefix.
-            Urcb urcb = findUrcbByName(model, URCB_NAME);
+            LogicalDevice ld = ModelNames.resolveLd(model);
+            String ldName = (ld != null) ? ld.getName() : ModelNames.LD_NAME;
+            String rcbRef = ldName + "/LLN0.RP." + URCB_NAME;
+            String sps1Target = ldName + "/GGIO1.SPS1.stVal[ST]";
+
+            Urcb urcb = (ld != null) ? resolveUrcb(ld) : null;
             if (urcb == null) {
-                JsonLines.error("get-rcb", RCB_REF,
-                        "URCB '" + URCB_NAME + "' not found in server model");
+                JsonLines.error("get-rcb", rcbRef,
+                        "URCB '" + URCB_NAME + "' (or an indexed instance) not found in "
+                        + ldName + "/LLN0");
                 return;
             }
+            System.err.printf("[debug] resolved LD=%s URCB=%s%n", ldName, urcb.getName());
 
             // 1. get-rcb — read current attributes from server.
             assoc.getRcbValues(urcb);
@@ -122,7 +162,7 @@ public class IedReporter {
             boolean rptEna = (rptEnaBda != null) && rptEnaBda.getValue();
             System.out.printf(
                     "{\"operation\":\"get-rcb\",\"target\":%s,\"ok\":true,\"rptID\":%s,\"rptEna\":%s}%n",
-                    JsonLines.quote(RCB_REF),
+                    JsonLines.quote(rcbRef),
                     JsonLines.quote(rptID),
                     rptEna ? "true" : "false");
             System.out.flush();
@@ -130,52 +170,52 @@ public class IedReporter {
             // 2. enable-rcb — set RptEna=true (no explicit reservation, mirroring libiec61850).
             try {
                 assoc.enableReporting(urcb);
-                System.out.printf(
-                        "{\"operation\":\"enable-rcb\",\"target\":%s,\"ok\":true}%n",
-                        JsonLines.quote(RCB_REF));
-                System.out.flush();
+                JsonLines.successTarget("enable-rcb", rcbRef);
             } catch (Exception e) {
-                JsonLines.error("enable-rcb", RCB_REF, e.getMessage());
+                JsonLines.error("enable-rcb", rcbRef, e.getMessage());
                 return;
             }
 
-            // 3. write — toggle GGIO1.SPS1.stVal to trigger dchg.
-            boolean newVal = !initial;
-            // Search for SPS1.stVal across all LDs to handle any IED name prefix.
-            BdaBoolean sps1 = findSPS1StVal(model);
-            if (sps1 == null) {
-                JsonLines.error("write", SPS1_TARGET,
-                        "GGIO1.SPS1.stVal[ST] not found in server model");
-            } else {
+            if (trigger.equals("gi")) {
+                // 3. trigger-gi — write GI=true on the URCB.
                 try {
-                    sps1.setValue(newVal);
-                    assoc.setDataValues((FcModelNode) sps1);
-                    System.out.printf(
-                            "{\"operation\":\"write\",\"target\":%s,\"ok\":true}%n",
-                            JsonLines.quote(SPS1_TARGET));
-                    System.out.flush();
+                    assoc.startGi(urcb);
+                    JsonLines.successTarget("trigger-gi", rcbRef);
                 } catch (Exception e) {
-                    JsonLines.error("write", SPS1_TARGET, e.getMessage());
+                    JsonLines.error("trigger-gi", rcbRef, e.getMessage());
+                }
+            } else {
+                // 3. write — toggle GGIO1.SPS1.stVal to trigger dchg.
+                boolean newVal = !initial;
+                ModelNode n = model.findModelNode(ldName + "/GGIO1.SPS1.stVal", Fc.ST);
+                if (!(n instanceof BdaBoolean sps1)) {
+                    JsonLines.error("write", sps1Target,
+                            "GGIO1.SPS1.stVal[ST] not found in server model");
+                } else {
+                    try {
+                        sps1.setValue(newVal);
+                        assoc.setDataValues(sps1);
+                        JsonLines.successTarget("write", sps1Target);
+                    } catch (Exception e) {
+                        JsonLines.error("write", sps1Target, e.getMessage());
+                    }
                 }
             }
 
-            // 4. receive-report — wait up to 10 s for the dchg report.
+            // 4. receive-report — wait up to 10 s for the report.
             if (reportLatch.await(10, TimeUnit.SECONDS) && reportHolder[0] != null) {
                 emitReport(reportHolder[0]);
             } else {
                 JsonLines.error("receive-report", null,
-                        "timeout-waiting-for-dchg-report");
+                        "timeout-waiting-for-" + trigger + "-report");
             }
 
             // 5. disable-rcb — set RptEna=false.
             try {
                 assoc.disableReporting(urcb);
-                System.out.printf(
-                        "{\"operation\":\"disable-rcb\",\"target\":%s,\"ok\":true}%n",
-                        JsonLines.quote(RCB_REF));
-                System.out.flush();
+                JsonLines.successTarget("disable-rcb", rcbRef);
             } catch (Exception e) {
-                JsonLines.error("disable-rcb", RCB_REF, e.getMessage());
+                JsonLines.error("disable-rcb", rcbRef, e.getMessage());
             }
 
         } catch (Exception e) {
@@ -189,42 +229,33 @@ public class IedReporter {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Model search helpers (IED-name-agnostic)
-    // -----------------------------------------------------------------------
-
-    /**
-     * Finds the first URCB with the given SCL name by traversing all logical
-     * devices and nodes in the model. This approach is independent of the
-     * IED name prefix used in the MMS domain name.
-     */
-    private static Urcb findUrcbByName(ServerModel model, String urcbName) {
-        for (ModelNode ldNode : model) {
-            if (!(ldNode instanceof LogicalDevice ld)) continue;
-            for (ModelNode lnNode : ld) {
-                if (!(lnNode instanceof LogicalNode ln)) continue;
-                Urcb u = ln.getUrcb(urcbName);
-                if (u != null) return u;
-            }
-        }
-        return null;
+    private static void argError(String msg) {
+        System.err.println("iec61850bean-ied-reporter: " + msg);
+        System.exit(1);
     }
 
+    // -----------------------------------------------------------------------
+    // Name resolution (contract 1.3)
+    // -----------------------------------------------------------------------
+
     /**
-     * Finds GGIO1.SPS1.stVal[ST] by traversing all logical devices in the
-     * model. This is IED-name-agnostic: the logical device may be named
-     * "InteropLD" (iec61850bean server) or "InteropIEDInteropLD" (go-iec61850
-     * server with IED prefix).
+     * The URCB "urcb01" in the LLN0 of the given LD, else its first indexed
+     * instance ("urcb0101", "urcb0102", ... per IEC 61850-6).
      */
-    private static BdaBoolean findSPS1StVal(ServerModel model) {
-        for (ModelNode ldNode : model) {
-            if (!(ldNode instanceof LogicalDevice ld)) continue;
-            String ldName = ld.getName();
-            // Try the standard path within this LD.
-            ModelNode n = model.findModelNode(ldName + "/GGIO1.SPS1.stVal", Fc.ST);
-            if (n instanceof BdaBoolean bda) return bda;
+    private static Urcb resolveUrcb(LogicalDevice ld) {
+        ModelNode lnNode = ld.getChild("LLN0");
+        if (!(lnNode instanceof LogicalNode lln0)) return null;
+        Urcb exact = lln0.getUrcb(URCB_NAME);
+        if (exact != null) return exact;
+        Urcb best = null;
+        for (Urcb u : lln0.getUrcbs()) {
+            String name = u.getName();
+            if (!name.startsWith(URCB_NAME) || name.length() == URCB_NAME.length()) continue;
+            String suffix = name.substring(URCB_NAME.length());
+            if (!suffix.chars().allMatch(Character::isDigit)) continue;
+            if (best == null || name.compareTo(best.getName()) < 0) best = u;
         }
-        return null;
+        return best;
     }
 
     // -----------------------------------------------------------------------

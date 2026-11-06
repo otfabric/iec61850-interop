@@ -54,7 +54,9 @@ pub fn ready(addr: &str, fixture: &str, ied_name: &str) {
     ));
 }
 
-/// `--version` / `--capabilities` as argv[1]: print and exit 0.
+/// `--version` / `--capabilities` as argv[1]: print and exit 0. The
+/// capabilities carry `reporterTriggers` (contract 1.3): the ied-reporter
+/// of this image takes `--trigger dchg|gi`.
 pub fn handle_meta_flags() {
     let a1 = match std::env::args().nth(1) {
         Some(a) => a,
@@ -71,7 +73,7 @@ pub fn handle_meta_flags() {
     if a1 == "--capabilities" {
         let cmds: Vec<String> = crate::COMMANDS.iter().map(|c| q(c)).collect();
         line(&format!(
-            "{{\"event\":\"capabilities\",\"adapterVersion\":{},\"fixtureRevision\":\"iec61850-v3\",\"commands\":[{}]}}",
+            "{{\"event\":\"capabilities\",\"adapterVersion\":{},\"fixtureRevision\":\"iec61850-v3\",\"commands\":[{}],\"reporterTriggers\":[\"dchg\",\"gi\"]}}",
             q(&v),
             cmds.join(",")
         ));

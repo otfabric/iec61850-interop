@@ -24,3 +24,15 @@ func TestReasonString(t *testing.T) {
 		}
 	}
 }
+
+func TestNames(t *testing.T) {
+	if got := rcbInstance([]string{"LLN0$RP$urcb0101", "LLN0$RP$urcb0101$RptID"}); got != "urcb0101" {
+		t.Errorf("rcbInstance indexed: %s", got)
+	}
+	if got := rcbInstance([]string{"LLN0$RP$urcb01$RptID", "LLN0$RP$urcb01"}); got != "urcb01" {
+		t.Errorf("rcbInstance: %s", got)
+	}
+	if got := rcbInstance(nil); got != "urcb01" {
+		t.Errorf("rcbInstance empty: %s", got)
+	}
+}

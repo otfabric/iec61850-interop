@@ -9,6 +9,11 @@
  * Connects to the IED server at --host HOST --port PORT, performs the
  * appropriate control sequence for the target DO, then reads back stVal.
  *
+ * The logical device <LD> is resolved from the server directory (contract
+ * 1.3, ld_resolve.h): exactly "InteropLD", else the first name ending in
+ * "InteropLD" (e.g. "InteropIEDInteropLD"), else the first listed. Every
+ * operation and line target uses "<LD>/GGIO1.<DO>".
+ *
  * Supported targets:
  *   SPCSO1 — direct-with-normal-security (ctlModel=1): operate only
  *   SPCSO2 — sbo-with-normal-security (ctlModel=2): select then operate
@@ -16,38 +21,38 @@
  *
  * Operation sequences:
  *   Direct (SPCSO1):
- *     1. read-ctlmodel  — InteropLD/GGIO1.SPCSO1.ctlModel[CF]  (expect 1)
+ *     1. read-ctlmodel  — <LD>/GGIO1.SPCSO1.ctlModel[CF]  (expect 1)
  *     2. operate        — SPCSO1 ctlVal=<--ctlval>
- *     3. read-stval     — InteropLD/GGIO1.SPCSO1.stVal[ST]
+ *     3. read-stval     — <LD>/GGIO1.SPCSO1.stVal[ST]
  *     4. conclude       — close connection
  *
  *   SBO Normal (SPCSO2):
- *     1. read-ctlmodel  — InteropLD/GGIO1.SPCSO2.ctlModel[CF]  (expect 2)
- *     2. select         — read InteropLD/GGIO1.SPCSO2.SBO[CO]
+ *     1. read-ctlmodel  — <LD>/GGIO1.SPCSO2.ctlModel[CF]  (expect 2)
+ *     2. select         — read <LD>/GGIO1.SPCSO2.SBO[CO]
  *     3. operate        — SPCSO2 ctlVal=<--ctlval>
- *     4. read-stval     — InteropLD/GGIO1.SPCSO2.stVal[ST]
+ *     4. read-stval     — <LD>/GGIO1.SPCSO2.stVal[ST]
  *     5. conclude       — close connection
  *
  *   SBO Enhanced / SBOw (SPCSO3):
- *     1. read-ctlmodel  — InteropLD/GGIO1.SPCSO3.ctlModel[CF]  (expect 4)
- *     2. select-with-value — write Oper to InteropLD/GGIO1.SPCSO3.SBOw[CO]
+ *     1. read-ctlmodel  — <LD>/GGIO1.SPCSO3.ctlModel[CF]  (expect 4)
+ *     2. select-with-value — write Oper to <LD>/GGIO1.SPCSO3.SBOw[CO]
  *     3. operate        — SPCSO3 ctlVal=<--ctlval>
- *     4. read-stval     — InteropLD/GGIO1.SPCSO3.stVal[ST]
+ *     4. read-stval     — <LD>/GGIO1.SPCSO3.stVal[ST]
  *     5. conclude       — close connection
  *
  * JSON output format (one object per line to stdout):
- *   {"operation":"read-ctlmodel","target":"InteropLD/GGIO1.SPCSO2.ctlModel[CF]","ok":true,"value":2}
- *   {"operation":"select","target":"InteropLD/GGIO1.SPCSO2","ok":true}
- *   {"operation":"select-with-value","target":"InteropLD/GGIO1.SPCSO3","ok":true}
- *   {"operation":"operate","target":"InteropLD/GGIO1.SPCSO2","ok":true,"ctlval":true}
- *   {"operation":"read-stval","target":"InteropLD/GGIO1.SPCSO2.stVal[ST]","ok":true,"value":true}
+ *   {"operation":"read-ctlmodel","target":"<LD>/GGIO1.SPCSO2.ctlModel[CF]","ok":true,"value":2}
+ *   {"operation":"select","target":"<LD>/GGIO1.SPCSO2","ok":true}
+ *   {"operation":"select-with-value","target":"<LD>/GGIO1.SPCSO3","ok":true}
+ *   {"operation":"operate","target":"<LD>/GGIO1.SPCSO2","ok":true,"ctlval":true}
+ *   {"operation":"read-stval","target":"<LD>/GGIO1.SPCSO2.stVal[ST]","ok":true,"value":true}
  *   {"operation":"conclude","ok":true}
  *   {"operation":"<op>","ok":false,"error":"<msg>"}
  *
  * Arguments:
  *   --host <HOST>              server host  (default: localhost)
  *   --port <PORT>              server port  (default: 1102)
- *   --ctlval <0|1>             control value to apply (default: 1 = true)
+ *   --ctlval <true|false|1|0>  control value to apply (default: true)
  *   --do <SPCSO1|SPCSO2|SPCSO3>  target data object (default: SPCSO1)
  *
  * Exit codes:
@@ -63,40 +68,34 @@
 
 #include "iec61850_client.h"
 #include "jsonlines.h"
+#include "ld_resolve.h"
 
 /* -------------------------------------------------------------------------
  * Per-DO configuration
  * ---------------------------------------------------------------------- */
 
-typedef struct {
-    const char* ctl_ref;       /* e.g. "InteropLD/GGIO1.SPCSO2" */
-    const char* ctlmodel_ref;  /* e.g. "InteropLD/GGIO1.SPCSO2.ctlModel" */
-    const char* stval_ref;     /* e.g. "InteropLD/GGIO1.SPCSO2.stVal" */
-    int         expected_ctlmodel;  /* 1=direct, 2=sbo-normal, 4=sbo-enhanced */
-} DoConfig;
+#define REF_MAX 130 /* object reference buffer (MMS 64 + '/' + 64 + NUL) */
 
-static const DoConfig DO_CONFIGS[] = {
-    {
-        "InteropLD/GGIO1.SPCSO1",
-        "InteropLD/GGIO1.SPCSO1.ctlModel",
-        "InteropLD/GGIO1.SPCSO1.stVal",
-        1
-    },
-    {
-        "InteropLD/GGIO1.SPCSO2",
-        "InteropLD/GGIO1.SPCSO2.ctlModel",
-        "InteropLD/GGIO1.SPCSO2.stVal",
-        2
-    },
-    {
-        "InteropLD/GGIO1.SPCSO3",
-        "InteropLD/GGIO1.SPCSO3.ctlModel",
-        "InteropLD/GGIO1.SPCSO3.stVal",
-        4
-    },
+typedef struct {
+    const char* name;               /* data object in GGIO1, e.g. "SPCSO2" */
+    int         expected_ctlmodel;  /* 1=direct, 2=sbo-normal, 4=sbo-enhanced */
+} DoSpec;
+
+static const DoSpec DO_SPECS[] = {
+    { "SPCSO1", 1 },
+    { "SPCSO2", 2 },
+    { "SPCSO3", 4 },
 };
 
-#define NUM_DO_CONFIGS 3
+#define NUM_DO_SPECS 3
+
+/* References built from the resolved LD at run time. */
+typedef struct {
+    char ctl_ref[REF_MAX];          /* e.g. "<LD>/GGIO1.SPCSO2" */
+    char ctlmodel_ref[REF_MAX];     /* e.g. "<LD>/GGIO1.SPCSO2.ctlModel" */
+    char stval_ref[REF_MAX];        /* e.g. "<LD>/GGIO1.SPCSO2.stVal" */
+    int  expected_ctlmodel;
+} DoConfig;
 
 /* -------------------------------------------------------------------------
  * JSON helpers
@@ -138,7 +137,7 @@ static bool op_read_ctlmodel(IedConnection conn, const DoConfig* cfg)
 {
     IedClientError err;
     int32_t val = IedConnection_readInt32Value(conn, &err, cfg->ctlmodel_ref, IEC61850_FC_CF);
-    char target_buf[128];
+    char target_buf[REF_MAX + 4];
     snprintf(target_buf, sizeof(target_buf), "%s[CF]", cfg->ctlmodel_ref);
     if (err != IED_ERROR_OK) {
         emit_error("read-ctlmodel", target_buf, ied_error_str(err));
@@ -248,7 +247,7 @@ static bool op_read_stval(IedConnection conn, const DoConfig* cfg)
 {
     IedClientError err;
     bool val = IedConnection_readBooleanValue(conn, &err, cfg->stval_ref, IEC61850_FC_ST);
-    char target_buf[128];
+    char target_buf[REF_MAX + 4];
     snprintf(target_buf, sizeof(target_buf), "%s[ST]", cfg->stval_ref);
     if (err != IED_ERROR_OK) {
         emit_error("read-stval", target_buf, ied_error_str(err));
@@ -277,8 +276,17 @@ int main(int argc, char** argv)
             host = argv[++i];
         else if (!strcmp(argv[i], "--port") && i + 1 < argc)
             port = atoi(argv[++i]);
-        else if (!strcmp(argv[i], "--ctlval") && i + 1 < argc)
-            ctlVal = atoi(argv[++i]) != 0;
+        else if (!strcmp(argv[i], "--ctlval") && i + 1 < argc) {
+            const char* v = argv[++i];
+            if (!strcmp(v, "true") || !strcmp(v, "1"))
+                ctlVal = true;
+            else if (!strcmp(v, "false") || !strcmp(v, "0"))
+                ctlVal = false;
+            else {
+                fprintf(stderr, "ied-controller: invalid --ctlval %s (true|false|1|0)\n", v);
+                return 1;
+            }
+        }
         else if (!strcmp(argv[i], "--do") && i + 1 < argc)
             do_name = argv[++i];
     }
@@ -287,18 +295,15 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    /* Find the DO configuration */
-    const DoConfig* cfg = NULL;
-    for (int i = 0; i < NUM_DO_CONFIGS; i++) {
-        /* Match by the last path component of ctl_ref */
-        const char* last_dot = strrchr(DO_CONFIGS[i].ctl_ref, '.');
-        const char* do_part = last_dot ? last_dot + 1 : DO_CONFIGS[i].ctl_ref;
-        if (!strcmp(do_name, do_part)) {
-            cfg = &DO_CONFIGS[i];
+    /* Find the DO specification */
+    const DoSpec* spec = NULL;
+    for (int i = 0; i < NUM_DO_SPECS; i++) {
+        if (!strcmp(do_name, DO_SPECS[i].name)) {
+            spec = &DO_SPECS[i];
             break;
         }
     }
-    if (!cfg) {
+    if (!spec) {
         fprintf(stderr, "ied-controller: unknown --do %s (supported: SPCSO1, SPCSO2, SPCSO3)\n", do_name);
         return 1;
     }
@@ -313,6 +318,16 @@ int main(int argc, char** argv)
         IedConnection_destroy(conn);
         return 2;
     }
+
+    /* Resolve the LD from the server directory and build the references */
+    char ld[65];
+    ld_resolve(conn, "ied-controller", ld, sizeof(ld));
+    DoConfig config;
+    const DoConfig* cfg = &config;
+    snprintf(config.ctl_ref, sizeof(config.ctl_ref), "%s/GGIO1.%s", ld, spec->name);
+    snprintf(config.ctlmodel_ref, sizeof(config.ctlmodel_ref), "%s.ctlModel", config.ctl_ref);
+    snprintf(config.stval_ref, sizeof(config.stval_ref), "%s.stVal", config.ctl_ref);
+    config.expected_ctlmodel = spec->expected_ctlmodel;
 
     op_read_ctlmodel(conn, cfg);
 

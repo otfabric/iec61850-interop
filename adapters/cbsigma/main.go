@@ -165,7 +165,7 @@ func versionEvent() map[string]any {
 func capabilitiesEvent() map[string]any {
 	return map[string]any{
 		"event": "capabilities", "adapterVersion": adapterVersion, "fixtureRevision": iedFixture,
-		"commands": supportedCommands(),
+		"commands": supportedCommands(), "reporterTriggers": []string{"dchg", "gi"},
 	}
 }
 

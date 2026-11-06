@@ -9,7 +9,9 @@
 # adapter's MMS and IED clients run against the hub's servers, and the hub's
 # clients against the other adapter's servers, for the roles both declare
 # (--capabilities). An IED client's operations and CDC values are checked,
-# every other client's JSON Lines. GOOSE and Sampled Values run between
+# a controller's operate and the stVal that follows, every other client's
+# JSON Lines; a reporter that takes --trigger gi (contract 1.3) runs once
+# more with it, and the general interrogation report is checked. GOOSE and Sampled Values run between
 # every publisher and every subscriber of the adapters that have them
 # (scripts/goose-crosscheck.sh, scripts/sv-crosscheck.sh), and once more
 # without flags and from the host side of the bridge for each stack. Known
@@ -41,6 +43,8 @@ for a in "${ADAPTERS[@]}"; do
     info "$a: $(image_of "$a"): $(jq -r '.commands | join(" ")' <<<"${CAPS[$a]}")"
 done
 has() { has_command "${CAPS[$1]}" "$1-$2"; }
+# gi <adapter>: its reporter takes --trigger gi (contract 1.3).
+gi() { [[ " $(reporter_triggers "${CAPS[$1]}") " == *" gi "* ]]; }
 
 HUB="${ADAPTERS[0]}"
 info ""
@@ -52,10 +56,18 @@ for a in "${ADAPTERS[@]:1}"; do
         if has "$a" "$client" && has "${HUB}" "$server"; then
             output=$(run_client_pair "$(image_of "${HUB}")" "${HUB}-${server}" "$(image_of "$a")" "$a-${client}")
             client_checks "$a-${client} -> ${HUB}-${server}" "$a-${client}" "$output"
+            if [ "$client" = ied-reporter ] && gi "$a"; then
+                report_gi_pair "$a-${client} --trigger gi -> ${HUB}-${server}" \
+                    "$(image_of "${HUB}")" "${HUB}-${server}" "$(image_of "$a")" "$a-${client}"
+            fi
         fi
         if has "${HUB}" "$client" && has "$a" "$server"; then
             output=$(run_client_pair "$(image_of "$a")" "$a-${server}" "$(image_of "${HUB}")" "${HUB}-${client}")
             client_checks "${HUB}-${client} -> $a-${server}" "${HUB}-${client}" "$output"
+            if [ "$client" = ied-reporter ] && gi "${HUB}"; then
+                report_gi_pair "${HUB}-${client} --trigger gi -> $a-${server}" \
+                    "$(image_of "$a")" "$a-${server}" "$(image_of "${HUB}")" "${HUB}-${client}"
+            fi
         fi
     done
 done

@@ -105,9 +105,9 @@ jobs:
             - **Commit** (libiec61850, dscsystems, iec61850-rust): move the commit in
               `adapters/<adapter>/Dockerfile` (`LIBIEC61850_SHA`, `DSCSYSTEMS_SHA`,
               `IEC61850_RUST_SHA`) and its comment; dscsystems also in `go.mod`/`go.sum`
-              (`go get github.com/dscsystems/go-iec61850@<commit>`), iec61850-rust also every
-              `rev` in `Cargo.toml` and `Cargo.lock`. A tagged dscsystems commit resolves to its
-              tag in `go.mod`, which the Dockerfile's pseudo-version check does not accept yet.
+              (`go get github.com/dscsystems/go-iec61850@<commit>`) and `DSCSYSTEMS_VERSION`
+              (the tag or pseudo-version go.mod then requires), iec61850-rust also every
+              `rev` in `Cargo.toml` and `Cargo.lock`.
             - **Library** (iec61850bean): the `com.beanit:iec61850bean` version in
               `adapters/iec61850bean/pom.xml`.
             - **Tags** (cbsigma): `ARG IEC61850_VERSION` / `IEC61850_SIM_VERSION` in

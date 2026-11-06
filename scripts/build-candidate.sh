@@ -50,20 +50,13 @@ PY
       && go get "github.com/dscsystems/go-iec61850@${want}" \
       && go mod tidy)
     set_arg adapters/dscsystems/Dockerfile DSCSYSTEMS_SHA "${want}"
-    # A tagged commit resolves to its tag (v0.6.6), not to a pseudo-version
-    # ending in the commit, so check go.mod for the version go get chose.
+    # go get resolves a tagged commit to its tag and any other to a
+    # pseudo-version: the Dockerfile takes the version go.mod now requires.
     version=$(awk '$1 == "require" && $2 == "github.com/dscsystems/go-iec61850" { print $3 }' adapters/dscsystems/go.mod)
-    if [[ "${version}" != *-"${want:0:12}" ]]; then
-      python3 - "${version}" <<'PY'
-import pathlib, sys
-path = pathlib.Path("adapters/dscsystems/Dockerfile")
-old = 'go-iec61850 v.*-$(echo "${DSCSYSTEMS_SHA}" | cut -c1-12)$"'
-text = path.read_text()
-if text.count(old) != 1:
-    raise SystemExit("build-candidate: the go.mod check in adapters/dscsystems/Dockerfile moved")
-path.write_text(text.replace(old, 'go-iec61850 %s$"' % sys.argv[1].replace(".", "\\.")))
-PY
-    fi
+    sed -i.bak -E "s|^ARG DSCSYSTEMS_VERSION=.*$|ARG DSCSYSTEMS_VERSION=${version}|" adapters/dscsystems/Dockerfile \
+      && rm -f adapters/dscsystems/Dockerfile.bak
+    grep -q "^ARG DSCSYSTEMS_VERSION=${version}$" adapters/dscsystems/Dockerfile \
+      || { echo "build-candidate: no ARG DSCSYSTEMS_VERSION in adapters/dscsystems/Dockerfile" >&2; exit 1; }
     ;;
   iec61850-rust)
     old=$(sed -nE 's/^ARG IEC61850_RUST_SHA=([0-9a-f]{40})$/\1/p' adapters/iec61850-rust/Dockerfile)
