@@ -36,15 +36,21 @@ func rcbItem(items []string) (string, bool) {
 	return "", false
 }
 
-// runIEDReporter is otfabric-ied-reporter: get-rcb urcb01, enable-rcb,
-// write GGIO1.SPS1.stVal[ST] = !initial, receive-report (10 s), disable-rcb,
-// conclude, on go-iec61850's report client. The sequence always completes
-// (exit 0); each line's ok is the result.
+// runIEDReporter is otfabric-ied-reporter: get-rcb urcb01, enable-rcb, the
+// trigger, receive-report (10 s), disable-rcb, conclude, on go-iec61850's
+// report client. The trigger is a write of GGIO1.SPS1.stVal[ST] = !initial
+// (--trigger dchg, the default) or of the URCB's GI (--trigger gi, contract
+// 1.3). The sequence always completes (exit 0); each line's ok is the
+// result.
 func runIEDReporter(args []string) int {
 	cf := newClientFlags("otfabric-ied-reporter")
 	initialFlag := cf.fs.String("sps1-initial", "1", "initial GGIO1.SPS1.stVal: 0|1")
+	trigger := cf.fs.String("trigger", "dchg", "report trigger: dchg (write SPS1.stVal) | gi (general interrogation)")
 	if code := cf.parse(args); code >= 0 {
 		return code
+	}
+	if *trigger != "dchg" && *trigger != "gi" {
+		return argError("ied-reporter: invalid --trigger %q (dchg|gi)", *trigger)
 	}
 	initial, ok := parseBool(*initialFlag)
 	if !ok {
@@ -58,12 +64,12 @@ func runIEDReporter(args []string) int {
 		logf("ied-reporter: connect %s: %v", cf.addr(), err)
 		return exitConnect
 	}
-	reportSequence(ctx, c, initial)
+	reportSequence(ctx, c, initial, *trigger == "gi")
 	conclude("ied-reporter", c)
 	return exitOK
 }
 
-func reportSequence(ctx context.Context, c *iec61850.Client, initial bool) {
+func reportSequence(ctx context.Context, c *iec61850.Client, initial, gi bool) {
 	ld, _, err := ldOf(ctx, c)
 	if err != nil {
 		logf("ied-reporter: server directory: %v (using %s)", err, ld)
@@ -105,14 +111,22 @@ func reportSequence(ctx context.Context, c *iec61850.Client, initial bool) {
 	}
 	emit(opLine("enable-rcb", rcbRef, true, nil))
 
-	// 3. write the data change.
-	target := ld + "/GGIO1.SPS1.stVal[ST]"
-	if ref, err := iec61850.ParseRef(target); err != nil {
-		emit(opError("write", target, err))
-	} else if err := c.Write(ctx, ref, mms.NewBoolean(!initial)); err != nil {
-		emit(opError("write", target, err))
+	// 3. the trigger: a general interrogation, or the data change.
+	if gi {
+		if err := c.SetReportControlBlock(ctx, ld, item, iec61850.RCBUpdate{Fields: iec61850.RCBFieldGI, GI: true}); err != nil {
+			emit(opError("trigger-gi", rcbRef, err))
+		} else {
+			emit(opLine("trigger-gi", rcbRef, true, nil))
+		}
 	} else {
-		emit(opLine("write", target, true, nil))
+		target := ld + "/GGIO1.SPS1.stVal[ST]"
+		if ref, err := iec61850.ParseRef(target); err != nil {
+			emit(opError("write", target, err))
+		} else if err := c.Write(ctx, ref, mms.NewBoolean(!initial)); err != nil {
+			emit(opError("write", target, err))
+		} else {
+			emit(opLine("write", target, true, nil))
+		}
 	}
 
 	// 4. receive-report
@@ -125,7 +139,7 @@ func reportSequence(ctx context.Context, c *iec61850.Client, initial bool) {
 			emit(reportLine(r))
 		}
 	case <-wait.Done():
-		emit(opError("receive-report", "", fmt.Errorf("timeout-waiting-for-dchg-report")))
+		emit(opError("receive-report", "", fmt.Errorf("timeout-waiting-for-report")))
 	}
 	stop()
 

@@ -12,7 +12,8 @@
 IMAGE ?= ghcr.io/otfabric/iec61850-interop-otfabric:dev
 # The harness release of the reference images to test against.
 VERSION ?= $(shell git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -1)
-REFERENCES ?= libiec61850 iec61850bean dscsystems iec61850-rust
+# The released reference adapters (the top-level Makefile's list).
+REFERENCES ?= $(shell $(MAKE) -s -f Makefile print-published-adapters)
 BASE_REGISTRY ?= docker.io/library
 
 latest = $(shell git ls-remote --tags --refs https://github.com/otfabric/$(1).git 'v[0-9]*' | sed 's,.*refs/tags/,,' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$$' | sort -V | tail -1)

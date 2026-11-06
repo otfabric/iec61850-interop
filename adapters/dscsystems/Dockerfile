@@ -20,13 +20,23 @@ ARG DEBIAN_DIGEST=sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca
 # ---------------------------------------------------------------------------
 FROM golang:1.27.3-bookworm@${GOLANG_DIGEST} AS build
 
-# dscsystems/go-iec61850 main @ 6bf3f37 (v0.6.5-1-g6bf3f37)
-ARG DSCSYSTEMS_SHA=6bf3f370c6fb95d3835e34d9d1539f313e00b157
+# dscsystems/go-iec61850 v0.6.6 (commit 4833767). go.mod must require
+# DSCSYSTEMS_VERSION (a tag, or the pseudo-version of an untagged commit),
+# and the module proxy must say it is commit DSCSYSTEMS_SHA.
+ARG DSCSYSTEMS_VERSION=v0.6.6
+ARG DSCSYSTEMS_SHA=4833767caf3abbf1f205c4c49cd9432744beaf83
 
 WORKDIR /src
 COPY adapters/dscsystems/go.mod adapters/dscsystems/go.sum ./
-RUN grep -q "github.com/dscsystems/go-iec61850 v.*-$(echo "${DSCSYSTEMS_SHA}" | cut -c1-12)$" go.mod \
-    && go mod download && go mod verify
+RUN set -eu; \
+    got="$(go list -m -f '{{.Version}}' github.com/dscsystems/go-iec61850)"; \
+    test "${got}" = "${DSCSYSTEMS_VERSION}" || { echo "go.mod has go-iec61850 ${got}, want ${DSCSYSTEMS_VERSION}" >&2; exit 1; }; \
+    go mod download && go mod verify; \
+    origin="$(go mod download -json "github.com/dscsystems/go-iec61850@${DSCSYSTEMS_VERSION}" \
+        | sed -nE 's/^[[:space:]]*"Hash": "([0-9a-f]{40})".*/\1/p')"; \
+    if [ -n "${origin}" ] && [ "${origin}" != "${DSCSYSTEMS_SHA}" ]; then \
+        echo "go-iec61850 ${DSCSYSTEMS_VERSION} is commit ${origin}, not ${DSCSYSTEMS_SHA}" >&2; exit 1; \
+    fi
 COPY adapters/dscsystems/ ./
 ENV CGO_ENABLED=0
 RUN go vet ./... \

@@ -89,7 +89,8 @@ static inline void jl_handle_meta_flags(int argc, char** argv, const char* adapt
                     "\"libiec61850-ied-server\",\"libiec61850-ied-client\","
                     "\"libiec61850-ied-controller\",\"libiec61850-ied-reporter\","
                     "\"libiec61850-goose-publisher\",\"libiec61850-goose-subscriber\","
-                    "\"libiec61850-sv-publisher\",\"libiec61850-sv-subscriber\"]}\n",
+                    "\"libiec61850-sv-publisher\",\"libiec61850-sv-subscriber\"],"
+                    "\"reporterTriggers\":[\"dchg\",\"gi\"]}\n",
                     version);
         } else {
             fprintf(stdout,

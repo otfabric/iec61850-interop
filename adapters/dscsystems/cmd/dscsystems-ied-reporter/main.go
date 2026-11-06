@@ -3,25 +3,29 @@
 // Command dscsystems-ied-reporter is the dscsystems/go-iec61850 URCB
 // adapter for iec61850-interop, the counterpart of libiec61850-ied-reporter.
 //
-// It connects to --host/--port, enables InteropLD/LLN0.RP.urcb01, writes
-// GGIO1.SPS1.stVal[ST] to raise a dchg report, waits for it, emits it,
-// then disables the URCB and concludes:
+// It connects to --host/--port, enables URCB urcb01, triggers a report,
+// waits for it, emits it, then disables the URCB and concludes:
 //
-//	get-rcb, enable-rcb, write (ST), receive-report (10 s), disable-rcb,
-//	conclude
+//	get-rcb, enable-rcb, write (ST) | trigger-gi, receive-report (10 s),
+//	disable-rcb, conclude
 //
-// References are fixed to the bare InteropLD, as in the C.
+// The logical device is taken from the server directory (InteropLD, or the
+// name ending in it, as InteropIEDInteropLD) and the URCB is urcb01 or its
+// first indexed instance (urcb0101), as contract 1.3 says.
 //
 // Arguments: --host, --port, --sps1-initial 0|1 (default 1, as the C; the
-// value written is its negation).
+// value written is its negation), --trigger dchg|gi (default dchg: write
+// SPS1.stVal; gi: a general interrogation).
 //
 // Exit codes: 0 sequence completed (results in stdout), 1 argument error,
 // 2 connection failure.
 package main
 
 import (
+	"context"
 	"flag"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/dscsystems/go-iec61850/client"
@@ -32,27 +36,58 @@ import (
 )
 
 const (
-	rcbRef  = "InteropLD/LLN0.RP.urcb01"
-	sps1Ref = "InteropLD/GGIO1.SPS1.stVal"
+	ldInst  = "InteropLD"
+	rcbName = "urcb01"
 	dsSize  = 2 // dsInterop: SPS1.stVal, Mod.stVal
 )
+
+// rcbInstance is the URCB as the server names it: urcb01, else its first
+// indexed instance (urcb0101).
+func rcbInstance(items []string) string {
+	want := "LLN0$RP$" + rcbName
+	for _, it := range items {
+		if it == want {
+			return rcbName
+		}
+	}
+	for _, it := range items {
+		if strings.HasPrefix(it, want) && !strings.Contains(it[len(want):], "$") {
+			return it[len("LLN0$RP$"):]
+		}
+	}
+	return rcbName
+}
+
+// names resolves the logical device and the URCB on the server.
+func names(ctx context.Context, c *client.Client) (ld, rcb string) {
+	lds, _ := c.LogicalDevices(ctx)
+	if ld = ied.ResolveInteropLD(lds); ld == "" {
+		ld = ldInst
+	}
+	items, _ := c.MMS().GetNameList(ctx, mms.ClassNamedVariable, ld)
+	return ld, rcbInstance(items)
+}
 
 func main() {
 	jl.HandleMetaFlags()
 	initialArg := flag.String("sps1-initial", "1", "initial SPS1.stVal, 0 or 1")
+	trigger := flag.String("trigger", "dchg", "report trigger: dchg (write SPS1.stVal) or gi (general interrogation)")
 	addr := ied.Flags("ied-reporter")
 	n, _ := strconv.Atoi(*initialArg)
 	initial := n != 0
+	if *trigger != "dchg" && *trigger != "gi" {
+		jl.Fatal(1, "ied-reporter: invalid --trigger %q (dchg|gi)", *trigger)
+	}
 
 	// A connection failure exits 2 with no JSON line, as the C does.
 	c, err := ied.Dial(addr)
 	if err != nil {
 		jl.Fatal(2, "ied-reporter: connect %s: %v", addr, err)
 	}
-	run(c, initial)
+	run(c, initial, *trigger == "gi")
 }
 
-func run(c *client.Client, initial bool) {
+func run(c *client.Client, initial, gi bool) {
 	// The C closes without a conclude line when get-rcb or enable-rcb fails.
 	concluded := false
 	defer func() {
@@ -64,11 +99,14 @@ func run(c *client.Client, initial bool) {
 
 	// 1. get-rcb
 	ctx, cancel := ied.Ctx()
-	rcb, err := c.GetRCB(ctx, rcbRef)
+	ld, inst := names(ctx, c)
+	rcbRef := ld + "/LLN0.RP." + rcbName // the line's target names the SCL block
+	sps1Ref := model.ObjectReference(ld + "/GGIO1.SPS1.stVal")
+	rcb, err := c.GetRCB(ctx, model.ObjectReference(ld+"/LLN0.RP."+inst))
 	var rptEna bool
 	if err == nil {
 		// client.RCB has no RptEna; read it alongside, as GetRCBValues does.
-		domain, item := model.ObjectReference(rcbRef).ToMMS(model.FCNone)
+		domain, item := model.ObjectReference(ld + "/LLN0.RP." + inst).ToMMS(model.FCNone)
 		var vals []*mms.Value
 		if vals, err = c.MMS().Read(ctx, domain, item+"$RptEna"); err == nil && len(vals) > 0 {
 			if code, isErr := vals[0].AccessError(); isErr {
@@ -105,23 +143,32 @@ func run(c *client.Client, initial bool) {
 	ied.OK("enable-rcb", rcbRef)
 	concluded = true
 
-	// 3. write: toggle SPS1.stVal to trigger dchg; continue on failure so
-	// the URCB is still disabled.
+	// 3. the trigger: a general interrogation, or a write of SPS1.stVal
+	// for a dchg; continue on failure so the URCB is still disabled.
 	ctx, cancel = ied.Ctx()
-	err = c.Write(ctx, sps1Ref, model.ST, mms.NewBool(!initial))
-	cancel()
-	if err != nil {
-		ied.Fail("write", sps1Ref+"[ST]", ied.ErrString(err))
+	if gi {
+		err = c.TriggerGI(ctx, rcb)
+		if err != nil {
+			ied.Fail("trigger-gi", rcbRef, ied.ErrString(err))
+		} else {
+			ied.OK("trigger-gi", rcbRef)
+		}
 	} else {
-		ied.OK("write", sps1Ref+"[ST]")
+		err = c.Write(ctx, sps1Ref, model.ST, mms.NewBool(!initial))
+		if err != nil {
+			ied.Fail("write", string(sps1Ref)+"[ST]", ied.ErrString(err))
+		} else {
+			ied.OK("write", string(sps1Ref)+"[ST]")
+		}
 	}
+	cancel()
 
 	// 4. receive-report
 	select {
 	case r := <-reports:
 		emitReport(r)
 	case <-time.After(10 * time.Second):
-		ied.Fail("receive-report", "", "timeout-waiting-for-dchg-report")
+		ied.Fail("receive-report", "", "timeout-waiting-for-report")
 	}
 
 	// 5. disable-rcb (RptEna=false, then Resv=false).

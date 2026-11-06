@@ -100,7 +100,12 @@ func newIEDServer(icdPath, valuesPath string) (*iec61850.Server, error) {
 		return nil, err
 	}
 	defer f.Close()
-	ctlModels, err := applyValues(srv, attributesOf(doc), f)
+	var names []string
+	for _, ld := range model.LogicalDevices {
+		names = append(names, ld.Name)
+	}
+	domain := domainOf(names)
+	ctlModels, err := applyValues(srv, attributesOf(doc), domain, f)
 	if err != nil {
 		srv.Close()
 		return nil, fmt.Errorf("%s: %w", valuesPath, err)
@@ -112,8 +117,8 @@ func newIEDServer(icdPath, valuesPath string) (*iec61850.Server, error) {
 			srv.Close()
 			return nil, fmt.Errorf("%s has no ctlModel of %s", valuesPath, do)
 		}
-		key := storeKey(ldInst, strings.Replace(do, ".", "$ST$", 1)+"$stVal")
-		if err := srv.RegisterControl(ldInst, do, iec61850.CtlModel(m), operateSetsStVal(srv, key)); err != nil {
+		key := storeKey(domain, strings.Replace(do, ".", "$ST$", 1)+"$stVal")
+		if err := srv.RegisterControl(domain, do, iec61850.CtlModel(m), operateSetsStVal(srv, key)); err != nil {
 			srv.Close()
 			return nil, fmt.Errorf("control %s: %w", do, err)
 		}
@@ -138,10 +143,24 @@ func operateSetsStVal(srv *iec61850.Server, key string) iec61850.ControlHandler 
 	}
 }
 
+// domainOf is the MMS domain go-iec61850 serves the fixture's logical
+// device as, among the model's logical device names: "InteropIEDInteropLD",
+// its IEC 61850-8-1 name, from go-iec61850 v1.7.0, or "InteropLD", the bare
+// instance, before.
+func domainOf(names []string) string {
+	for _, n := range names {
+		if n == iedName+ldInst {
+			return n
+		}
+	}
+	return resolveLD(names)
+}
+
 // applyValues sets values.json's "values" ("InteropLD/LN.DO.DA" -> scalar)
 // in the server, each typed after the attribute's basic type in the model,
-// and returns the integer values by key (for the ctlModels).
-func applyValues(srv *iec61850.Server, attrs attributes, r io.Reader) (map[string]int64, error) {
+// and returns the integer values by key (for the ctlModels). domain is the
+// MMS domain of values.json's "InteropLD".
+func applyValues(srv *iec61850.Server, attrs attributes, domain string, r io.Reader) (map[string]int64, error) {
 	var doc struct {
 		Values map[string]json.RawMessage `json:"values"`
 	}
@@ -175,7 +194,10 @@ func applyValues(srv *iec61850.Server, attrs attributes, r io.Reader) (map[strin
 			ints[k] = *n
 		}
 		ln, rest, _ := strings.Cut(path, ".")
-		srv.ValueStore().Set(storeKey(ld, ln+"$"+fc+"$"+strings.ReplaceAll(rest, ".", "$")), v)
+		if ld != ldInst {
+			return nil, fmt.Errorf("%s is not in logical device %s", k, ldInst)
+		}
+		srv.ValueStore().Set(storeKey(domain, ln+"$"+fc+"$"+strings.ReplaceAll(rest, ".", "$")), v)
 	}
 	return ints, nil
 }

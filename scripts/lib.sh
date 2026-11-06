@@ -249,6 +249,84 @@ print("; ".join(bad))
     fi
 }
 
+# check_controller_ops <label> <output>: the default control (SPCSO1,
+# direct, ctlVal true) was operated and stVal follows it.
+check_controller_ops() {
+    local label="$1" output="$2" got
+    at_label control "${label}"
+    got=$(echo "$output" | python3 -c '
+import sys, json
+ops = {}
+for line in sys.stdin:
+    try:
+        o = json.loads(line)
+    except Exception:
+        continue
+    ops.setdefault(o.get("operation"), o)
+op, st = ops.get("operate"), ops.get("read-stval")
+bad = []
+if not op or not op.get("ok"):
+    bad.append("operate: %s" % (op.get("error") if op else "missing"))
+if not st or not st.get("ok") or st.get("value") is not True:
+    bad.append("read-stval: %s" % (st.get("value", st.get("error")) if st else "missing"))
+print("; ".join(bad))
+' 2>/dev/null || echo "parse error")
+    if [ -n "$got" ]; then
+        fail "${label}: control not carried out: ${got}"
+    else
+        pass "${label}: operate ok, stVal follows ctlVal"
+    fi
+}
+
+# reporter_triggers <capabilities>: the reporter's --trigger values
+# (contract 1.3), empty for an image without them.
+reporter_triggers() { jq -r '(.reporterTriggers // []) | join(" ")' <<<"$1" 2>/dev/null; }
+
+# report_gi_problems <output>: what is wrong with the GI report of a
+# reporter run with --trigger gi (nothing when it is right): both members
+# of dsInterop, reason gi, values.json's SPS1.stVal and Mod.stVal.
+report_gi_problems() {
+    echo "$1" | python3 -c '
+import sys, json
+r, g = None, None
+for line in sys.stdin:
+    try:
+        o = json.loads(line)
+    except Exception:
+        continue
+    if o.get("operation") == "receive-report":
+        r = o
+    if o.get("operation") == "trigger-gi":
+        g = o
+bad = []
+if not g or not g.get("ok"):
+    bad.append("trigger-gi: %s" % (g.get("error") if g else "missing"))
+if not r or not r.get("ok"):
+    bad.append("receive-report: %s" % (r.get("error") if r else "missing"))
+else:
+    if r.get("inclusion") != [True, True]:
+        bad.append("inclusion %s" % r.get("inclusion"))
+    if r.get("reasons") != ["gi", "gi"]:
+        bad.append("reasons %s" % r.get("reasons"))
+    if r.get("values") != [False, 1]:
+        bad.append("values %s" % r.get("values"))
+print("; ".join(bad))
+' 2>/dev/null || echo "parse error"
+}
+
+# check_report_gi <label> <output>: the reporter run with --trigger gi got
+# the general interrogation report of urcb01.
+check_report_gi() {
+    local label="$1" got
+    at_label report-gi "${label}"
+    got=$(report_gi_problems "$2")
+    if [ -n "$got" ]; then
+        fail "${label}: GI report wrong: ${got}"
+    else
+        pass "${label}: GI report of both members, values [false, 1]"
+    fi
+}
+
 # client_checks <label> <client command> <output>: the checks of a client's
 # output, by its role.
 client_checks() {
@@ -257,5 +335,56 @@ client_checks() {
     *-ied-client)
         check_ied_client_ops "$1" "$3"
         check_cdc_values "$1" "$3" ;;
+    *-ied-controller)
+        check_controller_ops "$1" "$3" ;;
     esac
+}
+
+# known_report_gi <client adapter> <server adapter>: "<waiver id> <scope>
+# <evidence> <pattern>" when the GI report of the pair fails for a known
+# limitation of fixtures/capabilities.json (the pattern is what the failure
+# says), nothing otherwise.
+known_report_gi() {
+    case "$1/$2" in
+        # Refuses RptEna unless the client wrote Resv first (no implicit
+        # reservation of a URCB); dscsystems' client reserves explicitly.
+        dscsystems/iec61850-rust) ;;
+        */iec61850-rust)
+            echo "iec61850-rust-urcb-implicit-reservation server@iec61850-rust" \
+                "https://github.com/csp0924/iec61850-rust/blob/d4e895217f367ed4caebf21611d2c16ee46035c0/crates/iec61850-server/src/reporting/service.rs" \
+                "access-denied" ;;
+        # Announces data references in OptFlds and sends none.
+        cbsigma/iec61850bean)
+            echo "iec61850bean-report-data-references server@iec61850bean" \
+                "https://github.com/otfabric/iec61850-interop/blob/main/fixtures/capabilities.json" \
+                "data reference" ;;
+    esac
+}
+
+# report_gi_pair <label> <server image> <server command> <client image>
+# <client command>: the reporter with --trigger gi against the server, and
+# its checks. A pair of known_report_gi has to fail as registered: when it
+# passes, the limitation is gone and has to be removed.
+report_gi_pair() {
+    local output known id scope evidence pattern
+    output=$(SMOKE_CLIENT_ARGS="--trigger gi" run_client_pair "$2" "$3" "$4" "$5")
+    known=$(known_report_gi "$(stack "$5")" "$(stack "$3")")
+    if [ -z "$known" ]; then
+        check_json_lines "$1" "$output"
+        check_report_gi "$1" "$output"
+        return
+    fi
+    read -r id scope evidence pattern <<<"$known"
+    at_label report-gi "$1"
+    if [ -z "$(report_gi_problems "$output")" ]; then
+        waiver "$id" "$scope" "$evidence" false
+        fail "$1: known limitation ${id} no longer reproduces, update capabilities.json and known_report_gi"
+    elif echo "$output" | grep -q "$pattern"; then
+        waiver "$id" "$scope" "$evidence" true
+        echo -e "${YELLOW}KNOWN${RESET} $1: ${id}"
+        PASS=$((PASS + 1))
+        result known-difference "known limitation reproduced (fixtures/capabilities.json): ${id}" "$id"
+    else
+        fail "$1: GI report failed otherwise than ${id}: $(report_gi_problems "$output")"
+    fi
 }

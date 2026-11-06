@@ -11,7 +11,8 @@
 //	SPCSO3 SBO enhanced (ctlModel 4): read-ctlmodel, select-with-value,
 //	                                  operate, read-stval
 //
-// then concludes. References are fixed to the bare InteropLD, as in the C.
+// then concludes. The logical device is taken from the server directory
+// (InteropLD, or the name ending in it), as contract 1.3 says.
 //
 // Arguments: --host, --port, --ctlval 0|1 (default 1), --do SPCSO1|2|3
 // (default SPCSO1).
@@ -50,13 +51,20 @@ func main() {
 	if !known {
 		jl.Fatal(1, "ied-controller: unknown --do %s (supported: SPCSO1, SPCSO2, SPCSO3)", *doName)
 	}
-	ctlRef := "InteropLD/GGIO1." + *doName
-
 	// A connection failure exits 2 with no JSON line, as the C does.
 	c, err := ied.Dial(addr)
 	if err != nil {
 		jl.Fatal(2, "ied-controller: connect %s: %v", addr, err)
 	}
+	// The logical device as the server names it (contract 1.3).
+	ctx, cancel := ied.Ctx()
+	lds, _ := c.LogicalDevices(ctx)
+	cancel()
+	ld := ied.ResolveInteropLD(lds)
+	if ld == "" {
+		ld = "InteropLD"
+	}
+	ctlRef := ld + "/GGIO1." + *doName
 	defer func() {
 		_ = c.Close()
 		ied.OK("conclude", "")
