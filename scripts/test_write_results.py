@@ -82,6 +82,21 @@ class Convert(unittest.TestCase):
         self.assertTrue(wr.versions_yaml())
 
 
+    def test_an_image_outside_versions_yaml_says_what_it_is(self):
+        seen = {"kind": "implementation", "name": "b", "version": "v1.2.3", "upstream": "stack", "revision": "abc",
+                "license": "MIT", "independent": False}
+        doc = convert(result("pass"), seen)
+        got = {i["name"]: i for i in doc["implementations"]}
+        self.assertEqual(got["b"], {"name": "b", "version": "v1.2.3", "independent": False, "upstream": "stack",
+                                    "revision": "abc", "license": "MIT"})
+        self.assertTrue(got["a"]["independent"])
+        self.assertEqual(interop_result.schema_errors(doc), [])
+
+    def test_a_reference_without_upstream_is_independent(self):
+        doc = convert(result("pass"), {"kind": "implementation", "name": "a"})
+        self.assertTrue({i["name"]: i for i in doc["implementations"]}["a"]["independent"])
+
+
 class Records(unittest.TestCase):
     """scripts/results.sh, through a shell."""
 

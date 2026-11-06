@@ -19,7 +19,7 @@ SVCB model), so its image has no SV commands.
 All three stacks implement one command line and JSON Lines contract, so a
 test switches peer by image and command name only.
 The rules every command shares (`--version`, `--capabilities`,
-stdout/stderr, the v1 stability promise) are in [contract.md](contract.md);
+stdout/stderr, the v1 stability promise) are in [CONTAINER_CONTRACT.md](CONTAINER_CONTRACT.md);
 this page is the Sampled Values part of that contract.
 
 ## Fixture — `fixtures/sv/` (revision `sv-v1`)

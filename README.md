@@ -46,7 +46,7 @@ the SV control block `LLN0$MS$MSVCB02` as MMS variables. The table is
 generated from [`fixtures/capabilities.json`](fixtures/capabilities.json) by
 `scripts/gen-coverage.sh` and checked in CI; that file, not this README, is
 the authoritative capability claim, including the known limitations of each
-stack. [COVERAGE.md](COVERAGE.md) lists every command and limitation.
+stack. [docs/CAPABILITIES.md](docs/CAPABILITIES.md) lists every command and limitation.
 
 | Stack | Upstream | Language | Pinned at |
 |---|---|---|---|
@@ -208,7 +208,7 @@ diagnostics on stderr, a `ready` event before a server accepts connections
 or a publisher sends, one line per operation for the fixed-sequence clients,
 `--version` and `--capabilities` on every command, fixed exit codes.
 
-- [docs/contract.md](docs/contract.md) — shared rules, MMS and IED servers and clients, exit codes, the stability promise.
+- [docs/CONTAINER_CONTRACT.md](docs/CONTAINER_CONTRACT.md) — shared rules, MMS and IED servers and clients, exit codes, the stability promise.
 - [docs/goose.md](docs/goose.md) — GOOSE publisher/subscriber, supervision, value JSON, L2 networking.
 - [docs/sv.md](docs/sv.md) — SV publisher/subscriber, 9-2LE and generic profiles, loss statistics.
 
@@ -221,26 +221,12 @@ revisions (`mms-v2`, `iec61850-v3`, `goose-v1`, `sv-v1`) and the schemas of
 major version. Minor versions add (commands, optional fields, new fixture
 revisions next to the old ones); patch versions fix adapters to match the
 contract and update known limitations. Consumers ignore fields and events
-they do not know. Details in [docs/contract.md](docs/contract.md#stability-v1).
+they do not know. Details in [docs/CONTAINER_CONTRACT.md](docs/CONTAINER_CONTRACT.md#stability-v1).
 
 ## Fixtures
 
-| Revision | Files | Used by |
-|---|---|---|
-| `mms-v2` | `fixtures/mms/interop.json` — domains, variables of every MMS type, NVLs, file store, journals | `*-mms-server`, `*-mms-client` |
-| `iec61850-v3` | `fixtures/iec61850/interop.icd` (SCL: `InteropIED`/`InteropLD`, GGIO1, MMXU1, MMTR1, datasets, URCB/BRCB, `MSVCB02`) and `values.json` (runtime values, writable attributes) | `*-ied-*` |
-| `goose-v1` | `fixtures/goose/interop-goose.cid` (`interop.icd` + GOOSE datasets, `GSEControl`, `GSE`) and `goose.json` (control blocks, members, values) | `*-goose-*` |
-| `sv-v1` | `fixtures/sv/interop-sv.cid` (`interop.icd` + 9-2LE merging unit, `SampledValueControl`, `SMV`) and `sv.json` (streams, members, values) | `*-sv-*` |
-
-The images carry the fixtures under `/fixtures/`. Consumers keep
-synchronised copies in their `testdata/`; an image version and the fixture
-revisions it names are updated together. `scripts/validate-fixtures.py`
-cross-checks the files (values against the ICD, the CIDs against
-`interop.icd`, the JSON against the CIDs).
-
-Writable scalar setting for consumer write tests (ING CDC):
-`InteropLD/GGIO1.SetInt1.setVal[SP]`. Do not treat `Mod.ctlModel` / `Mod.d`
-as assumed-success write targets.
+Revisions `mms-v2`, `iec61850-v3`, `goose-v1` and `sv-v1`, in `fixtures/` and
+under `/fixtures/` in every image: [docs/FIXTURES.md](docs/FIXTURES.md).
 
 ## Consumer repositories
 
@@ -285,6 +271,16 @@ dscsystems and iec61850-rust images carry their `LICENSE` and `NOTICE` files
 under `/usr/share/doc/iec61850-interop-<stack>/`; the NOTICE names the
 upstream commit the image was built from.
 
+## OT Fabric's own stack
+
+`ghcr.io/otfabric/iec61850-interop-otfabric` is go-iec61850, and the go-mms it
+is built on, behind the same contract (commands `otfabric-mms-server`,
+`otfabric-ied-server`, ...), so you can test your stack against ours the way we
+test ours against yours. Despite the name it shares with the reference images,
+it is not an independent implementation and not part of a release of this
+repository, so its tags are go-iec61850 versions and `manifest.json` does not
+list it: see [own/go-iec61850/README.md](own/go-iec61850/README.md).
+
 ## Building locally
 
 Requires Docker with BuildKit/buildx and Make.
@@ -292,10 +288,17 @@ Requires Docker with BuildKit/buildx and Make.
 ```bash
 make build              # all four images as iec61850-interop-<stack>:local
 make validate-fixtures  # fixtures, RELEASE.md notes, generated docs (no Docker)
-make smoke              # binaries, fixtures, ready events, client/server pairs; writes reports/results.json (interop-result-v1)
-make goose-crosscheck   # every GOOSE publisher -> subscriber pair
-make sv-crosscheck      # every SV publisher -> subscriber pair
-make ci                 # all of the above, as CI runs it
+make smoke              # scripts/smoke.sh per image: commands, fixtures, ready events, same-stack clients, T-selectors
+make interop            # scripts/interop.sh: every stack against libiec61850 both ways, GOOSE and SV between every pair
+make ci                 # all of the above and shellcheck, as CI runs it
+make smoke ADAPTERS=libiec61850   # one image
+```
+
+Both write `reports/results.json` (interop-result-v1). Any image can stand in
+for an adapter: `ADAPTER_IMAGE_<adapter>=<image>` (a `-` in the name as `_`),
+or `VERSION=v1.3.0` for the release images.
+
+```bash
 ```
 
 Run a consumer's interop tests against the local images:
@@ -336,8 +339,10 @@ adapters/
   iec61850bean/    Java adapter (Maven)
   dscsystems/      Go adapter, GPL-3.0 (LICENSE, NOTICE)
   iec61850-rust/   Rust adapter (LICENSE-MIT, LICENSE-APACHE, NOTICE)
+own/go-iec61850/   OT Fabric's own stack behind the contract (not a reference, not in a release)
 fixtures/          mms/, iec61850/, goose/, sv/, capabilities.json
-docs/              contract.md, goose.md, sv.md
-scripts/           smoke test, GOOSE/SV cross-checks, fixture validation, coverage, release notes,
-                   upstream check and candidate build
+docs/              CONTAINER_CONTRACT.md, CAPABILITIES.md (generated), FIXTURES.md, goose.md, sv.md
+scripts/           lib.sh, smoke.sh, interop.sh, GOOSE/SV cross-checks, results, fixture validation,
+                   coverage, release notes, upstream check and candidate build
+compose.yaml       servers and a GOOSE pair for manual inspection
 ```

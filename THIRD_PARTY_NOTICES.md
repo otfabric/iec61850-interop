@@ -9,4 +9,6 @@ The repository's own code and documentation are MIT ([LICENSE](LICENSE)) unless 
 | `iec61850-interop-dscsystems` | GPL-3.0 | dscsystems/go-iec61850 | `6bf3f37` | GPL-3.0 | GPL-3.0 |
 | `iec61850-interop-iec61850-rust` | MIT | [iec61850-rust](https://github.com/csp0924/iec61850-rust) | `d4e8952` | MIT OR Apache-2.0 | MIT + (MIT OR Apache-2.0) |
 
+`iec61850-interop-otfabric` ([own/go-iec61850](own/go-iec61850/README.md)) is not a release image: its adapter code and its upstreams, go-iec61850 and go-mms (and their Go module dependencies), are MIT or BSD-3-Clause; the licence of every module it contains is in the image under `/licenses`, with the list in `/licenses/BUNDLED-MODULES.txt`.
+
 Consumers talk to every adapter as a separate program, over the network and its JSON Lines, which keeps their own licence unaffected. Redistributing an image means keeping the upstream notices and meeting the source obligations of its licence. The dscsystems and iec61850-rust images carry their `LICENSE` and `NOTICE` under `/usr/share/doc/iec61850-interop-<stack>/`. The libiec61850 and iec61850bean images do not yet carry licence texts.

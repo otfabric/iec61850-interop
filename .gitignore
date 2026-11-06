@@ -38,3 +38,4 @@ coverage.out
 /adapters/dscsystems/cmd/dscsystems-sv-publisher/dscsystems-sv-publisher
 /adapters/dscsystems/cmd/dscsystems-sv-subscriber/dscsystems-sv-subscriber
 adapters/iec61850bean/target/
+/own/go-iec61850/go-iec61850

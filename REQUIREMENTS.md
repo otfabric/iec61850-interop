@@ -4,6 +4,26 @@ Requirements for the `iec61850-interop` repository. These requirements constrain
 
 ---
 
+## R1 - Repository isolation
+
+- R1.1 This repository does not import, build, link against or depend on any
+  library under test, and contains no test logic or expectation specific to
+  one. The one exception is `own/` with its workflow: images of OT Fabric's own
+  stacks, published for others to test against (`own/go-iec61850/README.md`).
+  The rest of the repository does not know them, and they are not part of a
+  release. CI checks `adapters/`, `fixtures/`, `schemas/`, `scripts/`, the
+  `Makefile` and `compose.yaml` for references to our libraries.
+- R1.2 A consumer depends on published images and the documented contract
+  only. It does not need a checkout of this repository to run its tests.
+- R1.3 No third-party code from here is copied into a consumer, and the
+  contract does not shape a consumer's public API.
+
+Known gap: some `knownLimitations` of `fixtures/capabilities.json` describe a
+consumer's behaviour and name its tests (`reproducedBy`); they predate R1 and
+stay until that file's schema moves them out.
+
+---
+
 ## 1. Purpose and scope
 
 **REQ-1.1** The repository must validate `go-mms` and `go-iec61850` against independent, established third-party implementations.
@@ -163,7 +183,7 @@ artifacts/<adapter>-<direction>.pcap
 
 ## 7. Infrastructure
 
-**REQ-7.1** The repository must provide a `docker-compose.yml` that can bring up adapter containers for manual debugging. Test automation does not require Compose to be running.
+**REQ-7.1** The repository must provide a `compose.yaml` that can bring up adapter containers for manual debugging. Test automation does not require Compose to be running.
 
 **REQ-7.2** The repository must provide a `Makefile` that orchestrates building adapters, running tests and collecting artifacts.
 

@@ -26,7 +26,7 @@ The images run **unauthenticated, unencrypted MMS and IEC 61850 servers** that a
 - **Never attach a server to a substation, plant or other production network**
 - **Never point a client at a real IED**: the controller adapters operate controllable objects (direct, SBO and SBOw), and the client adapters write values
 - The adapters use plain ISO-on-TCP. There is no TLS and no ACSE authentication
-- `docker-compose.yml` and `scripts/smoke-test.sh` publish the server port on all host interfaces. Run them on a host whose network you trust, or change the mapping to `127.0.0.1`. The compose service is for manual inspection only and also runs read-only, with all capabilities dropped except `NET_BIND_SERVICE` and `no-new-privileges`
+- `compose.yaml` and `scripts/smoke.sh` publish the server port on all host interfaces. Run them on a host whose network you trust, or change the mapping to `127.0.0.1`. The compose service is for manual inspection only and also runs read-only, with all capabilities dropped except `NET_BIND_SERVICE` and `no-new-privileges`
 
 ### Image hardening
 

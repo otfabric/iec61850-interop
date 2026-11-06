@@ -16,7 +16,7 @@ test switches peer by image and command name only.
 
 iec61850bean has no GOOSE support. The rules every command shares
 (`--version`, `--capabilities`, stdout/stderr, the v1 stability promise) are
-in [contract.md](contract.md); this page is the GOOSE part of that contract.
+in [CONTAINER_CONTRACT.md](CONTAINER_CONTRACT.md); this page is the GOOSE part of that contract.
 
 ## Fixture — `fixtures/goose/`
 
@@ -162,7 +162,7 @@ set). With `--security-opt no-new-privileges` file capabilities are not
 honoured: add `--user 0` then.
 
 `docker compose --profile goose up` starts a libiec61850 publisher and a
-dscsystems subscriber on this network (see `docker-compose.yml`).
+dscsystems subscriber on this network (see `compose.yaml`).
 
 ### Go test on a Linux host
 
