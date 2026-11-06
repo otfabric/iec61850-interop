@@ -25,6 +25,9 @@ import java.net.InetAddress;
  *   --ctlval 0|1               control value to apply (default: 1 = true)
  *   --do SPCSO1|SPCSO2|SPCSO3  target data object (default: SPCSO1)
  * </pre>
+ *
+ * <p>The logical device is resolved from the server model as the reporter
+ * does (contract 1.3); line targets are {@code <LD>/GGIO1.<DO>}.
  */
 public class IedController {
 
@@ -43,9 +46,6 @@ public class IedController {
             }
         }
 
-        String spcsoBase   = "InteropLD/GGIO1." + doName;
-        String ctlModelRef = spcsoBase + ".ctlModel[CF]";
-        String stvalTarget = spcsoBase + ".stVal[ST]";
         boolean isSBONormal   = "SPCSO2".equals(doName);
         boolean isSBOEnhanced = "SPCSO3".equals(doName);
 
@@ -62,6 +62,11 @@ public class IedController {
 
         try {
             ServerModel model = assoc.retrieveModel();
+
+            // Contract 1.3: the LD comes from the server directory.
+            String spcsoBase   = ModelNames.resolveLdName(model) + "/GGIO1." + doName;
+            String ctlModelRef = spcsoBase + ".ctlModel[CF]";
+            String stvalTarget = spcsoBase + ".stVal[ST]";
 
             // 1. read-ctlmodel
             readCtlModel(assoc, model, spcsoBase, ctlModelRef);

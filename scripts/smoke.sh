@@ -102,6 +102,9 @@ for pair in "mms-client mms-server" "ied-client ied-server" "ied-reporter ied-se
     has "$1" && has "$2" || continue
     output=$(run_client_pair "${IMAGE}" "$A-$2" "${IMAGE}" "$A-$1")
     client_checks "$A-$1" "$A-$1" "$output"
+    if [ "$1" = ied-reporter ] && [[ " $(reporter_triggers "${CAPS}") " == *" gi "* ]]; then
+        report_gi_pair "$A-$1 --trigger gi" "${IMAGE}" "$A-$2" "${IMAGE}" "$A-$1"
+    fi
 done
 
 if has ied-client; then

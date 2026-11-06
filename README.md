@@ -54,7 +54,7 @@ stack. [docs/CAPABILITIES.md](docs/CAPABILITIES.md) lists every command and limi
 |---|---|---|---|
 | libiec61850 | [mz-automation/libiec61850](https://github.com/mz-automation/libiec61850) | C | `1.6.2.1-89-g6e265c54` |
 | iec61850bean | [beanit/iec61850bean](https://github.com/beanit/iec61850bean) | Java | 1.9.0 |
-| dscsystems | [dscsystems/go-iec61850](https://github.com/dscsystems/go-iec61850) | Go | `v0.6.5-1-g6bf3f37` |
+| dscsystems | [dscsystems/go-iec61850](https://github.com/dscsystems/go-iec61850) | Go | `v0.6.6` (`4833767`) |
 | iec61850-rust | [csp0924/iec61850-rust](https://github.com/csp0924/iec61850-rust) | Rust | `v0.2.0` (`d4e8952`) |
 | cbsigma | [cB-Sigma/iec61850](https://github.com/cB-Sigma/iec61850) (client, GOOSE) and [cB-Sigma/iec61850-sim](https://github.com/cB-Sigma/iec61850-sim) (IED server) | Go | `v0.1.0` (`f121ba3`), `v0.1.0` (`92530d8`) |
 

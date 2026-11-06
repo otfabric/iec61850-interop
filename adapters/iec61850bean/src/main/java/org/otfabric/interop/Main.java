@@ -10,7 +10,7 @@ import java.util.Arrays;
  * Usage:
  *   java -jar iec61850bean-adapter.jar server     [--port P] [--icd PATH] [--values PATH]
  *   java -jar iec61850bean-adapter.jar client     [--host H] [--port P]
- *   java -jar iec61850bean-adapter.jar reporter   [--host H] [--port P] [--sps1-initial 0|1]
+ *   java -jar iec61850bean-adapter.jar reporter   [--host H] [--port P] [--sps1-initial 0|1] [--trigger dchg|gi]
  *   java -jar iec61850bean-adapter.jar controller [--host H] [--port P] [--ctlval 0|1]
  *
  * Meta flags (any subcommand or as the sole argument):
@@ -30,7 +30,8 @@ public class Main {
                     "{\"event\":\"capabilities\",\"adapterVersion\":\"%s\","
                     + "\"fixtureRevision\":\"%s\","
                     + "\"commands\":[\"iec61850bean-ied-server\",\"iec61850bean-ied-client\","
-                    + "\"iec61850bean-ied-controller\",\"iec61850bean-ied-reporter\"]}%n",
+                    + "\"iec61850bean-ied-controller\",\"iec61850bean-ied-reporter\"],"
+                    + "\"reporterTriggers\":[\"dchg\",\"gi\"]}%n",
                     version, FIXTURE_REVISION);
                 System.exit(0);
             }

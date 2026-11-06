@@ -32,16 +32,6 @@ fn emit_names(op: &str, target: Option<&str>, names: &[String]) {
     jl::line(&format!("{{\"operation\":\"{op}\"{t},\"ok\":true,\"names\":[{}]}}", n.join(",")));
 }
 
-fn resolve_ld(names: &[String]) -> Option<String> {
-    if names.iter().any(|n| n == "InteropLD") {
-        return Some("InteropLD".into());
-    }
-    if let Some(n) = names.iter().find(|n| n.ends_with("InteropLD")) {
-        return Some(n.clone());
-    }
-    names.first().cloned()
-}
-
 fn emit_read(target: &str, value: String) {
     jl::line(&format!("{{\"operation\":\"read\",\"target\":{},\"ok\":true,\"value\":{value}}}", jl::q(target)));
 }
@@ -52,7 +42,7 @@ async fn run(conn: &IedConnection) -> bool {
     match conn.get_server_directory(false).await {
         Ok(lds) => {
             emit_names("get-server-directory", None, &lds);
-            match resolve_ld(&lds) {
+            match adapter::ied::pick_ld(&lds) {
                 Some(l) => ld = l,
                 None => {
                     emit_error("get-server-directory", None, "no logical device found");

@@ -5,13 +5,26 @@
  * Phase 2C-b: libiec61850 IED client → go-iec61850 server (URCB reporting)
  *
  * Connects to the IED server at --host HOST --port PORT, enables URCB urcb01,
- * writes GGIO1.SPS1.stVal[ST] to trigger a dchg report, waits for the report,
- * emits it as JSON Lines to stdout, then disables the URCB and disconnects.
+ * makes it send a report, waits for the report, emits it as JSON Lines to
+ * stdout, then disables the URCB and disconnects (contract 1.3).
+ *
+ * Names are resolved from the server directory: the logical device is the
+ * one named exactly "InteropLD", else the first whose name ends in
+ * "InteropLD" (an IED-name-prefixed domain such as "InteropIEDInteropLD"),
+ * else the first one listed. The URCB is LLN0.RP.urcb01 if present, else its
+ * first indexed instance (urcb0101, IEC 61850-6). Line targets use the
+ * resolved LD and the SCL name urcb01: "<LD>/LLN0.RP.urcb01".
+ *
+ * --trigger dchg (default): writes GGIO1.SPS1.stVal[ST] = !--sps1-initial to
+ *   cause a data-change report (a server may refuse the ST write).
+ * --trigger gi: writes the URCB's GI = true to cause a general-interrogation
+ *   report of both dsInterop members.
  *
  * Operation sequence:
  *   1. get-rcb          — read URCB attributes from server
  *   2. enable-rcb       — write RptEna=true
- *   3. write (ST)       — InteropLD/GGIO1.SPS1.stVal = !initial (triggers dchg)
+ *   3. write (ST)       — <LD>/GGIO1.SPS1.stVal = !initial (dchg), or
+ *      trigger-gi       — <LD>/LLN0.RP.urcb01 GI=true (gi)
  *   4. receive-report   — wait for InformationReport (10 s timeout)
  *   5. disable-rcb      — write RptEna=false
  *   6. conclude         — close connection
@@ -19,9 +32,11 @@
  * JSON output format (one object per line to stdout):
  *   {"operation":"get-rcb","target":"...","ok":true,"rptID":"...","rptEna":false}
  *   {"operation":"enable-rcb","target":"...","ok":true}
- *   {"operation":"write","target":"...","ok":true}
+ *   {"operation":"write","target":"...","ok":true}            (dchg)
+ *   {"operation":"trigger-gi","target":"...","ok":true}       (gi)
  *   {"operation":"receive-report","ok":true,"rptID":"...","seqNum":N,
  *    "inclusion":[true,false],"values":[<v>],"reasons":["data-change"]}
+ *    (gi: "inclusion":[true,true],"values":[false,1],"reasons":["gi","gi"])
  *   {"operation":"disable-rcb","target":"...","ok":true}
  *   {"operation":"conclude","ok":true}
  *   {"operation":"<op>","ok":false,"error":"<msg>"}
@@ -40,15 +55,16 @@
 
 #include "iec61850_client.h"
 #include "jsonlines.h"
+#include "ld_resolve.h"
 
 /* -------------------------------------------------------------------------
  * Constants — fixture-specific
  * ---------------------------------------------------------------------- */
 
-#define RCB_REF     "InteropLD/LLN0.RP.urcb01"
+#define RCB_NAME    "urcb01"      /* SCL RCB name; instances are urcb0101, ... */
 #define RCB_RPTID   "interop_urcb01"
-#define SPS1_REF    "InteropLD/GGIO1.SPS1.stVal"
 #define DS_SIZE     2   /* dsInterop: SPS1.stVal, Mod.stVal */
+#define REF_MAX     130 /* object reference buffer (MMS 64 + '/' + 64 + NUL) */
 
 /* ALL_RCB_ATTRIBUTES was added to the public API in a later libiec61850 release.
  * At the pinned SHA we sum all known RCB_ELEMENT_* bits explicitly. */
@@ -214,6 +230,50 @@ static void emit_report(const ReportState* st)
 }
 
 /* -------------------------------------------------------------------------
+ * Name resolution from the server directory
+ * ---------------------------------------------------------------------- */
+
+/* Resolve the URCB instance in <ld>/LLN0: RCB_NAME if present, else the
+ * lowest indexed instance RCB_NAME + two digits (urcb0101). Leaves RCB_NAME
+ * when nothing matches or the directory cannot be read. */
+static void resolve_rcb(IedConnection conn, const char* ld,
+                        char* rcb, size_t rcbSize)
+{
+    IedClientError err = IED_ERROR_OK;
+    char lnRef[REF_MAX];
+    snprintf(rcb, rcbSize, "%s", RCB_NAME);
+    snprintf(lnRef, sizeof(lnRef), "%s/LLN0", ld);
+
+    LinkedList list = IedConnection_getLogicalNodeDirectory(conn, &err, lnRef,
+                                                            ACSI_CLASS_URCB);
+    if (err != IED_ERROR_OK || list == NULL) {
+        fprintf(stderr, "ied-reporter: URCB directory of %s: %s\n",
+                lnRef, ied_error_str(err));
+        if (list) LinkedList_destroy(list);
+        return;
+    }
+
+    size_t base = strlen(RCB_NAME);
+    const char* indexed = NULL;
+    bool exact = false;
+    for (LinkedList e = LinkedList_getNext(list); e; e = LinkedList_getNext(e)) {
+        const char* name = (const char*)e->data;
+        if (!name) continue;
+        if (strcmp(name, RCB_NAME) == 0) {
+            exact = true;
+            break;
+        }
+        if (strlen(name) == base + 2 && strncmp(name, RCB_NAME, base) == 0 &&
+            name[base] >= '0' && name[base] <= '9' &&
+            name[base + 1] >= '0' && name[base + 1] <= '9' &&
+            (!indexed || strcmp(name, indexed) < 0))
+            indexed = name;
+    }
+    if (!exact && indexed) snprintf(rcb, rcbSize, "%s", indexed);
+    LinkedList_destroy(list);
+}
+
+/* -------------------------------------------------------------------------
  * main
  * ---------------------------------------------------------------------- */
 
@@ -223,6 +283,7 @@ int main(int argc, char** argv)
     const char* host     = "localhost";
     int         port     = 1102;
     bool        initial  = true; /* initial value of SPS1.stVal from values.json */
+    bool        trig_gi  = false; /* --trigger gi: GI report instead of dchg */
 
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--host") && i + 1 < argc)
@@ -231,6 +292,20 @@ int main(int argc, char** argv)
             port = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--sps1-initial") && i + 1 < argc)
             initial = (atoi(argv[++i]) != 0);
+        else if (!strcmp(argv[i], "--trigger") && i + 1 < argc) {
+            const char* t = argv[++i];
+            if (!strcmp(t, "dchg"))
+                trig_gi = false;
+            else if (!strcmp(t, "gi"))
+                trig_gi = true;
+            else {
+                fprintf(stderr, "ied-reporter: invalid --trigger %s (dchg|gi)\n", t);
+                return 1;
+            }
+        } else if (!strcmp(argv[i], "--trigger")) {
+            fprintf(stderr, "ied-reporter: --trigger needs a value (dchg|gi)\n");
+            return 1;
+        }
     }
     if (port <= 0 || port > 65535) {
         fprintf(stderr, "ied-reporter: invalid port %d\n", port);
@@ -252,21 +327,34 @@ int main(int argc, char** argv)
     }
 
     /* ------------------------------------------------------------------
+     * Resolve names from the server directory
+     * ---------------------------------------------------------------- */
+    char ld[65], rcbName[65];
+    char rcbRef[REF_MAX];    /* reference of the RCB instance on the server */
+    char rcbTarget[REF_MAX]; /* line target: <LD>/LLN0.RP.urcb01 */
+    char sps1Ref[REF_MAX];
+    ld_resolve(conn, "ied-reporter", ld, sizeof(ld));
+    resolve_rcb(conn, ld, rcbName, sizeof(rcbName));
+    snprintf(rcbRef, sizeof(rcbRef), "%s/LLN0.RP.%s", ld, rcbName);
+    snprintf(rcbTarget, sizeof(rcbTarget), "%s/LLN0.RP.%s", ld, RCB_NAME);
+    snprintf(sps1Ref, sizeof(sps1Ref), "%s/GGIO1.SPS1.stVal", ld);
+
+    /* ------------------------------------------------------------------
      * 1. get-rcb — read current URCB attributes
      * ---------------------------------------------------------------- */
     /* Pass NULL to allocate a new ClientReportControlBlock.
      * ALL_RCB_ATTRIBUTES is a bitmask for setRCBValues, not getRCBValues. */
     ClientReportControlBlock rcb =
-        IedConnection_getRCBValues(conn, &err, RCB_REF, NULL);
+        IedConnection_getRCBValues(conn, &err, rcbRef, NULL);
     if (err != IED_ERROR_OK) {
-        emit_error("get-rcb", RCB_REF, ied_error_str(err));
+        emit_error("get-rcb", rcbTarget, ied_error_str(err));
         IedConnection_close(conn);
         IedConnection_destroy(conn);
         return 0;
     }
     printf("{\"operation\":\"get-rcb\",\"target\":\"%s\",\"ok\":true"
            ",\"rptID\":\"%s\",\"rptEna\":%s}\n",
-           RCB_REF,
+           rcbTarget,
            ClientReportControlBlock_getRptId(rcb) ? ClientReportControlBlock_getRptId(rcb) : "",
            ClientReportControlBlock_getRptEna(rcb) ? "true" : "false");
     fflush(stdout);
@@ -278,13 +366,17 @@ int main(int argc, char** argv)
     memset(&state, 0, sizeof(state));
     sem_init(&state.sem, 0, 0);
 
-    IedConnection_installReportHandler(conn, RCB_REF, RCB_RPTID,
+    /* Reports are matched on RptID: use the one the server holds (an
+     * indexed instance may carry its own), the fixture's as fallback. */
+    const char* rptID = ClientReportControlBlock_getRptId(rcb);
+    if (!rptID || !*rptID) rptID = RCB_RPTID;
+    IedConnection_installReportHandler(conn, rcbRef, rptID,
                                        reportCallback, &state);
 
     ClientReportControlBlock_setRptEna(rcb, true);
     IedConnection_setRCBValues(conn, &err, rcb, RCB_ELEMENT_RPT_ENA, true);
     if (err != IED_ERROR_OK) {
-        emit_error("enable-rcb", RCB_REF, ied_error_str(err));
+        emit_error("enable-rcb", rcbTarget, ied_error_str(err));
         ClientReportControlBlock_destroy(rcb);
         sem_destroy(&state.sem);
         IedConnection_close(conn);
@@ -292,25 +384,42 @@ int main(int argc, char** argv)
         return 0;
     }
     printf("{\"operation\":\"enable-rcb\",\"target\":\"%s\",\"ok\":true}\n",
-           RCB_REF);
+           rcbTarget);
     fflush(stdout);
 
-    /* ------------------------------------------------------------------
-     * 3. write — toggle SPS1.stVal to trigger dchg
-     * ---------------------------------------------------------------- */
-    bool new_val = !initial;
-    IedConnection_writeBooleanValue(conn, &err, SPS1_REF, IEC61850_FC_ST, new_val);
-    if (err != IED_ERROR_OK) {
-        emit_error("write", SPS1_REF "[ST]", ied_error_str(err));
-        /* continue; we still want to disable the URCB */
+    if (trig_gi) {
+        /* --------------------------------------------------------------
+         * 3. trigger-gi — write GI=true on the URCB
+         * ------------------------------------------------------------ */
+        IedConnection_triggerGIReport(conn, &err, rcbRef);
+        if (err != IED_ERROR_OK) {
+            emit_error("trigger-gi", rcbTarget, ied_error_str(err));
+            /* continue; we still want to disable the URCB */
+        } else {
+            printf("{\"operation\":\"trigger-gi\",\"target\":\"%s\",\"ok\":true}\n",
+                   rcbTarget);
+            fflush(stdout);
+        }
     } else {
-        printf("{\"operation\":\"write\",\"target\":\"%s[ST]\",\"ok\":true}\n",
-               SPS1_REF);
-        fflush(stdout);
+        /* --------------------------------------------------------------
+         * 3. write — toggle SPS1.stVal to trigger dchg
+         * ------------------------------------------------------------ */
+        char sps1Target[REF_MAX + 4];
+        snprintf(sps1Target, sizeof(sps1Target), "%s[ST]", sps1Ref);
+        bool new_val = !initial;
+        IedConnection_writeBooleanValue(conn, &err, sps1Ref, IEC61850_FC_ST, new_val);
+        if (err != IED_ERROR_OK) {
+            emit_error("write", sps1Target, ied_error_str(err));
+            /* continue; we still want to disable the URCB */
+        } else {
+            printf("{\"operation\":\"write\",\"target\":\"%s\",\"ok\":true}\n",
+                   sps1Target);
+            fflush(stdout);
+        }
     }
 
     /* ------------------------------------------------------------------
-     * 4. receive-report — wait up to 10 s for the dchg report
+     * 4. receive-report — wait up to 10 s for the dchg or GI report
      * ---------------------------------------------------------------- */
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
@@ -319,7 +428,9 @@ int main(int argc, char** argv)
     if (sem_timedwait(&state.sem, &ts) == 0 && state.received) {
         emit_report(&state);
     } else {
-        emit_error("receive-report", NULL, "timeout-waiting-for-dchg-report");
+        emit_error("receive-report", NULL, trig_gi
+                   ? "timeout-waiting-for-gi-report"
+                   : "timeout-waiting-for-dchg-report");
     }
 
     /* ------------------------------------------------------------------
@@ -328,10 +439,10 @@ int main(int argc, char** argv)
     ClientReportControlBlock_setRptEna(rcb, false);
     IedConnection_setRCBValues(conn, &err, rcb, RCB_ELEMENT_RPT_ENA, true);
     if (err != IED_ERROR_OK) {
-        emit_error("disable-rcb", RCB_REF, ied_error_str(err));
+        emit_error("disable-rcb", rcbTarget, ied_error_str(err));
     } else {
         printf("{\"operation\":\"disable-rcb\",\"target\":\"%s\",\"ok\":true}\n",
-               RCB_REF);
+               rcbTarget);
         fflush(stdout);
     }
 

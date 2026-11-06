@@ -107,7 +107,9 @@ func HandleMetaFlags() {
 			AdapterVersion  string   `json:"adapterVersion"`
 			FixtureRevision string   `json:"fixtureRevision"`
 			Commands        []string `json:"commands"`
-		}{"capabilities", Version(), FixtureRevision, Commands})
+			// The reporter's --trigger values (contract 1.3).
+			ReporterTriggers []string `json:"reporterTriggers"`
+		}{"capabilities", Version(), FixtureRevision, Commands, []string{"dchg", "gi"}})
 		os.Exit(0)
 	}
 }

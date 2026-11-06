@@ -119,11 +119,34 @@ server and exit. Each operation is one line:
   `LLN0.Mod.ctlModel[CF]`, `LLN0.Mod.d[DC]`, a write of `LLN0.Mod.stVal`,
   the read of dataset `LLN0$dsInterop`, conclude.
 - `*-ied-controller --do SPCSO1|SPCSO2|SPCSO3 --ctlval true|false`: direct,
-  SBO and SBOw control, then the read-back of `stVal`.
-- `*-ied-reporter [--sps1-initial 0|1]`: enables URCB `urcb01`, triggers a
-  data-change report, emits it as
-  `{"operation":"receive-report","ok":true,"rptID":...,"seqNum":N,"inclusion":[...],"values":[...],"reasons":["data-change"]}`,
-  disables the URCB.
+  SBO and SBOw control, then the read-back of `stVal`. From contract 1.3 the
+  controller takes the logical device from the server directory, as the
+  reporter does (below); the `target` of its lines is `<LD>/GGIO1.<DO>`.
+- `*-ied-reporter [--sps1-initial 0|1] [--trigger dchg|gi]`: enables URCB
+  `urcb01`, makes it send a report, emits the report as
+  `{"operation":"receive-report","ok":true,"rptID":...,"seqNum":N,"inclusion":[...],"values":[...],"reasons":[...]}`,
+  disables the URCB. With `--trigger dchg` (the default) the report is a
+  data change: the reporter writes `GGIO1.SPS1.stVal[ST]` = the negation of
+  `--sps1-initial` (default 1, so `false`; `values.json` has `false`, so
+  pass `0` for a change) and expects `"reasons":["data-change"]`. A server
+  may refuse that write (ST is read-only in IEC 61850-7-2); then no report
+  follows. With `--trigger gi` (contract 1.3) the reporter writes the
+  URCB's `GI` = true instead (operation `trigger-gi`) and expects a general
+  interrogation report: both members of `dsInterop` included, reasons
+  `["gi","gi"]`, values `values.json`'s `SPS1.stVal` and `Mod.stVal`
+  (`[false,1]`). Every IEC 61850 server answers this one.
+
+  Reporter names (contract 1.3): the reporter takes the logical device
+  from the server directory (the one named `InteropLD` or ending in it, as
+  `InteropIEDInteropLD`), and the URCB as `LLN0$RP$urcb01` or its first
+  instance (`LLN0$RP$urcb0101`, IEC 61850-6 indexed instances). The
+  `target` of its lines is `<LD>/LLN0.RP.urcb01` with that LD. The
+  reporters of contract 1.2 and earlier addressed `InteropLD` and `urcb01`
+  as given, which only a server with bare instance names served.
+
+  `--capabilities` of an image whose reporter takes `--trigger` carries
+  `"reporterTriggers":["dchg","gi"]` (contract 1.3); without it a harness
+  runs only the default.
 
 `*-ied-client` also takes `--local-tsel HEX` and `--remote-tsel HEX`, the
 calling and called COTP T-selectors of 1 to 4 octets in hex (`01`, `0001`,

@@ -79,30 +79,32 @@ SVCB over MMS: the IED server exposes `LLN0$MS$MSVCB02` of the IED fixture as MM
 | `libiec61850` | 1.6.2.1-89-g6e265c54 | go-client → libiec61850-server | ObtainFile | `TestClient_ObtainFile` |
 | `libiec61850` | 1.6.2.1-89-g6e265c54 | libiec61850-client → go-server | FileOpen response without lastModified | `TestServer_FileOpen_NoLastModified` |
 | `iec61850bean` | 1.x | go-client → iec61850bean-server | SBOw SelectWithValue | `TestBeanClient_Control_SBOwOperate` |
-| `dscsystems` | v0.6.5-1-g6bf3f37 | go-client → dscsystems-server | Alternate access indexRange (read and write) | `TestClient_ReadArrayRange, TestClient_ReadVariables_WriteVariables_AlternateAccess` |
-| `dscsystems` | v0.6.5-1-g6bf3f37 | dscsystems-client → go-server | Alternate access read/write (array element, index range, component) | `TestServer_ReadArrayElements, TestServer_ReadComponent, TestServer_WriteArrayElements, TestServer_WriteComponent` |
-| `dscsystems` | v0.6.5-1-g6bf3f37 | dscsystems-client → go-server | Write to a named variable list | `TestServer_NVL_DomainScope, TestServer_NVL_VMDScope, TestServer_InformationReport` |
-| `dscsystems` | v0.6.5-1-g6bf3f37 | dscsystems-client → go-server | Association-specific named variable lists | `TestServer_NVL_AssociationScope` |
-| `dscsystems` | v0.6.5-1-g6bf3f37 | dscsystems-client → go-server | FileOpen lastModified | `TestServer_FileOpenReadClose, TestServer_FileOpen_InitialPosition, TestServer_FileRead_MultiChunk` |
-| `dscsystems` | v0.6.5-1-g6bf3f37 | iec61850bean-client → dscsystems-ied-server | GetVariableAccessAttributes type of Enum (read LLN0.Mod.ctlModel[CF]) | — |
-| `dscsystems` | v0.6.5-1-g6bf3f37 | go-client → dscsystems-ied-server | Write of FC ST (and the dchg report it would trigger) | — |
-| `iec61850-rust` | v0.2.0-0-gd4e8952 | libiec61850-client → iec61850-rust-ied-server | SetURCBValues RptEna=true without prior Resv (implicit URCB reservation) | — |
+| `dscsystems` | v0.6.6 | go-client → dscsystems-server | Alternate access indexRange (read and write) | `TestClient_ReadArrayRange, TestClient_ReadVariables_WriteVariables_AlternateAccess` |
+| `dscsystems` | v0.6.6 | dscsystems-client → go-server | Alternate access read/write (array element, index range, component) | `TestServer_ReadArrayElements, TestServer_ReadComponent, TestServer_WriteArrayElements, TestServer_WriteComponent` |
+| `dscsystems` | v0.6.6 | dscsystems-client → go-server | Write to a named variable list | `TestServer_NVL_DomainScope, TestServer_NVL_VMDScope, TestServer_InformationReport` |
+| `dscsystems` | v0.6.6 | dscsystems-client → go-server | Association-specific named variable lists | `TestServer_NVL_AssociationScope` |
+| `dscsystems` | v0.6.6 | dscsystems-client → go-server | FileOpen lastModified | `TestServer_FileOpenReadClose, TestServer_FileOpen_InitialPosition, TestServer_FileRead_MultiChunk` |
+| `dscsystems` | v0.6.6 | go-client → dscsystems-ied-server | Write of FC ST (and the dchg report it would trigger) | — |
+| `iec61850-rust` | v0.2.0-0-gd4e8952 | * → iec61850-rust-ied-server (all reporters but dscsystems', which reserves first) | SetURCBValues RptEna=true without prior Resv (implicit URCB reservation) | — |
 | `iec61850-rust` | v0.2.0-0-gd4e8952 | go-client → iec61850-rust-ied-server | Write of FC ST (and the dchg report it would trigger) | — |
 | `iec61850-rust` | v0.2.0-0-gd4e8952 | iec61850-rust-client → go-server | Abort (A-ABORT) | — |
 | `iec61850-rust` | v0.2.0-0-gd4e8952 | go-client → iec61850-rust-server | ObtainFile | `TestClient_ObtainFile` |
 | `iec61850-rust` | v0.2.0-0-gd4e8952 | go-client → iec61850-rust-server | DeleteNamedVariableList with domain/VMD scope | `TestClient_DeleteAllNVLs_UnsupportedByPeer` |
 | `libiec61850` | 1.6.2.1-89-g6e265c54 | libiec61850-sv-publisher / dscsystems-sv-publisher → libiec61850-sv-subscriber | Sampled Values ASDUs carrying smpMod (the generic stream, MSVCB02) | `scripts/sv-crosscheck.sh … MSVCB02` |
-| `dscsystems` | v0.6.5-1-g6bf3f37 | go-client → dscsystems-ied-server | MSVCB OptFlds width | — |
+| `dscsystems` | v0.6.6 | go-client → dscsystems-ied-server | MSVCB OptFlds width | — |
 | `iec61850bean` | 1.x | — | Sampled Values | — |
 | `iec61850-rust` | v0.2.0-0-gd4e8952 | go-client → iec61850-rust-ied-server | SVCB over MMS (LLN0$MS$MSVCB02) | — |
 | `iec61850-rust` | v0.2.0-0-gd4e8952 | * → iec61850-rust-sv-subscriber, iec61850-rust-sv-publisher → * | More than 10 ASDUs per SV frame | — |
 | `iec61850-rust` | v0.2.0-0-gd4e8952 | * → iec61850-rust-sv-subscriber | SV receive buffer | — |
-| `dscsystems` | v0.6.5-1-g6bf3f37 | * → dscsystems-sv-subscriber | smpRate 0 / empty datSet | — |
-| `dscsystems` | 6bf3f370c6fb95d3835e34d9d1539f313e00b157 | dscsystems-client → go-server | --local-tsel / --remote-tsel of dscsystems-ied-client | `TestPeerClientTSelectors` |
+| `dscsystems` | v0.6.6 | * → dscsystems-sv-subscriber | smpRate 0 / empty datSet | — |
+| `dscsystems` | v0.6.6 | dscsystems-client → go-server | --local-tsel / --remote-tsel of dscsystems-ied-client | `TestPeerClientTSelectors` |
 | `cbsigma` | v0.1.0 (iec61850-sim) | * → cbsigma-ied-server | Write of FC ST or MX (and the dchg report the reporter triggers with it) | — |
 | `cbsigma` | v0.1.0 (iec61850-sim) | iec61850bean-client → cbsigma-ied-server | GetVariableAccessAttributes type of Enum (read LLN0.Mod.ctlModel[CF]) | — |
 | `iec61850bean` | 1.9.0 | cbsigma-client → iec61850bean-ied-server | GetDataSetValues (read of LLN0$dsInterop) | — |
 | `iec61850-rust` | v0.2.0-0-gd4e8952 | cbsigma-client → iec61850-rust-ied-server, iec61850-rust-client → cbsigma-ied-server | MMS Initiate with an 18-bit parameterCBB | — |
+| `iec61850-rust` | v0.2.0-0-gd4e8952 | * → iec61850-rust-ied-server | DatSet of a report control block | — |
+| `iec61850-rust` | v0.2.0-0-gd4e8952 | * → iec61850-rust-ied-server | GetBRCBValues (Read of the whole buffered report control block) | — |
+| `iec61850bean` | 1.9.0 | cbsigma-client → iec61850bean-ied-server | Report data references (OptFlds data-reference) | — |
 
 ## Notes
 
