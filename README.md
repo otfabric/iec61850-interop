@@ -304,7 +304,7 @@ make smoke ADAPTERS=libiec61850   # one image
 
 Both write `reports/results.json` (interop-result-v1). Any image can stand in
 for an adapter: `ADAPTER_IMAGE_<adapter>=<image>` (a `-` in the name as `_`),
-or `VERSION=v1.3.0` for the release images.
+or `VERSION=v1.4.0` for the release images.
 
 ```bash
 ```
