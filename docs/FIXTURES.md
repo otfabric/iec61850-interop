@@ -17,7 +17,8 @@ cross-checks the files (values against the ICD, the CIDs against
 `interop.icd`, the JSON against the CIDs).
 
 Writable scalar setting for consumer write tests (ING CDC):
-`InteropLD/GGIO1.SetInt1.setVal[SP]`. Do not treat `Mod.ctlModel` / `Mod.d`
+`GGIO1.SetInt1.setVal[SP]` in the interop LD (`InteropIEDInteropLD/GGIO1.SetInt1.setVal[SP]`
+on the reference servers; resolve the LD from the server directory, contract 1.3). Do not treat `Mod.ctlModel` / `Mod.d`
 as assumed-success write targets.
 
 The GOOSE and SV fixtures are described in detail in [goose.md](goose.md) and [sv.md](sv.md).
