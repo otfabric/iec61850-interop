@@ -33,13 +33,13 @@ interop tests and compatibility matrices live in the consumer repositories.
 <!-- capability-matrix:begin -->
 <!-- generated from fixtures/capabilities.json by scripts/gen-coverage.sh; do not edit -->
 
-| Stack | Image | MMS server | MMS client | IED server | IED client | IED controller | IED reporter | GOOSE publisher | GOOSE subscriber | SV publisher | SV subscriber | SVCB over MMS |
-|-------|-------|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| libiec61850 | `iec61850-interop-libiec61850` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| iec61850bean | `iec61850-interop-iec61850bean` | — | — | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — |
-| dscsystems | `iec61850-interop-dscsystems` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| iec61850-rust | `iec61850-interop-iec61850-rust` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
-| cbsigma | `iec61850-interop-cbsigma` | — | — | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | — | — |
+| Stack | Image | MMS server | MMS client | IED server | IED client | IED controller | IED reporter | GOOSE publisher | GOOSE subscriber | SV publisher | SV subscriber | SVCB over MMS | R-GOOSE/R-SV (UDP) |
+|-------|-------|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| libiec61850 | `iec61850-interop-libiec61850` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| iec61850bean | `iec61850-interop-iec61850bean` | — | — | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | — |
+| dscsystems | `iec61850-interop-dscsystems` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| iec61850-rust | `iec61850-interop-iec61850-rust` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | — |
+| cbsigma | `iec61850-interop-cbsigma` | — | — | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | — | — | — |
 
 <!-- capability-matrix:end -->
 
@@ -216,6 +216,7 @@ or a publisher sends, one line per operation for the fixed-sequence clients,
 - [docs/CONTAINER_CONTRACT.md](docs/CONTAINER_CONTRACT.md) — shared rules, MMS and IED servers and clients, exit codes, the stability promise.
 - [docs/goose.md](docs/goose.md) — GOOSE publisher/subscriber, supervision, value JSON, L2 networking.
 - [docs/sv.md](docs/sv.md) — SV publisher/subscriber, 9-2LE and generic profiles, loss statistics.
+- [docs/routable.md](docs/routable.md) — `--transport udp`: R-GOOSE and R-SV (IEC TR 61850-90-5 session protocol, HMAC-SHA256), the `reject` event.
 
 ### Compatibility promise (v1)
 

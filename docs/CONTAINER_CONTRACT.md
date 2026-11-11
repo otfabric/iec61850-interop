@@ -6,7 +6,8 @@ consumer harness switches stack by image and command prefix alone
 `otfabric-` for OT Fabric's own stack, below). This file
 covers what all commands share and the MMS and IED (client/server) commands.
 The layer-2 commands have their own pages: [GOOSE](goose.md) and
-[Sampled Values](sv.md).
+[Sampled Values](sv.md); their UDP transport (R-GOOSE and R-SV, contract
+1.4) is on [routable.md](routable.md).
 
 Which command exists in which image is declared in
 [`fixtures/capabilities.json`](../fixtures/capabilities.json) (rendered in
@@ -147,6 +148,11 @@ server and exit. Each operation is one line:
   `--capabilities` of an image whose reporter takes `--trigger` carries
   `"reporterTriggers":["dchg","gi"]` (contract 1.3); without it a harness
   runs only the default.
+
+  `--capabilities` of an image whose GOOSE and SV commands take
+  `--transport udp` carries `"transports":["ethernet","udp"]` (contract
+  1.4, [routable.md](routable.md)); without it they have the Ethernet
+  transport only.
 
 `*-ied-client` also takes `--local-tsel HEX` and `--remote-tsel HEX`, the
 calling and called COTP T-selectors of 1 to 4 octets in hex (`01`, `0001`,

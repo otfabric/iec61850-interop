@@ -75,7 +75,7 @@ done
 # at_cross <goose|sv> <publisher command> <subscriber command> <control block>:
 # the scenario of a crosscheck. The roles are publisher and subscriber.
 at_cross() {
-    at "$1.$(slug "$4")$([ "${FLAGS:-}" = plain ] && echo .plain)$([ "${HOST_SIDE:-}" = 1 ] && echo .host-side)" "$(stack "$2")" "$(stack "$3")"
+    at "$1.$(slug "$4")$([ "${FLAGS:-}" = plain ] && echo .plain)$([ "${HOST_SIDE:-}" = 1 ] && echo .host-side)$([ "${TRANSPORT:-}" = udp ] && echo .udp)" "$(stack "$2")" "$(stack "$3")"
 }
 goose_check() {
     local out
@@ -94,6 +94,14 @@ l2() {
     for a in "${ADAPTERS[@]}"; do
         if has "$a" "$1-publisher" && has "$a" "$1-subscriber"; then echo "$(image_of "$a") $a"; fi
     done
+}
+# routable <goose|sv>: the adapters of l2 whose commands take --transport
+# udp (contract 1.4).
+routable() {
+    local line
+    while read -r line; do
+        [[ " $(transports "${CAPS[${line##* }]}") " == *" udp "* ]] && echo "$line"
+    done < <(l2 "$1")
 }
 
 info ""
@@ -167,6 +175,23 @@ n=${#STACKS[@]}
 for ((i = 0; i < n && n > 1; i++)); do
     set -- ${STACKS[$i]} ${STACKS[$(( (i + 1) % n ))]}
     HOST_SIDE=1 sv_check "$1" "$2-sv-publisher" "$3" "$4-sv-subscriber" MSVCB01
+done
+
+info ""
+info "=== R-GOOSE and R-SV publisher -> subscriber (UDP, IEC 61850-90-5, HMAC-SHA256-128) ==="
+# Every publisher -> every subscriber of the adapters with --transport udp.
+for proto in goose sv; do
+    mapfile -t STACKS < <(routable "$proto")
+    for pub in "${STACKS[@]}"; do
+        for sub in "${STACKS[@]}"; do
+            set -- $pub $sub
+            if [ "$proto" = goose ]; then
+                TRANSPORT=udp goose_check "$1" "$2-goose-publisher" "$3" "$4-goose-subscriber" gcbAll
+            else
+                TRANSPORT=udp sv_check "$1" "$2-sv-publisher" "$3" "$4-sv-subscriber" MSVCB01
+            fi
+        done
+    done
 done
 
 echo ""

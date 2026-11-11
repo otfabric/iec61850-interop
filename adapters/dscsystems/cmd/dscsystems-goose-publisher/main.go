@@ -6,6 +6,13 @@
 //	    --dataset REF --app-id 0xNNNN --dst MAC --vlan-id N --vlan-prio N
 //	    --conf-rev N --min-time ms --max-time ms [--test] [--simulation]
 //	    [--nds-com] --values JSON
+//	    [--transport udp --remote ADDR:PORT [--key-id N --key HEX]
+//	     [--mac ALG] [--session-version 1|2] [--mcast-iface IF] [--ttl N]]
+//
+// With --transport udp (contract 1.4) the frames go out as R-GOOSE: SPDUs
+// of the IEC TR 61850-90-5 session protocol to --remote, signed with the
+// key of --key-id (unsecured when 0), through rsession. The Ethernet
+// addresses, VLAN tag and --iface are then not used.
 //
 // Lifecycle:
 //  1. Open a raw socket on IF (needs CAP_NET_RAW).
@@ -41,6 +48,7 @@ import (
 	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/goosecli"
 	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/jl"
 	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/mmsjson"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/rudp"
 )
 
 // wire wraps the socket: it sets the simulation bit and reports each
@@ -87,6 +95,7 @@ func main() {
 	simulation := flag.Bool("simulation", false, "set the Edition 2 S bit of Reserved1")
 	ndsCom := flag.Bool("nds-com", false, "set ndsCom")
 	valuesJSON := flag.String("values", "", "data set values, typed JSON array")
+	tr := rudp.Register()
 	flag.Parse()
 
 	if *gocbRef == "" {
@@ -107,13 +116,28 @@ func main() {
 	if *vlanID > 4095 || *vlanPrio > 7 {
 		jl.Fatal(1, "goose-publisher: --vlan-id must be 0..4095 and --vlan-prio 0..7")
 	}
-	srcMAC, err := goosecli.InterfaceMAC(*iface)
+	udp, err := tr.UDP()
 	if err != nil {
-		jl.Fatal(1, "goose-publisher: interface %s: %v", *iface, err)
+		jl.Fatal(1, "goose-publisher: %v", err)
 	}
-	sock, err := ethernet.Open(*iface, ethernet.EtherTypeGOOSE)
-	if err != nil {
-		jl.Fatal(1, "goose-publisher: %v (needs CAP_NET_RAW)", err)
+	var (
+		sock   ethernet.Interface
+		srcMAC [6]byte
+		where  = *iface
+	)
+	if udp {
+		s, err := tr.OpenSender()
+		if err != nil {
+			jl.Fatal(1, "goose-publisher: %v", err)
+		}
+		sock, where = s, s.Label()
+	} else {
+		if srcMAC, err = goosecli.InterfaceMAC(*iface); err != nil {
+			jl.Fatal(1, "goose-publisher: interface %s: %v", *iface, err)
+		}
+		if sock, err = ethernet.Open(*iface, ethernet.EtherTypeGOOSE); err != nil {
+			jl.Fatal(1, "goose-publisher: %v (needs CAP_NET_RAW)", err)
+		}
 	}
 	defer func() { _ = sock.Close() }()
 
@@ -136,7 +160,7 @@ func main() {
 		jl.Fatal(1, "goose-publisher: %v", err)
 	}
 
-	goosecli.EmitReady("publisher", *iface, goosecli.FormatMAC(srcMAC), *gocbRef)
+	goosecli.EmitReady("publisher", where, goosecli.FormatMAC(srcMAC), *gocbRef)
 
 	var once sync.Once
 	done := make(chan struct{})

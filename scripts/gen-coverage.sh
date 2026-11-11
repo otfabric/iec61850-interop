@@ -44,13 +44,14 @@ def mark(yes: bool) -> str:
 
 def matrix() -> list:
     svcb = caps.get("svcbOverMms") or {}
-    head = "| Stack | Image | " + " | ".join(name for name, _ in CAPABILITIES) + " | SVCB over MMS |"
-    rule = "|-------|-------|" + "|".join(":-:" for _ in CAPABILITIES) + "|:-:|"
+    udp = caps.get("udpTransport") or {}
+    head = "| Stack | Image | " + " | ".join(name for name, _ in CAPABILITIES) + " | SVCB over MMS | R-GOOSE/R-SV (UDP) |"
+    rule = "|-------|-------|" + "|".join(":-:" for _ in CAPABILITIES) + "|:-:|:-:|"
     rows = [head, rule]
     for stack in STACKS:
         cells = [mark(commands.get(f"{stack}-{suffix}", False)) for _, suffix in CAPABILITIES]
         rows.append(f"| {stack} | `iec61850-interop-{stack}` | " + " | ".join(cells)
-                    + f" | {mark(bool(svcb.get(stack)))} |")
+                    + f" | {mark(bool(svcb.get(stack)))} | {mark(bool(udp.get(stack)))} |")
     return rows
 
 revisions = (f"`{caps.get('mmsFixtureRevision', '?')}`, `{caps.get('fixtureRevision', '?')}`, "
@@ -71,7 +72,7 @@ lines = [
     "",
     *matrix(),
     "",
-    "SVCB over MMS: the IED server exposes `LLN0$MS$MSVCB02` of the IED fixture as MMS variables.",
+    "SVCB over MMS: the IED server exposes `LLN0$MS$MSVCB02` of the IED fixture as MMS variables. R-GOOSE/R-SV (UDP): the GOOSE and SV commands take `--transport udp` ([routable.md](routable.md)).",
     "",
     "## Commands",
     "",

@@ -15,6 +15,9 @@ a layer-2 segment shared with the peer under test.
 All four stacks implement the same command line and JSON Lines contract, so a
 test switches peer by image and command name only.
 
+The same commands carry R-GOOSE over UDP with `--transport udp` where the
+image supports it ([routable.md](routable.md)).
+
 iec61850bean has no GOOSE support. The rules every command shares
 (`--version`, `--capabilities`, stdout/stderr, the v1 stability promise) are
 in [CONTAINER_CONTRACT.md](CONTAINER_CONTRACT.md); this page is the GOOSE part of that contract.

@@ -24,6 +24,19 @@ Tags are immutable. A fix is a new version.
 
 ---
 
+## v1.5.0
+
+**Date:** 2026-11-11
+**Previous release:** v1.4.0
+
+### Added
+
+- Contract 1.4 (minor): `--transport udp` on the GOOSE and SV publishers and subscribers, R-GOOSE and R-SV: the APDUs in the session protocol of IEC TR 61850-90-5 over UDP, signed with HMAC-SHA256-80, -128 or -256 under the key of `--key-id` and `--key` (`--mac`, `--session-version 1|2`). Publishers send to `--remote`; subscribers receive on `--listen` (`:102`) or a multicast `--group`, refuse unsecured SPDUs unless `--allow-unsecured`, and report each refused SPDU as a new `reject` event with a `reason` (`unknown-key`, `authentication`, `unsecured`, `replay`, `malformed`). A `goose` event received over UDP carries `from`, the sender's address. `--capabilities` of an image that has it carries `"transports":["ethernet","udp"]`. Default `--transport ethernet`: nothing changes for a harness that does not ask for it. [docs/routable.md](docs/routable.md).
+- `iec61850-interop-dscsystems` implements it with dscsystems/go-iec61850's `rsession` (v0.6.6, already pinned): `adapters/dscsystems/internal/rudp`, unit-tested on the loopback. The other images do not (`fixtures/capabilities.json` `udpTransport`, a new column in the capability matrix).
+- `scripts/goose-crosscheck.sh` and `scripts/sv-crosscheck.sh` with `TRANSPORT=udp`: signed SPDUs to the subscriber's container, after a rogue publisher with the same key ID and other key material whose SPDUs must all be refused. `scripts/interop.sh` runs both between every pair of adapters with the udp transport (today dscsystems with itself; independent pairs come with a second stack).
+
+---
+
 ## v1.4.0
 
 **Date:** 2026-11-06

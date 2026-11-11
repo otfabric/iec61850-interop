@@ -5,6 +5,15 @@
 //
 //	dscsystems-sv-subscriber --iface IF [--app-id 0xNNNN] [--sv-id ID]
 //	    [--dst MAC] [--sample-every N] [--fixture PATH]
+//	    [--transport udp [--listen ADDR:PORT] [--group ADDR[:PORT]]
+//	     [--key-id N --key HEX [--mac ALG]] [--allow-unsecured] [--mcast-iface IF]]
+//
+// With --transport udp (contract 1.4) it receives R-SV: SPDUs of the
+// IEC TR 61850-90-5 session protocol on --listen (:102 by default) or
+// --group, verified through rsession against the key of --key-id. The sv
+// events then carry zero MACs, and each refused SPDU emits
+// {"event":"reject","from":ADDR,"reason":R,"error":E} (docs/routable.md).
+// --dst does not apply.
 //
 // Opens a raw socket on IF (needs CAP_NET_RAW), emits {"event":"ready"},
 // then for each accepted ASDU whose smpCnt is a multiple of
@@ -41,8 +50,31 @@ import (
 	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/jl"
 	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/mmsjson"
 	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/rawsock"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/rudp"
 	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/svcli"
 )
+
+// source is where the subscriber reads frames: a raw socket, or an R-SV
+// session.
+type source interface {
+	Read() ([]byte, error)
+	Drops() uint32
+	Close() error
+}
+
+// udpSource reads the frames of an R-SV session as raw Ethernet frames.
+type udpSource struct{ s *rudp.Session }
+
+func (u udpSource) Read() ([]byte, error) {
+	f, err := u.s.ReadFrame()
+	if err != nil {
+		return nil, err
+	}
+	return f.Marshal(), nil
+}
+
+func (udpSource) Drops() uint32  { return 0 }
+func (u udpSource) Close() error { return u.s.Close() }
 
 // event is one received ASDU. Absent optional fields are null.
 type event struct {
@@ -138,6 +170,7 @@ func main() {
 	dst := flag.String("dst", "", "accept only this destination MAC")
 	sampleEvery := flag.Uint("sample-every", 1, "report ASDUs whose smpCnt is a multiple of N")
 	fixturePath := flag.String("fixture", "/fixtures/sv/sv.json", "sv.json, for the seqData member lists")
+	tr := rudp.Register()
 	flag.Parse()
 
 	if *sampleEvery == 0 {
@@ -174,22 +207,40 @@ func main() {
 		}
 		decoders[id] = d
 	}
-	srcMAC, err := goosecli.InterfaceMAC(*iface)
+	udp, err := tr.UDP()
 	if err != nil {
-		jl.Fatal(1, "sv-subscriber: interface %s: %v", *iface, err)
+		jl.Fatal(1, "sv-subscriber: %v", err)
 	}
-	sock, rcvBuf, err := rawsock.Open(*iface, ethernet.EtherTypeSV)
-	if err != nil {
-		jl.Fatal(1, "sv-subscriber: %v (needs CAP_NET_RAW)", err)
+	var (
+		sock   source
+		srcMAC [6]byte
+		where  = *iface
+	)
+	if udp {
+		s, err := tr.OpenReceiver()
+		if err != nil {
+			jl.Fatal(1, "sv-subscriber: %v", err)
+		}
+		sock, where = udpSource{s}, s.Label()
+		haveDst = false
+	} else {
+		if srcMAC, err = goosecli.InterfaceMAC(*iface); err != nil {
+			jl.Fatal(1, "sv-subscriber: interface %s: %v", *iface, err)
+		}
+		raw, rcvBuf, err := rawsock.Open(*iface, ethernet.EtherTypeSV)
+		if err != nil {
+			jl.Fatal(1, "sv-subscriber: %v (needs CAP_NET_RAW)", err)
+		}
+		jl.Log("sv-subscriber: receive buffer %d bytes", rcvBuf)
+		sock = raw
 	}
-	jl.Log("sv-subscriber: receive buffer %d bytes", rcvBuf)
 
 	st := &stats{}
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
 	go func() { <-sig; _ = sock.Close(); st.emit(); os.Exit(0) }()
 
-	svcli.EmitReady("subscriber", *iface, goosecli.FormatMAC(srcMAC), "")
+	svcli.EmitReady("subscriber", where, goosecli.FormatMAC(srcMAC), "")
 	go func() {
 		for range time.Tick(time.Second) {
 			st.emit()

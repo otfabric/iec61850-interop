@@ -282,6 +282,10 @@ print("; ".join(bad))
 # (contract 1.3), empty for an image without them.
 reporter_triggers() { jq -r '(.reporterTriggers // []) | join(" ")' <<<"$1" 2>/dev/null; }
 
+# transports <capabilities>: the GOOSE and SV commands' --transport values
+# (contract 1.4), "ethernet" for an image without them.
+transports() { jq -r '(.transports // ["ethernet"]) | join(" ")' <<<"$1" 2>/dev/null; }
+
 # report_gi_problems <output>: what is wrong with the GI report of a
 # reporter run with --trigger gi (nothing when it is right): both members
 # of dsInterop, reason gi, values.json's SPS1.stVal and Mod.stVal.

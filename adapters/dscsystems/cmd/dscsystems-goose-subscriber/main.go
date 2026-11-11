@@ -4,6 +4,17 @@
 //
 //	dscsystems-goose-subscriber --iface IF [--app-id 0xNNNN]
 //	    [--gocb-ref REF] [--dst MAC]
+//	    [--transport udp [--listen ADDR:PORT] [--group ADDR[:PORT]]
+//	     [--key-id N --key HEX [--mac ALG]] [--allow-unsecured] [--mcast-iface IF]]
+//
+// With --transport udp (contract 1.4) it receives R-GOOSE: SPDUs of the
+// IEC TR 61850-90-5 session protocol on --listen (:102 by default) or
+// --group, verified through rsession against the key of --key-id. Each
+// goose event then carries "from" (the sender's address:port) and zero
+// MACs, and each refused SPDU emits {"event":"reject","from":ADDR,
+// "reason":R,"error":E}, R one of unknown-key, authentication, unsecured,
+// replay, malformed. Without a key only --allow-unsecured accepts
+// anything. --dst does not apply.
 //
 // Opens a raw socket on IF (needs CAP_NET_RAW), emits {"event":"ready"},
 // then one {"event":"goose",...} line per received frame that passes the
@@ -34,6 +45,7 @@ import (
 	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/goosecli"
 	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/jl"
 	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/mmsjson"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/rudp"
 )
 
 // event is one received GOOSE frame.
@@ -55,6 +67,7 @@ type event struct {
 	NumDatSetEntries  uint32          `json:"numDatSetEntries"`
 	T                 string          `json:"t"`
 	Values            []mmsjson.Typed `json:"values"`
+	From              string          `json:"from,omitempty"`
 }
 
 // supervisor tracks timeAllowedToLive per gocbRef.
@@ -115,6 +128,7 @@ func main() {
 	appID := flag.String("app-id", "", "accept only this APPID, 0xNNNN")
 	gocbRef := flag.String("gocb-ref", "", "accept only this gocbRef")
 	dst := flag.String("dst", "", "accept only this destination MAC")
+	tr := rudp.Register()
 	flag.Parse()
 
 	var wantAppID uint16
@@ -135,20 +149,37 @@ func main() {
 		}
 		wantDst = m
 	}
-	srcMAC, err := goosecli.InterfaceMAC(*iface)
+	udp, err := tr.UDP()
 	if err != nil {
-		jl.Fatal(1, "goose-subscriber: interface %s: %v", *iface, err)
+		jl.Fatal(1, "goose-subscriber: %v", err)
 	}
-	sock, err := ethernet.Open(*iface, ethernet.EtherTypeGOOSE)
-	if err != nil {
-		jl.Fatal(1, "goose-subscriber: %v (needs CAP_NET_RAW)", err)
+	var (
+		sock   ethernet.Interface
+		srcMAC [6]byte
+		where  = *iface
+		from   = func() string { return "" }
+	)
+	if udp {
+		s, err := tr.OpenReceiver()
+		if err != nil {
+			jl.Fatal(1, "goose-subscriber: %v", err)
+		}
+		sock, where, from = s, s.Label(), s.From
+		haveDst = false
+	} else {
+		if srcMAC, err = goosecli.InterfaceMAC(*iface); err != nil {
+			jl.Fatal(1, "goose-subscriber: interface %s: %v", *iface, err)
+		}
+		if sock, err = ethernet.Open(*iface, ethernet.EtherTypeGOOSE); err != nil {
+			jl.Fatal(1, "goose-subscriber: %v (needs CAP_NET_RAW)", err)
+		}
 	}
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
 	go func() { <-sig; _ = sock.Close(); os.Exit(0) }()
 
-	goosecli.EmitReady("subscriber", *iface, goosecli.FormatMAC(srcMAC), *gocbRef)
+	goosecli.EmitReady("subscriber", where, goosecli.FormatMAC(srcMAC), *gocbRef)
 
 	sup := &supervisor{streams: make(map[string]*stream)}
 	for {
@@ -192,6 +223,7 @@ func main() {
 			NumDatSetEntries:  m.NumDatSetEntries,
 			T:                 m.T.UTC().Format(time.RFC3339Nano),
 			Values:            mmsjson.FromValues(m.Values),
+			From:              from(),
 		})
 	}
 }

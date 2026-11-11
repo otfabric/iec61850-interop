@@ -8,6 +8,13 @@
 //	    --smp-rate N --smp-mod MODE --no-asdu N [--smp-synch 0|1|2]
 //	    [--simulation] [--profile 9-2LE|generic] [--frequency HZ]
 //	    [--report-every N] --values JSON
+//	    [--transport udp --remote ADDR:PORT [--key-id N --key HEX]
+//	     [--mac ALG] [--session-version 1|2] [--mcast-iface IF] [--ttl N]]
+//
+// With --transport udp (contract 1.4) each frame goes out as R-SV: an SPDU
+// of the IEC TR 61850-90-5 session protocol to --remote, signed with the
+// key of --key-id (unsecured when 0), through rsession; the Ethernet
+// addresses, VLAN tag and --iface are then not used.
 //
 // Lifecycle (docs/sv.md):
 //  1. Open a raw socket on IF (needs CAP_NET_RAW), emit {"event":"ready"}.
@@ -53,6 +60,7 @@ import (
 	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/goosecli"
 	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/jl"
 	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/mmsjson"
+	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/rudp"
 	"github.com/otfabric/iec61850-interop/adapters/dscsystems/internal/svcli"
 )
 
@@ -95,6 +103,7 @@ func main() {
 	frequency := flag.Float64("frequency", 50, "nominal frequency, Hz (samples-per-period)")
 	reportEvery := flag.Uint64("report-every", 1000, "emit a periodic published event every N samples")
 	valuesJSON := flag.String("values", "", "seqData values, typed JSON array")
+	tr := rudp.Register()
 	flag.Parse()
 
 	fail := func(format string, args ...any) { jl.Fatal(1, "sv-publisher: "+format, args...) }
@@ -168,17 +177,32 @@ func main() {
 	}
 	p.current.Store(&dataset{seqData: seq})
 
-	srcMAC, err := goosecli.InterfaceMAC(*iface)
+	udp, err := tr.UDP()
 	if err != nil {
-		fail("interface %s: %v", *iface, err)
+		fail("%v", err)
 	}
-	sock, err := ethernet.Open(*iface, ethernet.EtherTypeSV)
-	if err != nil {
-		fail("%v (needs CAP_NET_RAW)", err)
+	var (
+		sock   ethernet.Interface
+		srcMAC [6]byte
+		where  = *iface
+	)
+	if udp {
+		s, err := tr.OpenSender()
+		if err != nil {
+			fail("%v", err)
+		}
+		sock, where = s, s.Label()
+	} else {
+		if srcMAC, err = goosecli.InterfaceMAC(*iface); err != nil {
+			fail("interface %s: %v", *iface, err)
+		}
+		if sock, err = ethernet.Open(*iface, ethernet.EtherTypeSV); err != nil {
+			fail("%v (needs CAP_NET_RAW)", err)
+		}
 	}
 	defer func() { _ = sock.Close() }()
 
-	svcli.EmitReady("publisher", *iface, goosecli.FormatMAC(srcMAC), *svID)
+	svcli.EmitReady("publisher", where, goosecli.FormatMAC(srcMAC), *svID)
 
 	stop := make(chan struct{}, 1)
 	sig := make(chan os.Signal, 1)
