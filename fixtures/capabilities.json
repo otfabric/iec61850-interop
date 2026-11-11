@@ -341,5 +341,13 @@
     "iec61850bean": false,
     "iec61850-rust": false,
     "cbsigma": false
+  },
+  "udpTransport": {
+    "description": "Whether the stack's GOOSE and SV commands take --transport udp (contract 1.4, docs/routable.md): R-GOOSE and R-SV, the IEC TR 61850-90-5 session protocol over UDP with HMAC-SHA256-80/128/256.",
+    "libiec61850": false,
+    "dscsystems": true,
+    "iec61850bean": false,
+    "iec61850-rust": false,
+    "cbsigma": false
   }
 }

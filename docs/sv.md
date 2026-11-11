@@ -21,6 +21,8 @@ test switches peer by image and command name only.
 The rules every command shares (`--version`, `--capabilities`,
 stdout/stderr, the v1 stability promise) are in [CONTAINER_CONTRACT.md](CONTAINER_CONTRACT.md);
 this page is the Sampled Values part of that contract.
+Where the image supports it, the same commands carry R-SV over UDP with
+`--transport udp` ([routable.md](routable.md)).
 
 ## Fixture — `fixtures/sv/` (revision `sv-v1`)
 

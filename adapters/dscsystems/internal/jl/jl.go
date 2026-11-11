@@ -109,7 +109,9 @@ func HandleMetaFlags() {
 			Commands        []string `json:"commands"`
 			// The reporter's --trigger values (contract 1.3).
 			ReporterTriggers []string `json:"reporterTriggers"`
-		}{"capabilities", Version(), FixtureRevision, Commands, []string{"dchg", "gi"}})
+			// The GOOSE and SV commands' --transport values (contract 1.4).
+			Transports []string `json:"transports"`
+		}{"capabilities", Version(), FixtureRevision, Commands, []string{"dchg", "gi"}, []string{"ethernet", "udp"}})
 		os.Exit(0)
 	}
 }

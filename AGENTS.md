@@ -12,7 +12,7 @@ This repository follows **otfabric/engineering policy 1.2**, profile **interoper
 
 | Question | Source |
 |---|---|
-| Adapter contract | docs/CONTAINER_CONTRACT.md, docs/goose.md, docs/sv.md |
+| Adapter contract | docs/CONTAINER_CONTRACT.md, docs/goose.md, docs/sv.md, docs/routable.md |
 | Which command exists in which image | fixtures/capabilities.json, rendered in docs/CAPABILITIES.md |
 | Pins | versions.yaml, checked by `make validate-fixtures` |
 | Fixtures | fixtures/ |

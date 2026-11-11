@@ -17,6 +17,12 @@
 # 'update', ~2 s later {"cmd":"stop"}. The subscriber's events must show
 # both value sets in that order, the stream's header fields, and at most
 # MAX_LOSS_PCT (default 1) % loss or reordering and no duplicates.
+# TRANSPORT=udp (contract 1.4, docs/routable.md) runs both over R-SV: the
+# publisher sends SPDUs signed with HMAC-SHA256-128 under key 1 to the
+# subscriber's container on UDP port 102, after a rogue publisher with the
+# same key ID and other key material whose SPDUs the subscriber must all
+# refuse (reject events, reason authentication). The Ethernet addresses
+# are then not checked.
 #
 # Exit code: 0 pass, 1 fail.
 
@@ -30,9 +36,18 @@ SUB="sv-xc-sub-$$"
 PUB="sv-xc-pub-$$"
 OUT="$(mktemp -d)"
 FLAGS="${FLAGS:-plain}"
+TRANSPORT="${TRANSPORT:-ethernet}"
+RKEY=000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
+ROGUE_KEY=ff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
+SUB_UDP=(); PUB_UDP=(); ROGUE_UDP=()
+if [ "$TRANSPORT" = udp ]; then
+    SUB_UDP=(--transport udp --listen :102 --key-id 1 --key "$RKEY")
+    PUB_UDP=(--transport udp --remote "$SUB:102" --key-id 1 --key "$RKEY")
+    ROGUE_UDP=(--transport udp --remote "$SUB:102" --key-id 1 --key "$ROGUE_KEY")
+fi
 
 cleanup() {
-    docker rm -f "$SUB" "$PUB" "$SUB-keeper" >/dev/null 2>&1 || true
+    docker rm -f "$SUB" "$PUB" "$PUB-rogue" "$SUB-keeper" >/dev/null 2>&1 || true
     docker network rm "$NET" >/dev/null 2>&1 || true
     rm -rf "$OUT"
 }
@@ -73,7 +88,7 @@ fi
 docker run -d --name "$SUB" "${SUB_NET[@]}" --cap-add NET_RAW \
     --entrypoint "$SUB_CMD" "$SUB_IMAGE" \
     --iface "$SUB_IFACE" --app-id "$(field appID)" --sv-id "$(field svID)" --dst "$(field dst)" \
-    --sample-every "$SAMPLE_EVERY" >/dev/null
+    --sample-every "$SAMPLE_EVERY" "${SUB_UDP[@]+"${SUB_UDP[@]}"}" >/dev/null
 
 deadline=$((SECONDS + 30))
 until docker logs "$SUB" 2>/dev/null | grep -q '"event":"ready"'; do
@@ -83,17 +98,32 @@ done
 
 update="$(python3 -c "import json;print(json.dumps({'cmd':'set','values':json.load(open('$FIXTURE'))['streams']['$STREAM']['update']}))")"
 
+# publish NAME OUT ARGS...: run the publisher of the stream, events to
+# OUT.jsonl.
+publish() {
+    local name="$1" out="$2"; shift 2
+    docker run -i --name "$name" --network "$NET" --cap-add NET_RAW \
+        --entrypoint "$PUB_CMD" "$PUB_IMAGE" \
+        --iface eth0 --app-id "$(field appID)" --dst "$(field dst)" \
+        --vlan-id "$(field vlanId)" --vlan-prio "$(field vlanPrio)" \
+        --sv-id "$(field svID)" --dataset "$(field datSet)" --conf-rev "$(field confRev)" \
+        --smp-rate "$(field smpRate)" --smp-mod "$(field smpMod)" --no-asdu "$(field noASDU)" \
+        --smp-synch "$SMP_SYNCH" --profile "$(field profile)" \
+        "${PUB_FLAGS[@]+"${PUB_FLAGS[@]}"}" \
+        --values "$(field values)" "$@" > "$out.jsonl" 2> "$out.err"
+}
+
+# R-SV: a rogue publisher (same key ID, other key) for ~0.3 s first.
+if [ "$TRANSPORT" = udp ]; then
+    { wait_ready "$OUT/rogue.jsonl"; sleep 0.3; echo '{"cmd":"stop"}'; } | \
+        publish "$PUB-rogue" "$OUT/rogue" "${ROGUE_UDP[@]}" || {
+            echo "FAIL rogue publisher exited non-zero"; cat "$OUT/rogue.err"; exit 1; }
+    sleep 0.5
+fi
+
 # The clock starts at the publisher's ready event, not at docker run.
 { wait_ready "$OUT/pub.jsonl"; sleep 2; echo "$update"; sleep 2; echo '{"cmd":"stop"}'; } | \
-docker run -i --name "$PUB" --network "$NET" --cap-add NET_RAW \
-    --entrypoint "$PUB_CMD" "$PUB_IMAGE" \
-    --iface eth0 --app-id "$(field appID)" --dst "$(field dst)" \
-    --vlan-id "$(field vlanId)" --vlan-prio "$(field vlanPrio)" \
-    --sv-id "$(field svID)" --dataset "$(field datSet)" --conf-rev "$(field confRev)" \
-    --smp-rate "$(field smpRate)" --smp-mod "$(field smpMod)" --no-asdu "$(field noASDU)" \
-    --smp-synch "$SMP_SYNCH" --profile "$(field profile)" \
-    "${PUB_FLAGS[@]+"${PUB_FLAGS[@]}"}" \
-    --values "$(field values)" > "$OUT/pub.jsonl" 2> "$OUT/pub.err" || {
+    publish "$PUB" "$OUT/pub" "${PUB_UDP[@]+"${PUB_UDP[@]}"}" || {
         echo "FAIL publisher exited non-zero"; cat "$OUT/pub.err"; exit 1; }
 
 # Let the subscriber drain and emit a stats line covering the last frame.
@@ -101,14 +131,15 @@ sleep 2.5
 docker logs "$SUB" > "$OUT/sub.jsonl" 2> "$OUT/sub.err"
 [ -n "${KEEP:-}" ] && cp "$OUT"/* "$KEEP"/
 
-python3 - "$FIXTURE" "$STREAM" "$OUT/pub.jsonl" "$OUT/sub.jsonl" "$PUB_CMD" "$SUB_CMD" "$FLAGS" "$SMP_SYNCH" "$SAMPLE_EVERY" <<'PY'
+python3 - "$FIXTURE" "$STREAM" "$OUT/pub.jsonl" "$OUT/sub.jsonl" "$PUB_CMD" "$SUB_CMD" "$FLAGS" "$SMP_SYNCH" "$SAMPLE_EVERY" "$TRANSPORT" <<'PY'
 import json, os, sys
-fixture, name, pub_path, sub_path, pub_cmd, sub_cmd, flags, smp_synch, every = sys.argv[1:]
+fixture, name, pub_path, sub_path, pub_cmd, sub_cmd, flags, smp_synch, every, transport = sys.argv[1:]
+udp = transport == "udp"
 s = json.load(open(fixture))["streams"][name]
 sim = flags == "all"
 every = int(every)
 max_loss = float(os.environ.get("MAX_LOSS_PCT", "1"))
-label = f"{pub_cmd} -> {sub_cmd} ({name}, flags {flags}{', host side' if os.environ.get('HOST_SIDE') == '1' else ''})"
+label = f"{pub_cmd} -> {sub_cmd} ({name}, flags {flags}{', host side' if os.environ.get('HOST_SIDE') == '1' else ''}{', R-SV HMAC-SHA256-128' if udp else ''})"
 fails = []
 
 def lines(p):
@@ -155,6 +186,8 @@ expect = {
     "smpRate": s["smpRate"] if opt["smpRate"] else None,
     "smpMod": s["smpMod"] if opt["smpMod"] else None,
 }
+if udp:
+    del expect["dst"]  # an SPDU has no Ethernet addresses
 phase = 0  # 0 = values, 1 = update
 counts = [0, 0]
 for e in svs:
@@ -182,7 +215,13 @@ for i, n in enumerate(counts):
     if n < 5:
         fails.append(f"subscriber: {n} sv events with {'update' if i else 'values'}, expected >= 5")
 pub_src = next((e.get("src") for e in pub if e.get("event") == "ready"), None)
-if svs and pub_src and svs[0].get("src") != pub_src:
+if udp:
+    rejects = ev(sub, "reject")
+    if not rejects:
+        fails.append("subscriber: no reject event for the rogue publisher's SPDUs")
+    if any(e.get("reason") != "authentication" for e in rejects):
+        fails.append(f"subscriber: reject reasons {sorted({e.get('reason') for e in rejects})}, want authentication")
+elif svs and pub_src and svs[0].get("src") != pub_src:
     fails.append(f"subscriber: src {svs[0].get('src')} != publisher MAC {pub_src}")
 
 stats = ev(sub, "stats")
