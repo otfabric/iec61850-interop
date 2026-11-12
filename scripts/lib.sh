@@ -114,16 +114,29 @@ run_client_pair() {
     done
     # A failed association right after the server's ready event is retried
     # (up to three tries): on a busy runner the new container's name or port
-    # can lag the event by a moment. Any other outcome, and a third failed
-    # association, is the result.
+    # can lag the event by a moment. So is a client run that Docker itself
+    # could not start (exit 125). Any other outcome, and a third try, is the
+    # result. A client that writes nothing has its exit code, its stderr and
+    # the server's last lines logged, so the failure can be diagnosed.
+    local errf code
+    errf=$(mktemp)
     for try in 1 2 3; do
+        code=0
         # shellcheck disable=SC2086
         output=$(docker run --rm --network "$net" --entrypoint "${cmd_client}" "${image_client}" \
-            --host "${name}" --port 1102 ${SMOKE_CLIENT_ARGS:-} 2>/dev/null || true)
-        echo "$output" | grep -q '"operation":"associate","ok":false' || break
-        echo "${cmd_client} -> ${cmd_server}: association failed (try ${try}): $(echo "$output" | head -1)" >&2
+            --host "${name}" --port 1102 ${SMOKE_CLIENT_ARGS:-} 2>"$errf") || code=$?
+        if [ -z "$output" ]; then
+            echo "${cmd_client} -> ${cmd_server}: no output (try ${try}, exit ${code}); stderr: $(head -c 600 "$errf" | tr '\n' ' ')" >&2
+            echo "${cmd_client} -> ${cmd_server}: server log: $(docker logs --tail 5 "$sid" 2>&1 | tr '\n' ' ' | head -c 600)" >&2
+            [ "$code" = 125 ] || break
+        elif ! echo "$output" | grep -q '"operation":"associate","ok":false'; then
+            break
+        else
+            echo "${cmd_client} -> ${cmd_server}: association failed (try ${try}): $(echo "$output" | head -1)" >&2
+        fi
         sleep 1
     done
+    rm -f "$errf"
     docker stop "$sid" >/dev/null 2>&1
     docker rm "$sid" >/dev/null 2>&1
     docker network rm "$net" >/dev/null 2>&1

@@ -33,6 +33,10 @@ Tags are immutable. A fix is a new version.
 
 - `iec61850-interop-libiec61850` resolves `--remote` once at start-up and gives libiec61850's `RSession` the IPv4 address. libiec61850's `UdpSocket_sendTo` runs `getaddrinfo` on the address for every SPDU, so with a container name the R-SV publisher made one DNS query per sample. On the arm64 runner that held it at 12,163 and 13,054 of the expected 16,000 samples in 4 s, against an 80 % floor (`sv.msvcb01.udp`, libiec61850 → dscsystems). The subscriber received every sample; only the publisher's rate was short. The contract and the checks are unchanged.
 
+### Changed
+
+- `scripts/lib.sh` `run_client_pair`: a client that writes nothing has its exit code, its stderr and the server's last log lines written to the log. A client run that Docker itself cannot start (exit 125) is retried like a failed association. A main CI run of this release's fix failed once with `libiec61850-ied-reporter -> iec61850-rust-ied-server: no JSON Lines output`, 0.7 s after the previous check finished, with stderr discarded; it did not reproduce in 40 local runs. The next occurrence shows its cause.
+
 ---
 
 ## v1.6.0
