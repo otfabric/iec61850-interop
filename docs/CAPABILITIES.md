@@ -12,7 +12,7 @@ Adapter version: `1.2.0` · Fixture revisions: `mms-v2`, `iec61850-v3`, `goose-v
 
 | Stack | Image | MMS server | MMS client | IED server | IED client | IED controller | IED reporter | GOOSE publisher | GOOSE subscriber | SV publisher | SV subscriber | SVCB over MMS | R-GOOSE/R-SV (UDP) |
 |-------|-------|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| libiec61850 | `iec61850-interop-libiec61850` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| libiec61850 | `iec61850-interop-libiec61850` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | iec61850bean | `iec61850-interop-iec61850bean` | — | — | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | — |
 | dscsystems | `iec61850-interop-dscsystems` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | iec61850-rust | `iec61850-interop-iec61850-rust` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | — |
@@ -105,6 +105,11 @@ SVCB over MMS: the IED server exposes `LLN0$MS$MSVCB02` of the IED fixture as MM
 | `iec61850-rust` | v0.2.0-0-gd4e8952 | * → iec61850-rust-ied-server | DatSet of a report control block | — |
 | `iec61850-rust` | v0.2.0-0-gd4e8952 | * → iec61850-rust-ied-server | GetBRCBValues (Read of the whole buffered report control block) | — |
 | `iec61850bean` | 1.9.0 | cbsigma-client → iec61850bean-ied-server | Report data references (OptFlds data-reference) | — |
+| `libiec61850` | 1.6.2.1-89-g6e265c54 | libiec61850-goose-publisher / libiec61850-sv-publisher → libiec61850-goose-subscriber / libiec61850-sv-subscriber (--transport udp) | R-GOOSE and R-SV between two libiec61850 RSessions | `scripts/interop.sh (udp_known), scripts/goose-crosscheck.sh and scripts/sv-crosscheck.sh with TRANSPORT=udp` |
+| `libiec61850` | 1.6.2.1-89-g6e265c54 | libiec61850-goose-publisher / libiec61850-sv-publisher (--transport udp) | Session protocol version 1 sent (--session-version 1) | `go-iec61850 interop TestRGOOSE_GoSubscriber, TestRSV_GoSubscriber (v1-*)` |
+| `libiec61850` | 1.6.2.1-89-g6e265c54 | libiec61850 publishers and subscribers (--transport udp) | HMAC-SHA256-80 | `go-iec61850 interop TestRGOOSE_*, TestRSV_* (*-hmac-sha256-80)` |
+| `libiec61850` | 1.6.2.1-89-g6e265c54 | libiec61850-goose-publisher / libiec61850-sv-publisher (--transport udp) | HMAC-SHA256-256 sent | `go-iec61850 interop TestRGOOSE_GoSubscriber, TestRSV_GoSubscriber (v2-hmac-sha256-256)` |
+| `libiec61850` | 1.6.2.1-89-g6e265c54 | → libiec61850-goose-subscriber / libiec61850-sv-subscriber (--transport udp) | Replay protection, unsecured SPDUs | `go-iec61850 interop TestRGOOSE_GoPublisher` |
 
 ## Notes
 

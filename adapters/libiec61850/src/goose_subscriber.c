@@ -20,6 +20,13 @@
  * {"event":"supervision","gocbRef":REF,"state":"timeout"}, and the next
  * frame of that gocbRef emits "state":"ok" before its goose event.
  *
+ * --transport udp (contract 1.4, docs/routable.md) receives R-GOOSE on an
+ * RSession (rudp.c): libiec61850 verifies and decodes each SPDU, and each
+ * GOOSE payload it accepts goes through the same GooseReceiver as a frame
+ * with zero MACs; the goose event carries "from", the sender's ADDR:PORT.
+ * Each SPDU libiec61850 refuses is a reject event. --iface, --dst are not
+ * used.
+ *
  * Exit codes: 0 on SIGTERM/SIGINT, 1 argument or socket error.
  */
 
@@ -36,6 +43,7 @@
 
 #include "goose_common.h"
 #include "jsonlines.h"
+#include "rudp.h"
 
 #define MAX_STREAMS 64
 #define FRAME_MAX   2048
@@ -56,6 +64,12 @@ static const char* g_gocb_filter;
 /* Ethernet header of the frame being decoded. */
 static uint8_t g_dst[6], g_src[6];
 static bool    g_simulation;
+static const char* g_from;      /* udp: the sender of the SPDU */
+
+static GooseReceiver g_receiver;
+static uint16_t g_app_id;
+static bool     g_have_app_id, g_have_dst;
+static uint8_t  g_dst_filter[6];
 
 static void emit_supervision(const char* ref, const char* state)
 {
@@ -125,6 +139,8 @@ static void listener(GooseSubscriber sub, void* param)
     json_object_object_add(o, "test", json_object_new_boolean(GooseSubscriber_isTest(sub)));
     json_object_object_add(o, "simulation", json_object_new_boolean(g_simulation));
     json_object_object_add(o, "ndsCom", json_object_new_boolean(GooseSubscriber_needsCommission(sub)));
+    if (g_from)
+        json_object_object_add(o, "from", json_object_new_string(g_from));
 
     MmsValue* values = GooseSubscriber_getDataSetValues(sub);
     int n = values ? MmsValue_getArraySize(values) : 0;
@@ -142,6 +158,31 @@ static void listener(GooseSubscriber sub, void* param)
     goose_emit(o);
 }
 
+/* One Ethernet frame (from the raw socket, or rebuilt from an SPDU). */
+static void handle_frame(uint8_t* frame, int n)
+{
+    int off = 12;
+    if (n < 14) return;
+    if (frame[12] == 0x81 && frame[13] == 0x00) off += 4;
+    if (n < off + 10 || frame[off] != 0x88 || frame[off + 1] != 0xb8) return;
+    int apdu = off + 2;
+    uint16_t frame_app_id = (uint16_t)(frame[apdu] << 8 | frame[apdu + 1]);
+    if (g_have_app_id && frame_app_id != g_app_id) return;
+    if (g_have_dst && !g_from && memcmp(frame, g_dst_filter, 6) != 0) return;
+    memcpy(g_dst, frame, 6);
+    memcpy(g_src, frame + 6, 6);
+    g_simulation = (frame[apdu + GOOSE_SIM_OCTET] & GOOSE_SIM_MASK) != 0;
+    GooseReceiver_handleMessage(g_receiver, frame, n);
+}
+
+static void handle_udp_frame(void* ctx, uint8_t* frame, int len, const char* from)
+{
+    (void) ctx;
+    g_from = from;
+    handle_frame(frame, len);
+    g_from = NULL;
+}
+
 static const char* arg(int argc, char** argv, int* i)
 {
     if (*i + 1 >= argc) jl_fatal(1, "goose-subscriber: %s needs a value", argv[*i]);
@@ -153,29 +194,55 @@ int main(int argc, char** argv)
     jl_handle_meta_flags(argc, argv, "libiec61850");
 
     const char* iface = "eth0";
-    uint16_t app_id = 0;
-    bool have_app_id = false, have_dst = false;
-    uint8_t dst[6];
+    RudpArgs ra;
+    rudp_defaults(&ra);
 
     for (int i = 1; i < argc; i++) {
         const char* a = argv[i];
-        if (!strcmp(a, "--iface")) {
+        if (rudp_arg(&ra, argc, argv, &i, "goose-subscriber")) {
+            continue;
+        } else if (!strcmp(a, "--iface")) {
             iface = arg(argc, argv, &i);
         } else if (!strcmp(a, "--app-id")) {
             const char* v = arg(argc, argv, &i);
-            if (!goose_parse_appid(v, &app_id))
+            if (!goose_parse_appid(v, &g_app_id))
                 jl_fatal(1, "goose-subscriber: --app-id %s is not a 16-bit number", v);
-            have_app_id = true;
+            g_have_app_id = true;
         } else if (!strcmp(a, "--gocb-ref")) {
             g_gocb_filter = arg(argc, argv, &i);
         } else if (!strcmp(a, "--dst")) {
             const char* v = arg(argc, argv, &i);
-            if (!goose_parse_mac(v, dst))
+            if (!goose_parse_mac(v, g_dst_filter))
                 jl_fatal(1, "goose-subscriber: --dst %s is not a MAC address", v);
-            have_dst = true;
+            g_have_dst = true;
         } else {
             jl_fatal(1, "goose-subscriber: unknown argument %s", a);
         }
+    }
+
+    g_receiver = GooseReceiver_createEx(NULL);
+    GooseSubscriber sub = GooseSubscriber_create("", NULL);
+    GooseSubscriber_setObserver(sub);
+    GooseSubscriber_setListener(sub, listener, NULL);
+    GooseReceiver_addSubscriber(g_receiver, sub);
+
+    signal(SIGTERM, sig_handler);
+    signal(SIGINT, sig_handler);
+    signal(SIGPIPE, SIG_IGN);
+
+    if (rudp_is_udp(&ra, "goose-subscriber")) {
+        char label[300];
+        RSession session = rudp_open_receiver(&ra, "goose-subscriber", label, sizeof(label));
+        uint8_t zero[6] = {0};
+        goose_emit_ready("subscriber", label, zero, g_gocb_filter);
+        while (g_running) {
+            check_supervision();
+            if (!rudp_poll(session, 10, handle_udp_frame, NULL))
+                jl_fatal(1, "goose-subscriber: receive failed");
+        }
+        RSession_destroy(session);
+        GooseReceiver_destroy(g_receiver);
+        return 0;
     }
 
     EthernetSocket sock = Ethernet_createSocket(iface, NULL);
@@ -190,16 +257,6 @@ int main(int argc, char** argv)
     while (Ethernet_receivePacket(sock, frame, sizeof(frame)) > 0)
         ;
 
-    GooseReceiver receiver = GooseReceiver_createEx(NULL);
-    GooseSubscriber sub = GooseSubscriber_create("", NULL);
-    GooseSubscriber_setObserver(sub);
-    GooseSubscriber_setListener(sub, listener, NULL);
-    GooseReceiver_addSubscriber(receiver, sub);
-
-    signal(SIGTERM, sig_handler);
-    signal(SIGINT, sig_handler);
-    signal(SIGPIPE, SIG_IGN);
-
     uint8_t own[6];
     Ethernet_getInterfaceMACAddress(iface, own);
     goose_emit_ready("subscriber", iface, own, g_gocb_filter);
@@ -212,24 +269,12 @@ int main(int argc, char** argv)
         if (EthernetHandleSet_waitReady(handles, 10) <= 0)
             continue;
         int n;
-        while ((n = Ethernet_receivePacket(sock, frame, sizeof(frame))) > 0) {
-            int off = 12;
-            if (n < 14) continue;
-            if (frame[12] == 0x81 && frame[13] == 0x00) off += 4;
-            if (n < off + 10 || frame[off] != 0x88 || frame[off + 1] != 0xb8) continue;
-            int apdu = off + 2;
-            uint16_t frame_app_id = (uint16_t)(frame[apdu] << 8 | frame[apdu + 1]);
-            if (have_app_id && frame_app_id != app_id) continue;
-            if (have_dst && memcmp(frame, dst, 6) != 0) continue;
-            memcpy(g_dst, frame, 6);
-            memcpy(g_src, frame + 6, 6);
-            g_simulation = (frame[apdu + GOOSE_SIM_OCTET] & GOOSE_SIM_MASK) != 0;
-            GooseReceiver_handleMessage(receiver, frame, n);
-        }
+        while ((n = Ethernet_receivePacket(sock, frame, sizeof(frame))) > 0)
+            handle_frame(frame, n);
     }
 
     EthernetHandleSet_destroy(handles);
-    GooseReceiver_destroy(receiver);
+    GooseReceiver_destroy(g_receiver);
     Ethernet_destroySocket(sock);
     return 0;
 }

@@ -10,6 +10,7 @@ the UDP transport changes.
 
 | Image | `--transport udp` |
 |---|---|
+| `iec61850-interop-libiec61850` | yes, through [libiec61850](https://github.com/mz-automation/libiec61850)'s `RSession`, with the limits below |
 | `iec61850-interop-dscsystems` | yes, through [dscsystems/go-iec61850](https://github.com/dscsystems/go-iec61850) `rsession` |
 | the others | no |
 
@@ -73,6 +74,36 @@ tag.
 ID and other key material, whose SPDUs the subscriber must all refuse with
 `reason` `authentication`. `scripts/interop.sh` runs them between every
 pair of adapters with the udp transport.
+
+## libiec61850
+
+The image builds libiec61850 (pinned revision) with Mbed TLS v3.6.0 in
+`third_party/mbedtls`, which turns on `CONFIG_IEC61850_R_GOOSE` and
+`CONFIG_IEC61850_R_SMV`. The publishers use `GoosePublisher_createRemote`
+and `SVPublisher_createRemote` on an `RSession`; the subscribers hand each
+received datagram to `RSession_receiveMessage` and each payload it accepts
+to the same `GooseReceiver` and `SVReceiver` as an Ethernet frame. The
+adapter peeks at each datagram first, for what `RSession` does not
+report: the sender (`from`), the simulation octet of each payload, and the
+`reason` of a refusal. libiec61850 returns one error for every refusal, so
+the reason is the adapter's reading of the refused SPDU (no key:
+`unsecured`; another key ID: `unknown-key`; otherwise `authentication`,
+or `malformed` when the header or payload lengths run past the datagram).
+libiec61850 decides what is accepted.
+
+What libiec61850 does, at the pinned revision (`fixtures/capabilities.json`
+`knownLimitations`):
+
+| | |
+|---|---|
+| `--session-version 1` on a publisher | unsupported (exit 4): `RSession` sends version 2 only, no function sets the version. Subscribers accept both versions |
+| `--mac hmac-sha256-80` | the encoder sends no signature, the decoder refuses every SPDU |
+| `--mac hmac-sha256-256` on a publisher | the signature length octet is 16 before a 32-octet MAC; a receiver that checks it refuses the SPDU |
+| APDU length | written two octets too long; libiec61850 refuses the SPDUs of its own publisher as `malformed`, so libiec61850 → libiec61850 is a known failure in `scripts/interop.sh` |
+| replay | no replay window: a replayed SPDU is accepted, no `reject` of reason `replay` |
+| `--allow-unsecured` | no effect on version 2: an SPDU without a key is always refused |
+| `--simulation` on the GOOSE publisher | only together with `--test`: libiec61850 writes goosePdu field [7] into the simulation octet of the payload |
+| `--simulation` on the SV publisher | sets the simulation flag of `struct sSVPublisher`, which has no API |
 
 ## What this is not
 

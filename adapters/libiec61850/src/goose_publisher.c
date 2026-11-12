@@ -31,7 +31,14 @@
  * then bound to "lo", each frame is taken with GoosePublisher_publishAndDump,
  * gets the bit and the source MAC of IF, and is sent on IF by the adapter.
  *
- * Exit codes: 0 stop/signal, 1 argument or socket error.
+ * --transport udp (contract 1.4, docs/routable.md) publishes R-GOOSE with
+ * GoosePublisher_createRemote on an RSession to --remote (rudp.c): the
+ * same schedule and events; --iface, --dst and the VLAN flags are not
+ * used. libiec61850 copies goosePdu field [7] (--test) into the simulation
+ * octet of the session payload and has no other control of it: there
+ * --simulation is supported together with --test only.
+ *
+ * Exit codes: 0 stop/signal, 1 argument or socket error, 4 unsupported.
  */
 
 #include <errno.h>
@@ -48,6 +55,7 @@
 
 #include "goose_common.h"
 #include "jsonlines.h"
+#include "rudp.h"
 
 #define MAX_STEPS 17
 #define FRAME_MAX 1600
@@ -187,9 +195,12 @@ int main(int argc, char** argv)
                *values_json = NULL, *app_id_s = "0x0000", *dst_s = "01:0c:cd:01:00:00";
     long vlan_id = 0, vlan_prio = 4, conf_rev = 1, min_time = 10, max_time = 1000;
     bool test = false, simulation = false, nds_com = false;
+    RudpArgs ra;
+    rudp_defaults(&ra);
 
     for (int i = 1; i < argc; i++) {
         const char* a = argv[i];
+        if (rudp_arg(&ra, argc, argv, &i, "goose-publisher")) continue;
         if      (!strcmp(a, "--iface"))      iface = arg(argc, argv, &i);
         else if (!strcmp(a, "--gocb-ref"))   gocb_ref = arg(argc, argv, &i);
         else if (!strcmp(a, "--go-id"))      go_id = arg(argc, argv, &i);
@@ -232,15 +243,28 @@ int main(int argc, char** argv)
     if (!goose_parse_mac(dst_s, params.dstAddress))
         jl_fatal(1, "goose-publisher: --dst %s is not a MAC address", dst_s);
 
-    Ethernet_getInterfaceMACAddress(iface, p.src);
-    p.vlan = true;
-    if (simulation) {
-        p.raw = Ethernet_createSocket(iface, params.dstAddress);
-        if (!p.raw) jl_fatal(1, "goose-publisher: raw socket on %s failed (needs CAP_NET_RAW)", iface);
+    bool udp = rudp_is_udp(&ra, "goose-publisher");
+    RSession session = NULL;
+    char label[300];
+    if (udp) {
+        if (simulation != test)
+            rudp_unsupported("goose-publisher", "--transport udp: libiec61850 sets the payload "
+                             "simulation octet from goosePdu field [7]; --simulation and --test go together");
+        session = rudp_open_sender(&ra, "goose-publisher", label, sizeof(label));
+        p.pub = GoosePublisher_createRemote(session, params.appId);
+        if (!p.pub) jl_fatal(1, "goose-publisher: GoosePublisher_createRemote failed");
+        iface = label;
+    } else {
+        Ethernet_getInterfaceMACAddress(iface, p.src);
+        p.vlan = true;
+        if (simulation) {
+            p.raw = Ethernet_createSocket(iface, params.dstAddress);
+            if (!p.raw) jl_fatal(1, "goose-publisher: raw socket on %s failed (needs CAP_NET_RAW)", iface);
+        }
+        /* Always 802.1Q-tagged, the libiec61850 default (GoosePublisher_create). */
+        p.pub = GoosePublisher_createEx(&params, simulation ? "lo" : iface, true);
+        if (!p.pub) jl_fatal(1, "goose-publisher: GoosePublisher on %s failed (needs CAP_NET_RAW)", iface);
     }
-    /* Always 802.1Q-tagged, the libiec61850 default (GoosePublisher_create). */
-    p.pub = GoosePublisher_createEx(&params, simulation ? "lo" : iface, true);
-    if (!p.pub) jl_fatal(1, "goose-publisher: GoosePublisher on %s failed (needs CAP_NET_RAW)", iface);
 
     GoosePublisher_setGoCbRef(p.pub, (char*) gocb_ref);
     GoosePublisher_setGoID(p.pub, (char*) (go_id ? go_id : gocb_ref));
@@ -303,6 +327,7 @@ int main(int argc, char** argv)
     }
 
     GoosePublisher_destroy(p.pub);
+    if (session) RSession_destroy(session);
     if (p.raw) Ethernet_destroySocket(p.raw);
     LinkedList_destroyDeep(p.values, (LinkedListValueDeleteFunction) MmsValue_delete);
     return 0;

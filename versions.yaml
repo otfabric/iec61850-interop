@@ -4,7 +4,7 @@
 # Upstreams are pinned by commit or exact version; no source archive hash is
 # recorded. Which command exists in which image: fixtures/capabilities.json.
 
-interop_version: "1.5.0"
+interop_version: "1.6.0"
 contract_version: "1.4"        # docs/CONTAINER_CONTRACT.md, semver from v1.0.0
 
 protocol:
@@ -16,6 +16,11 @@ implementations:
     repository: "https://github.com/mz-automation/libiec61850"
     revision: "6e265c54af66ea686453b6d31c4dcce1cf7ad2bd"
     license: "GPL-3.0-only (or commercial)"
+    # Built into libhal for R-GOOSE/R-SV (HMAC), the version libiec61850's
+    # README names; also gives the library TLS, which no adapter configures.
+    mbedtls_version: "v3.6.0"
+    mbedtls_revision: "2ca6c285a0dd3f33982dd57299012dacab1ff206"
+    mbedtls_license: "Apache-2.0 OR GPL-2.0-or-later"
     roles: [mms, ied, goose, sv]
     published: true
     pinned_in:

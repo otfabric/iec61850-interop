@@ -29,7 +29,7 @@ for block in re.split(r"^  (?=[a-z0-9-]+:\n)", section, flags=re.M)[1:]:
     if not files:
         errors.append(f"{name}: no pinned_in files")
     sources = "".join((root / f).read_text() for f in files)
-    for key in ("version", "revision", "sim_version", "sim_revision"):
+    for key in ("version", "revision", "sim_version", "sim_revision", "mbedtls_version", "mbedtls_revision"):
         for value in re.findall(rf'^    {key}: "([^"]+)"', block, re.M):
             if value not in sources:
                 errors.append(f"{name}: {key} {value} is not in {files}")

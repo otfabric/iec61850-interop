@@ -20,6 +20,12 @@
  * libiec61850 drops an ASDU whose smpMod is not one octet long (its own
  * publisher writes two): such ASDUs are never reported or counted.
  *
+ * --transport udp (contract 1.4, docs/routable.md) receives R-SV on an
+ * RSession (rudp.c): libiec61850 verifies and decodes each SPDU, and each
+ * SV payload it accepts goes through the same SVReceiver as a frame with
+ * zero MACs. Each SPDU libiec61850 refuses is a reject event. --iface and
+ * --dst are not used.
+ *
  * Exit codes: 0 on signal, 1 argument or socket error.
  */
 
@@ -35,6 +41,7 @@
 
 #include "sv_common.h"
 #include "jsonlines.h"
+#include "rudp.h"
 
 #define MAX_STREAMS  64
 #define MAX_FIXTURES 16
@@ -75,6 +82,13 @@ static uint8_t  g_dst[6], g_src[6];
 static uint16_t g_app_id;
 static bool     g_simulation;
 static int      g_no_asdu, g_asdu_index;
+
+static SVReceiver g_receiver;
+static uint16_t   g_app_filter;
+static bool       g_have_app_id, g_have_dst, g_udp;
+static uint8_t    g_dst_filter[6];
+static uint16_t   g_known[MAX_STREAMS];
+static int        g_known_count;
 
 static void load_fixture(const char* path)
 {
@@ -284,6 +298,43 @@ static int read_no_asdu(const uint8_t* apdu, int len)
     return v;
 }
 
+/* One Ethernet frame (from the raw socket, or rebuilt from an SPDU). */
+static void handle_frame(uint8_t* frame, int n)
+{
+    int off = 12;
+    if (n < 14) return;
+    if (frame[12] == 0x81 && frame[13] == 0x00) off += 4;
+    if (n < off + 10 || frame[off] != 0x88 || frame[off + 1] != 0xba) return;
+    int hdr = off + 2;
+    uint16_t frame_app_id = (uint16_t) (frame[hdr] << 8 | frame[hdr + 1]);
+    if (g_have_app_id && frame_app_id != g_app_filter) return;
+    if (g_have_dst && !g_udp && memcmp(frame, g_dst_filter, 6) != 0) return;
+
+    bool registered = false;
+    for (int i = 0; i < g_known_count && !registered; i++) registered = g_known[i] == frame_app_id;
+    if (!registered && g_known_count < MAX_STREAMS) {
+        SVSubscriber sub = SVSubscriber_create(NULL, frame_app_id);
+        SVSubscriber_setListener(sub, listener, NULL);
+        SVReceiver_addSubscriber(g_receiver, sub);
+        g_known[g_known_count++] = frame_app_id;
+    }
+
+    memcpy(g_dst, frame, 6);
+    memcpy(g_src, frame + 6, 6);
+    g_app_id = frame_app_id;
+    g_simulation = (frame[hdr + SV_SIM_OCTET] & SV_SIM_MASK) != 0;
+    g_no_asdu = read_no_asdu(frame + hdr + 8, n - hdr - 8);
+    g_asdu_index = 0;
+    SVReceiver_handleL2Message(g_receiver, frame, n);
+}
+
+static void handle_udp_frame(void* ctx, uint8_t* frame, int len, const char* from)
+{
+    (void) ctx;
+    (void) from;
+    handle_frame(frame, len);
+}
+
 static const char* arg(int argc, char** argv, int* i)
 {
     if (*i + 1 >= argc) jl_fatal(1, "sv-subscriber: %s needs a value", argv[*i]);
@@ -295,26 +346,27 @@ int main(int argc, char** argv)
     jl_handle_meta_flags(argc, argv, "libiec61850");
 
     const char *iface = "eth0", *fixture = SV_FIXTURE_PATH;
-    uint16_t app_id = 0;
-    bool have_app_id = false, have_dst = false;
-    uint8_t dst[6];
+    RudpArgs ra;
+    rudp_defaults(&ra);
 
     for (int i = 1; i < argc; i++) {
         const char* a = argv[i];
-        if (!strcmp(a, "--iface")) {
+        if (rudp_arg(&ra, argc, argv, &i, "sv-subscriber")) {
+            continue;
+        } else if (!strcmp(a, "--iface")) {
             iface = arg(argc, argv, &i);
         } else if (!strcmp(a, "--app-id")) {
             const char* v = arg(argc, argv, &i);
-            if (!goose_parse_appid(v, &app_id))
+            if (!goose_parse_appid(v, &g_app_filter))
                 jl_fatal(1, "sv-subscriber: --app-id %s is not a 16-bit number", v);
-            have_app_id = true;
+            g_have_app_id = true;
         } else if (!strcmp(a, "--sv-id")) {
             g_sv_filter = arg(argc, argv, &i);
         } else if (!strcmp(a, "--dst")) {
             const char* v = arg(argc, argv, &i);
-            if (!goose_parse_mac(v, dst))
+            if (!goose_parse_mac(v, g_dst_filter))
                 jl_fatal(1, "sv-subscriber: --dst %s is not a MAC address", v);
-            have_dst = true;
+            g_have_dst = true;
         } else if (!strcmp(a, "--sample-every")) {
             g_every = strtol(arg(argc, argv, &i), NULL, 0);
             if (g_every < 1) jl_fatal(1, "sv-subscriber: --sample-every must be >= 1");
@@ -325,6 +377,33 @@ int main(int argc, char** argv)
         }
     }
     load_fixture(fixture);
+
+    /* SVSubscriber matches one APPID: one per APPID seen, created on demand. */
+    g_receiver = SVReceiver_create();
+    SVReceiver_disableDestAddrCheck(g_receiver);
+
+    signal(SIGTERM, sig_handler);
+    signal(SIGINT, sig_handler);
+    signal(SIGPIPE, SIG_IGN);
+
+    if ((g_udp = rudp_is_udp(&ra, "sv-subscriber"))) {
+        char label[300];
+        RSession session = rudp_open_receiver(&ra, "sv-subscriber", label, sizeof(label));
+        uint8_t zero[6] = {0};
+        sv_emit_ready("subscriber", label, zero, g_sv_filter);
+        uint64_t next = Hal_getMonotonicTimeInMs() + 1000;
+        while (g_running) {
+            if (Hal_getMonotonicTimeInMs() >= next) {
+                emit_stats();
+                next += 1000;
+            }
+            if (!rudp_poll(session, 10, handle_udp_frame, NULL))
+                jl_fatal(1, "sv-subscriber: receive failed");
+        }
+        RSession_destroy(session);
+        SVReceiver_destroy(g_receiver);
+        return 0;
+    }
 
     EthernetSocket sock = Ethernet_createSocket(iface, NULL);
     if (!sock) jl_fatal(1, "sv-subscriber: raw socket on %s failed (needs CAP_NET_RAW)", iface);
@@ -343,16 +422,6 @@ int main(int argc, char** argv)
     while (Ethernet_receivePacket(sock, frame, sizeof(frame)) > 0)
         ;
 
-    /* SVSubscriber matches one APPID: one per APPID seen, created on demand. */
-    SVReceiver receiver = SVReceiver_create();
-    SVReceiver_disableDestAddrCheck(receiver);
-    uint16_t known[MAX_STREAMS];
-    int known_count = 0;
-
-    signal(SIGTERM, sig_handler);
-    signal(SIGINT, sig_handler);
-    signal(SIGPIPE, SIG_IGN);
-
     uint8_t own[6];
     Ethernet_getInterfaceMACAddress(iface, own);
     sv_emit_ready("subscriber", iface, own, g_sv_filter);
@@ -370,37 +439,12 @@ int main(int argc, char** argv)
         if (EthernetHandleSet_waitReady(handles, 10) <= 0)
             continue;
         int n;
-        while ((n = Ethernet_receivePacket(sock, frame, sizeof(frame))) > 0) {
-            int off = 12;
-            if (n < 14) continue;
-            if (frame[12] == 0x81 && frame[13] == 0x00) off += 4;
-            if (n < off + 10 || frame[off] != 0x88 || frame[off + 1] != 0xba) continue;
-            int hdr = off + 2;
-            uint16_t frame_app_id = (uint16_t) (frame[hdr] << 8 | frame[hdr + 1]);
-            if (have_app_id && frame_app_id != app_id) continue;
-            if (have_dst && memcmp(frame, dst, 6) != 0) continue;
-
-            bool registered = false;
-            for (int i = 0; i < known_count && !registered; i++) registered = known[i] == frame_app_id;
-            if (!registered && known_count < MAX_STREAMS) {
-                SVSubscriber sub = SVSubscriber_create(NULL, frame_app_id);
-                SVSubscriber_setListener(sub, listener, NULL);
-                SVReceiver_addSubscriber(receiver, sub);
-                known[known_count++] = frame_app_id;
-            }
-
-            memcpy(g_dst, frame, 6);
-            memcpy(g_src, frame + 6, 6);
-            g_app_id = frame_app_id;
-            g_simulation = (frame[hdr + SV_SIM_OCTET] & SV_SIM_MASK) != 0;
-            g_no_asdu = read_no_asdu(frame + hdr + 8, n - hdr - 8);
-            g_asdu_index = 0;
-            SVReceiver_handleL2Message(receiver, frame, n);
-        }
+        while ((n = Ethernet_receivePacket(sock, frame, sizeof(frame))) > 0)
+            handle_frame(frame, n);
     }
 
     EthernetHandleSet_destroy(handles);
-    SVReceiver_destroy(receiver);
+    SVReceiver_destroy(g_receiver);
     Ethernet_destroySocket(sock);
     return 0;
 }
