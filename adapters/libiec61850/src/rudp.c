@@ -21,6 +21,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <net/if.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <poll.h>
 #include <stdio.h>
@@ -184,10 +185,27 @@ RSession rudp_open_sender(const RudpArgs* a, const char* prog, char* label, int 
     split_addr(a->remote, host, sizeof(host), &port, prog, "--remote");
     if (!host[0]) jl_fatal(1, "%s: --remote %s: want ADDR[:PORT]", prog, a->remote);
 
+    /* libiec61850's UdpSocket_sendTo runs getaddrinfo on the address for
+     * every SPDU. With a host name (a container name in the harness) that
+     * is one DNS query per sample, which on a slow runner holds the R-SV
+     * publisher below its rate. Resolve it once and hand over the IPv4
+     * address, the family libiec61850 sends to. */
+    char ip[INET_ADDRSTRLEN];
+    struct addrinfo hints, *res = NULL;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+    int gai = getaddrinfo(host, NULL, &hints, &res);
+    if (gai != 0 || !res)
+        jl_fatal(1, "%s: --remote %s: %s", prog, a->remote, gai ? gai_strerror(gai) : "no IPv4 address");
+    if (!inet_ntop(AF_INET, &((struct sockaddr_in*) res->ai_addr)->sin_addr, ip, sizeof(ip)))
+        jl_fatal(1, "%s: --remote %s: %s", prog, a->remote, strerror(errno));
+    freeaddrinfo(res);
+
     RSession s = RSession_create();
     if (!s) jl_fatal(1, "%s: RSession_create failed", prog);
     add_key(s, a, prog);
-    RSession_setRemoteAddress(s, host, port);
+    RSession_setRemoteAddress(s, ip, port);
     if (RSession_setMulticastTtl(s, a->ttl > 0 ? (int) a->ttl : 1) != R_SESSION_ERROR_OK)
         jl_fatal(1, "%s: --ttl %ld: RSession_setMulticastTtl failed", prog, a->ttl);
     if (a->mcast_iface) {
