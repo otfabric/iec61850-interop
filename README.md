@@ -285,7 +285,9 @@ list in `/licenses/BUNDLED-MODULES.txt`.
 `ghcr.io/otfabric/iec61850-interop-otfabric` is go-iec61850, and the go-mms it
 is built on, behind the same contract (commands `otfabric-mms-server`,
 `otfabric-ied-server`, ...), so you can test your stack against ours the way we
-test ours against yours. Despite the name it shares with the reference images,
+test ours against yours. Its GOOSE and SV commands take `--transport udp`
+(R-GOOSE and R-SV, [docs/routable.md](docs/routable.md#otfabric)), so that
+includes routable GOOSE and SV. Despite the name it shares with the reference images,
 it is not an independent implementation and not part of a release of this
 repository, so its tags are go-iec61850 versions and `manifest.json` does not
 list it: see [own/go-iec61850/README.md](own/go-iec61850/README.md).

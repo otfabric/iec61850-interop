@@ -4,7 +4,7 @@
 # Upstreams are pinned by commit or exact version; no source archive hash is
 # recorded. Which command exists in which image: fixtures/capabilities.json.
 
-interop_version: "1.6.1"
+interop_version: "1.7.0"
 contract_version: "1.4"        # docs/CONTAINER_CONTRACT.md, semver from v1.0.0
 
 protocol:
@@ -114,5 +114,9 @@ own_implementations:
     language: "Go"
     independent_engine: false
     roles: [mms, ied, goose, sv]
+    # The GOOSE and SV commands take --transport ethernet and udp (R-GOOSE,
+    # R-SV: go-iec61850 rsession), so scripts/interop.sh runs the udp checks
+    # between it and libiec61850 and dscsystems, both directions.
+    transports: [ethernet, udp]
     image: "ghcr.io/otfabric/iec61850-interop-otfabric"
     build: "own/go-iec61850"

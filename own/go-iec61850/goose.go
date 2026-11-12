@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/otfabric/go-iec61850/goose"
+	"github.com/otfabric/go-iec61850/rsession"
 	mms "github.com/otfabric/go-mms"
 )
 
@@ -404,11 +405,19 @@ func runGOOSEPublisher(args []string) int {
 	simulation := fs.Bool("simulation", false, "Edition 2 simulation (S) bit")
 	ndsCom := fs.Bool("nds-com", false, "needs commissioning")
 	values := fs.String("values", "", "JSON array of typed values")
+	uf := addUDPFlags(fs)
 	if err := fs.Parse(args); err != nil {
 		return exitArgs
 	}
 	if fs.NArg() > 0 {
 		return argError("goose-publisher: unexpected argument %q", fs.Arg(0))
+	}
+	udp, err := uf.udp()
+	if err != nil {
+		return argError("goose-publisher: %v", err)
+	}
+	if udp && *dst == "" {
+		*dst = "01:0c:cd:01:00:00" // not sent: an SPDU has no Ethernet addresses
 	}
 	if *gocbRef == "" {
 		return argError("goose-publisher: --gocb-ref is required")
@@ -428,8 +437,14 @@ func runGOOSEPublisher(args []string) int {
 	if err != nil {
 		return argError("goose-publisher: --values: %v", err)
 	}
-	t, err := openGOOSE(*iface, goose.TransportOptions{})
-	if err != nil {
+	var t goose.Transport
+	label := *iface
+	if udp {
+		t, label, err = uf.openSender(rsession.SIGOOSE)
+		if err != nil {
+			return argError("goose-publisher: %v", err)
+		}
+	} else if t, err = openGOOSE(*iface, goose.TransportOptions{}); err != nil {
 		return argError("goose-publisher: open %s: %v", *iface, err)
 	}
 	defer t.Close()
@@ -456,8 +471,8 @@ func runGOOSEPublisher(args []string) int {
 	ctx, stop := notifyInterrupt(context.Background())
 	defer stop()
 	emit(map[string]any{
-		"event": "ready", "address": *iface, "fixture": gooseFixture, "adapter": adapterName, "version": adapterVersion,
-		"role": "publisher", "iface": *iface, "src": t.HardwareAddr().String(), "gocbRef": *gocbRef,
+		"event": "ready", "address": label, "fixture": gooseFixture, "adapter": adapterName, "version": adapterVersion,
+		"role": "publisher", "iface": label, "src": t.HardwareAddr().String(), "gocbRef": *gocbRef,
 	})
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -501,6 +516,7 @@ type gooseReporter struct {
 	mu       sync.Mutex
 	last     map[string]int  // gocbRef -> the subscription that reported its last frame
 	timedOut map[string]bool // gocbRef -> a timeout was reported, no frame since
+	udp      bool            // R-GOOSE: zero addresses, and from
 }
 
 func (r *gooseReporter) handle(sub int, simulated bool) func(goose.Event) {
@@ -519,7 +535,11 @@ func (r *gooseReporter) handle(sub int, simulated bool) func(goose.Event) {
 				delete(r.timedOut, f.PDU.GocbRef)
 			}
 			r.last[f.PDU.GocbRef] = sub
-			emit(gooseEvent(f))
+			ev := gooseEvent(f)
+			if r.udp {
+				ev["dst"], ev["src"], ev["from"] = zeroMAC, zeroMAC, senderOf(f.Src)
+			}
+			emit(ev)
 		case goose.EventTimeout:
 			if last, ok := r.last[gocb]; !ok || last != sub || r.timedOut[gocb] {
 				return
@@ -551,11 +571,16 @@ func runGOOSESubscriber(args []string) int {
 	appID := fs.String("app-id", "", "APPID filter")
 	gocbRef := fs.String("gocb-ref", "", "gocbRef filter")
 	dst := fs.String("dst", "", "destination MAC filter")
+	uf := addUDPFlags(fs)
 	if err := fs.Parse(args); err != nil {
 		return exitArgs
 	}
 	if fs.NArg() > 0 {
 		return argError("goose-subscriber: unexpected argument %q", fs.Arg(0))
+	}
+	udp, err := uf.udp()
+	if err != nil {
+		return argError("goose-subscriber: %v", err)
 	}
 	var base goose.SubscriptionConfig
 	base.GocbRef = *gocbRef
@@ -571,10 +596,18 @@ func runGOOSESubscriber(args []string) int {
 		if err != nil {
 			return argError("goose-subscriber: --dst: %v", err)
 		}
-		base.Dst = m
+		if !udp { // accepted and not used: an SPDU has no Ethernet addresses
+			base.Dst = m
+		}
 	}
-	t, err := openGOOSE(*iface, goose.TransportOptions{})
-	if err != nil {
+	var t goose.Transport
+	label := *iface
+	if udp {
+		t, label, err = uf.openReceiver(rsession.SIGOOSE)
+		if err != nil {
+			return argError("goose-subscriber: %v", err)
+		}
+	} else if t, err = openGOOSE(*iface, goose.TransportOptions{}); err != nil {
 		return argError("goose-subscriber: open %s: %v", *iface, err)
 	}
 	defer t.Close()
@@ -583,7 +616,7 @@ func runGOOSESubscriber(args []string) int {
 		return argError("goose-subscriber: %v", err)
 	}
 	defer s.Close()
-	r := &gooseReporter{last: map[string]int{}, timedOut: map[string]bool{}}
+	r := &gooseReporter{last: map[string]int{}, timedOut: map[string]bool{}, udp: udp}
 	for i, sim := range []bool{false, true} {
 		cfg := base
 		cfg.AcceptSimulation = sim
@@ -595,8 +628,8 @@ func runGOOSESubscriber(args []string) int {
 	ctx, stop := notifyInterrupt(context.Background())
 	defer stop()
 	ready := map[string]any{
-		"event": "ready", "address": *iface, "fixture": gooseFixture, "adapter": adapterName, "version": adapterVersion,
-		"role": "subscriber", "iface": *iface, "src": t.HardwareAddr().String(),
+		"event": "ready", "address": label, "fixture": gooseFixture, "adapter": adapterName, "version": adapterVersion,
+		"role": "subscriber", "iface": label, "src": t.HardwareAddr().String(),
 	}
 	if *gocbRef != "" {
 		ready["gocbRef"] = *gocbRef
