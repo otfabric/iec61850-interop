@@ -36,6 +36,20 @@ RUN git clone "${LIBIEC61850_REPO}" libiec61850 \
     && git checkout --detach "${LIBIEC61850_SHA}" \
     && test "$(git rev-parse HEAD)" = "${LIBIEC61850_SHA}"
 
+# R-GOOSE and R-SV (CONFIG_IEC61850_R_GOOSE, CONFIG_IEC61850_R_SMV, both ON
+# by default) are compiled only when mbedtls is in third_party: the build
+# compiles it into libhal from third_party/mbedtls/mbedtls-3.6.0, the
+# version and folder name libiec61850's README gives. mbedtls is used for
+# the HMAC of the session protocol (and makes TLS available to MMS, which
+# no adapter configures).
+ARG MBEDTLS_REPO=https://github.com/Mbed-TLS/mbedtls.git
+# Mbed-TLS/mbedtls tag v3.6.0
+ARG MBEDTLS_SHA=2ca6c285a0dd3f33982dd57299012dacab1ff206
+RUN git clone "${MBEDTLS_REPO}" libiec61850/third_party/mbedtls/mbedtls-3.6.0 \
+    && cd libiec61850/third_party/mbedtls/mbedtls-3.6.0 \
+    && git checkout --detach "${MBEDTLS_SHA}" \
+    && test "$(git rev-parse HEAD)" = "${MBEDTLS_SHA}"
+
 # The default profile compiles out the FileRename service; the MMS server
 # adapter serves it (fixture files RENAME.ME). Fail if the line moves.
 RUN sed -i 's/^#define MMS_RENAME_FILE_SERVICE 0$/#define MMS_RENAME_FILE_SERVICE 1/' \
@@ -55,6 +69,10 @@ RUN cmake .. \
       -DBUILD_SHARED_LIBS=OFF \
       -DCMAKE_C_FLAGS="-fvisibility=default" \
       -DCMAKE_CXX_FLAGS="-fvisibility=default" \
+      -DCONFIG_IEC61850_R_GOOSE=ON \
+      -DCONFIG_IEC61850_R_SMV=ON \
+    && grep -q '^#define CONFIG_IEC61850_R_GOOSE 1$' config/stack_config.h \
+    && grep -q '^#define CONFIG_IEC61850_R_SMV 1$' config/stack_config.h \
     && make -j"$(nproc)" \
     && make install
 

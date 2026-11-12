@@ -35,7 +35,7 @@ interop tests and compatibility matrices live in the consumer repositories.
 
 | Stack | Image | MMS server | MMS client | IED server | IED client | IED controller | IED reporter | GOOSE publisher | GOOSE subscriber | SV publisher | SV subscriber | SVCB over MMS | R-GOOSE/R-SV (UDP) |
 |-------|-------|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| libiec61850 | `iec61850-interop-libiec61850` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| libiec61850 | `iec61850-interop-libiec61850` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | iec61850bean | `iec61850-interop-iec61850bean` | — | — | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | — |
 | dscsystems | `iec61850-interop-dscsystems` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | iec61850-rust | `iec61850-interop-iec61850-rust` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | — |

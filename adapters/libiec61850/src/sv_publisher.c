@@ -34,7 +34,14 @@
  * libiec61850 has no API: the publisher prebuilds the frame header once,
  * so the adapter sets the bit in that buffer after setup.
  *
- * Exit codes: 0 stop/signal, 1 argument or socket error.
+ * --transport udp (contract 1.4, docs/routable.md) publishes R-SV with
+ * SVPublisher_createRemote on an RSession to --remote (rudp.c): the same
+ * pacing and events; --iface, --dst and the VLAN flags are not used.
+ * libiec61850 has no API for the simulation octet of an R-SV payload
+ * either: --simulation sets the simulation member of struct sSVPublisher,
+ * which RSession_sendMessage writes there.
+ *
+ * Exit codes: 0 stop/signal, 1 argument or socket error, 4 unsupported.
  */
 
 #define _GNU_SOURCE   /* ppoll */
@@ -55,6 +62,7 @@
 
 #include "sv_common.h"
 #include "jsonlines.h"
+#include "rudp.h"
 
 #define MAX_MEMBERS 64
 #define MAX_ASDU    16
@@ -250,9 +258,12 @@ int main(int argc, char** argv)
     long vlan_id = 0, vlan_prio = 4, conf_rev = 1, smp_rate = 80, no_asdu = 1,
          smp_synch = 0, frequency = 50, report_every = 1000;
     bool simulation = false;
+    RudpArgs ra;
+    rudp_defaults(&ra);
 
     for (int i = 1; i < argc; i++) {
         const char* a = argv[i];
+        if (rudp_arg(&ra, argc, argv, &i, "sv-publisher")) continue;
         if      (!strcmp(a, "--iface"))        iface = arg(argc, argv, &i);
         else if (!strcmp(a, "--app-id"))       app_id_s = arg(argc, argv, &i);
         else if (!strcmp(a, "--dst"))          dst_s = arg(argc, argv, &i);
@@ -321,9 +332,21 @@ int main(int argc, char** argv)
     if (!goose_parse_mac(dst_s, params.dstAddress))
         jl_fatal(1, "sv-publisher: --dst %s is not a MAC address", dst_s);
 
-    /* Always 802.1Q-tagged, as the GOOSE publisher. */
-    p.pub = SVPublisher_createEx(&params, iface, true);
-    if (!p.pub) jl_fatal(1, "sv-publisher: SVPublisher on %s failed (needs CAP_NET_RAW)", iface);
+    bool udp = rudp_is_udp(&ra, "sv-publisher");
+    RSession session = NULL;
+    char label[300];
+    uint8_t src[6] = {0};
+    if (udp) {
+        session = rudp_open_sender(&ra, "sv-publisher", label, sizeof(label));
+        p.pub = SVPublisher_createRemote(session, params.appId);
+        if (!p.pub) jl_fatal(1, "sv-publisher: SVPublisher_createRemote failed");
+        iface = label;
+    } else {
+        /* Always 802.1Q-tagged, as the GOOSE publisher. */
+        p.pub = SVPublisher_createEx(&params, iface, true);
+        if (!p.pub) jl_fatal(1, "sv-publisher: SVPublisher on %s failed (needs CAP_NET_RAW)", iface);
+        Ethernet_getInterfaceMACAddress(iface, src);
+    }
 
     for (int a = 0; a < p.no_asdu; a++) {
         p.asdu[a] = SVPublisher_addASDU(p.pub, sv_id, generic ? dataset : NULL, (uint32_t) conf_rev);
@@ -350,16 +373,18 @@ int main(int argc, char** argv)
     write_values(&p, values);
     LinkedList_destroyDeep(values, (LinkedListValueDeleteFunction) MmsValue_delete);
 
-    if (simulation) {
+    if (simulation && udp) {
+        /* struct sSVPublisher (sv_publisher.c) starts with the frame
+         * buffer, the APPID and the simulation flag of R-SV. */
+        struct { uint8_t* buffer; uint16_t app_id; bool simulation; }* head = (void*) p.pub;
+        head->simulation = true;
+    } else if (simulation) {
         /* The frame buffer is the first member of struct sSVPublisher
          * (sv_publisher.c); Reserved1 follows the 802.1Q tag, EtherType,
          * APPID and Length: octet 12 + 4 + 2 + SV_SIM_OCTET. */
         uint8_t* frame = *(uint8_t**) p.pub;
         frame[12 + 4 + 2 + SV_SIM_OCTET] |= SV_SIM_MASK;
     }
-
-    uint8_t src[6];
-    Ethernet_getInterfaceMACAddress(iface, src);
 
     signal(SIGTERM, sig_handler);
     signal(SIGINT, sig_handler);
@@ -422,5 +447,6 @@ int main(int argc, char** argv)
 
     emit_stopped(&p);
     SVPublisher_destroy(p.pub);
+    if (session) RSession_destroy(session);
     return 0;
 }

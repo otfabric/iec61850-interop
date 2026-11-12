@@ -24,6 +24,23 @@ Tags are immutable. A fix is a new version.
 
 ---
 
+## v1.6.0
+
+**Date:** 2026-11-12
+**Previous release:** v1.5.0
+
+### Added
+
+- `iec61850-interop-libiec61850` implements contract 1.4 `--transport udp` (R-GOOSE and R-SV) with libiec61850's own `RSession`: the image builds the pinned libiec61850 with Mbed TLS v3.6.0 (`2ca6c28`, Apache-2.0 OR GPL-2.0-or-later) in `third_party/mbedtls`, which compiles R-GOOSE, R-SV and the HMAC. `--capabilities` carries `"transports":["ethernet","udp"]`; `udpTransport.libiec61850` is true. The transport is `adapters/libiec61850/src/rudp.c`; [docs/routable.md](docs/routable.md#libiec61850) lists what libiec61850 does and does not do.
+- `scripts/interop.sh` runs the udp checks between libiec61850 and dscsystems in both directions (GOOSE and SV pass). libiec61850 → libiec61850 is a known failure, asserted: its `RSession` writes each APDU length two octets too long and refuses its own SPDUs as malformed (waiver `libiec61850-rsession-apdu-length`).
+- `fixtures/capabilities.json`: five known limitations of libiec61850's `RSession` (APDU length, no version 1 sender, no HMAC-SHA256-80, the HMAC-SHA256-256 length octet, no replay window).
+
+### Changed
+
+- The libiec61850 image links Mbed TLS, which also makes TLS available to its MMS code; no adapter configures it. `versions.yaml` records the Mbed TLS pin under libiec61850.
+
+---
+
 ## v1.5.0
 
 **Date:** 2026-11-11

@@ -179,13 +179,42 @@ done
 
 info ""
 info "=== R-GOOSE and R-SV publisher -> subscriber (UDP, IEC 61850-90-5, HMAC-SHA256-128) ==="
+# libiec61850's RSession writes each APDU length two octets too long, and
+# its decoder refuses that: libiec61850 -> libiec61850 must fail with every
+# SPDU refused as malformed and nothing reported (fixtures/capabilities.json).
+UDP_APDU_WAIVER=libiec61850-rsession-apdu-length
+UDP_APDU_EVIDENCE=https://github.com/mz-automation/libiec61850/blob/6e265c54af66ea686453b6d31c4dcce1cf7ad2bd/src/r_session/r_session.c#L1131
+udp_known() {
+    local proto="$1" out
+    shift
+    TRANSPORT=udp at_cross "$proto" "$2" "$4" "$5"
+    if out=$(TRANSPORT=udp "$SCRIPTS/$proto-crosscheck.sh" "$@" 2>&1); then
+        waiver "${UDP_APDU_WAIVER}" libiec61850@libiec61850 "${UDP_APDU_EVIDENCE}" false
+        fail "known limitation no longer reproduces, update capabilities.json: ${out#PASS }"
+    elif echo "$out" | grep -qF "reject reasons ['malformed']" &&
+         echo "$out" | grep -qE "0 frames with stNum 1|received 0 of"; then
+        out="${out%%:*}"
+        waiver "${UDP_APDU_WAIVER}" libiec61850@libiec61850 "${UDP_APDU_EVIDENCE}" true
+        echo -e "${YELLOW}KNOWN${RESET} known limitation reproduced: ${out#FAIL }"
+        PASS=$((PASS + 1))
+        result known-difference "known limitation reproduced (fixtures/capabilities.json): ${out#FAIL }" "${UDP_APDU_WAIVER}"
+    else
+        fail "$out"
+    fi
+}
 # Every publisher -> every subscriber of the adapters with --transport udp.
 for proto in goose sv; do
     mapfile -t STACKS < <(routable "$proto")
     for pub in "${STACKS[@]}"; do
         for sub in "${STACKS[@]}"; do
             set -- $pub $sub
-            if [ "$proto" = goose ]; then
+            if [ "$2/$4" = libiec61850/libiec61850 ]; then
+                if [ "$proto" = goose ]; then
+                    udp_known goose "$1" "$2-goose-publisher" "$3" "$4-goose-subscriber" gcbAll
+                else
+                    udp_known sv "$1" "$2-sv-publisher" "$3" "$4-sv-subscriber" MSVCB01
+                fi
+            elif [ "$proto" = goose ]; then
                 TRANSPORT=udp goose_check "$1" "$2-goose-publisher" "$3" "$4-goose-subscriber" gcbAll
             else
                 TRANSPORT=udp sv_check "$1" "$2-sv-publisher" "$3" "$4-sv-subscriber" MSVCB01

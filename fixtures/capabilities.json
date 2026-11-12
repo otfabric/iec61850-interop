@@ -305,6 +305,46 @@
       "capability": "Report data references (OptFlds data-reference)",
       "reason": "with the data-reference bit of OptFlds set (cB-Sigma's EnableReport sets it), the server's reports announce it but carry no data references: the inclusion bitstring is followed by the values, so a client that parses the IEC 61850-8-1 report format refuses the report",
       "reproducedBy": ""
+    },
+    {
+      "stack": "libiec61850",
+      "version": "1.6.2.1-89-g6e265c54",
+      "direction": "libiec61850-goose-publisher / libiec61850-sv-publisher → libiec61850-goose-subscriber / libiec61850-sv-subscriber (--transport udp)",
+      "capability": "R-GOOSE and R-SV between two libiec61850 RSessions",
+      "reason": "RSession writes each APDU length two octets too long (r_session.c encodePacket, payloadSize + 2) and its decoder refuses an APDU that runs past the payload: libiec61850 refuses every SPDU of its own publisher as malformed",
+      "reproducedBy": "scripts/interop.sh (udp_known), scripts/goose-crosscheck.sh and scripts/sv-crosscheck.sh with TRANSPORT=udp"
+    },
+    {
+      "stack": "libiec61850",
+      "version": "1.6.2.1-89-g6e265c54",
+      "direction": "libiec61850-goose-publisher / libiec61850-sv-publisher (--transport udp)",
+      "capability": "Session protocol version 1 sent (--session-version 1)",
+      "reason": "struct sRSession has a protocolVersion field, set to 2 by RSession_create, and no function sets it; the publishers answer unsupported (exit 4). Version 1 is received",
+      "reproducedBy": "go-iec61850 interop TestRGOOSE_GoSubscriber, TestRSV_GoSubscriber (v1-*)"
+    },
+    {
+      "stack": "libiec61850",
+      "version": "1.6.2.1-89-g6e265c54",
+      "direction": "libiec61850 publishers and subscribers (--transport udp)",
+      "capability": "HMAC-SHA256-80",
+      "reason": "the encoder writes no signature for HMAC-SHA256-80 (unsupported signature type) and the decoder refuses every SPDU of that algorithm",
+      "reproducedBy": "go-iec61850 interop TestRGOOSE_*, TestRSV_* (*-hmac-sha256-80)"
+    },
+    {
+      "stack": "libiec61850",
+      "version": "1.6.2.1-89-g6e265c54",
+      "direction": "libiec61850-goose-publisher / libiec61850-sv-publisher (--transport udp)",
+      "capability": "HMAC-SHA256-256 sent",
+      "reason": "the encoder writes a signature length octet of 16 before the 32-octet MAC; a receiver that checks it refuses the SPDU. Received HMAC-SHA256-256 verifies",
+      "reproducedBy": "go-iec61850 interop TestRGOOSE_GoSubscriber, TestRSV_GoSubscriber (v2-hmac-sha256-256)"
+    },
+    {
+      "stack": "libiec61850",
+      "version": "1.6.2.1-89-g6e265c54",
+      "direction": "→ libiec61850-goose-subscriber / libiec61850-sv-subscriber (--transport udp)",
+      "capability": "Replay protection, unsecured SPDUs",
+      "reason": "RSession keeps no replay window: a replayed SPDU is accepted again (no reject event of reason replay). A version 2 SPDU without a key is always refused, so --allow-unsecured has no effect there",
+      "reproducedBy": "go-iec61850 interop TestRGOOSE_GoPublisher"
     }
   ],
   "upstreams": {
@@ -344,7 +384,7 @@
   },
   "udpTransport": {
     "description": "Whether the stack's GOOSE and SV commands take --transport udp (contract 1.4, docs/routable.md): R-GOOSE and R-SV, the IEC TR 61850-90-5 session protocol over UDP with HMAC-SHA256-80/128/256.",
-    "libiec61850": false,
+    "libiec61850": true,
     "dscsystems": true,
     "iec61850bean": false,
     "iec61850-rust": false,

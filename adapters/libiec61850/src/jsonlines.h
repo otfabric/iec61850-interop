@@ -90,7 +90,8 @@ static inline void jl_handle_meta_flags(int argc, char** argv, const char* adapt
                     "\"libiec61850-ied-controller\",\"libiec61850-ied-reporter\","
                     "\"libiec61850-goose-publisher\",\"libiec61850-goose-subscriber\","
                     "\"libiec61850-sv-publisher\",\"libiec61850-sv-subscriber\"],"
-                    "\"reporterTriggers\":[\"dchg\",\"gi\"]}\n",
+                    "\"reporterTriggers\":[\"dchg\",\"gi\"],"
+                    "\"transports\":[\"ethernet\",\"udp\"]}\n",
                     version);
         } else {
             fprintf(stdout,
