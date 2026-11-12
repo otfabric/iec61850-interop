@@ -12,6 +12,7 @@ the UDP transport changes.
 |---|---|
 | `iec61850-interop-libiec61850` | yes, through [libiec61850](https://github.com/mz-automation/libiec61850)'s `RSession`, with the limits below |
 | `iec61850-interop-dscsystems` | yes, through [dscsystems/go-iec61850](https://github.com/dscsystems/go-iec61850) `rsession` |
+| `iec61850-interop-otfabric` (OT Fabric's own stack, not a reference) | yes, through [otfabric/go-iec61850](https://github.com/otfabric/go-iec61850) `rsession`, with the limit [below](#otfabric) |
 | the others | no |
 
 An image whose commands take it lists the transports in `--capabilities`:
@@ -104,6 +105,20 @@ What libiec61850 does, at the pinned revision (`fixtures/capabilities.json`
 | `--allow-unsecured` | no effect on version 2: an SPDU without a key is always refused |
 | `--simulation` on the GOOSE publisher | only together with `--test`: libiec61850 writes goosePdu field [7] into the simulation octet of the payload |
 | `--simulation` on the SV publisher | sets the simulation flag of `struct sSVPublisher`, which has no API |
+
+## otfabric
+
+The own image ([own/go-iec61850](../own/go-iec61850/README.md)) runs
+go-iec61850's `goose` and `sv` publishers and subscribers over an
+`rsession.Transport`, which signs, verifies and keeps the replay window;
+the adapter adds only the flags and the events. Every flag above is
+implemented: both session protocol versions are sent, the three HMACs,
+unsecured SPDUs with `--key-id 0`, multicast with `--group`,
+`--mcast-iface` and `--ttl`.
+
+| | |
+|---|---|
+| `from` of a `goose` event | the sender's IPv4 address without the port: go-iec61850's `Transport` hands the subscriber a rebuilt frame whose source address is the sender's IPv4 address (`rsession.SourceMAC`), and reports the UDP port only for refused SPDUs. For an IPv6 sender `from` is empty. The `from` of a `reject` event is `address:port` |
 
 ## What this is not
 

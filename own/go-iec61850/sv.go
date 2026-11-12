@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/otfabric/go-iec61850/rsession"
 	"github.com/otfabric/go-iec61850/sv"
 )
 
@@ -170,11 +171,19 @@ func runSVPublisher(args []string) int {
 	frequency := fs.Float64("frequency", 50, "nominal frequency, Hz")
 	reportEvery := fs.Uint64("report-every", 1000, "published event every N samples")
 	values := fs.String("values", "", "JSON array of typed values")
+	uf := addUDPFlags(fs)
 	if err := fs.Parse(args); err != nil {
 		return exitArgs
 	}
 	if fs.NArg() > 0 {
 		return argError("sv-publisher: unexpected argument %q", fs.Arg(0))
+	}
+	udp, err := uf.udp()
+	if err != nil {
+		return argError("sv-publisher: %v", err)
+	}
+	if udp && *dst == "" {
+		*dst = "01:0c:cd:04:00:00" // not sent: an SPDU has no Ethernet addresses
 	}
 	id, err := parseAppID(*appID)
 	if err != nil {
@@ -230,8 +239,14 @@ func runSVPublisher(args []string) int {
 	if generic {
 		cfg.DatSet, cfg.RefrTm, cfg.SendSmpRate, cfg.SendSmpMod = *dataset, true, true, true
 	}
-	t, err := openSV(*iface, sv.TransportOptions{})
-	if err != nil {
+	var t sv.Transport
+	label := *iface
+	if udp {
+		t, label, err = uf.openSender(rsession.SISV)
+		if err != nil {
+			return argError("sv-publisher: %v", err)
+		}
+	} else if t, err = openSV(*iface, sv.TransportOptions{}); err != nil {
 		return argError("sv-publisher: open %s: %v", *iface, err)
 	}
 	defer t.Close()
@@ -247,8 +262,8 @@ func runSVPublisher(args []string) int {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	emit(map[string]any{
-		"event": "ready", "address": *iface, "fixture": svFixture, "adapter": adapterName, "version": adapterVersion,
-		"role": "publisher", "iface": *iface, "src": t.HardwareAddr().String(), "svID": *svID,
+		"event": "ready", "address": label, "fixture": svFixture, "adapter": adapterName, "version": adapterVersion,
+		"role": "publisher", "iface": label, "src": t.HardwareAddr().String(), "svID": *svID,
 	})
 	go readCommands(func(cmd string, line map[string]json.RawMessage) {
 		switch cmd {
@@ -376,11 +391,16 @@ func runSVSubscriber(args []string) int {
 	dst := fs.String("dst", "", "destination MAC filter")
 	every := fs.Uint("sample-every", 1, "report ASDUs whose smpCnt is a multiple of N")
 	fixture := fs.String("fixture", "/fixtures/sv/sv.json", "SV fixture")
+	uf := addUDPFlags(fs)
 	if err := fs.Parse(args); err != nil {
 		return exitArgs
 	}
 	if fs.NArg() > 0 {
 		return argError("sv-subscriber: unexpected argument %q", fs.Arg(0))
+	}
+	udp, err := uf.udp()
+	if err != nil {
+		return argError("sv-subscriber: %v", err)
 	}
 	if *every == 0 {
 		return argError("sv-subscriber: --sample-every must be positive")
@@ -402,10 +422,18 @@ func runSVSubscriber(args []string) int {
 		if err != nil {
 			return argError("sv-subscriber: --dst: %v", err)
 		}
-		base.Dst = m
+		if !udp { // accepted and not used: an SPDU has no Ethernet addresses
+			base.Dst = m
+		}
 	}
-	t, err := openSV(*iface, sv.TransportOptions{})
-	if err != nil {
+	var t sv.Transport
+	label := *iface
+	if udp {
+		t, label, err = uf.openReceiver(rsession.SISV)
+		if err != nil {
+			return argError("sv-subscriber: %v", err)
+		}
+	} else if t, err = openSV(*iface, sv.TransportOptions{}); err != nil {
 		return argError("sv-subscriber: open %s: %v", *iface, err)
 	}
 	defer t.Close()
@@ -417,7 +445,11 @@ func runSVSubscriber(args []string) int {
 
 	report := func(smp *sv.Sample) {
 		if uint(smp.ASDU.SmpCnt)%*every == 0 {
-			emit(svEvent(smp, known))
+			ev := svEvent(smp, known)
+			if udp {
+				ev["dst"], ev["src"] = zeroMAC, zeroMAC
+			}
+			emit(ev)
 		}
 	}
 	// One subscription per fixture stream (its smpCnt wrap), and one for
@@ -475,8 +507,8 @@ func runSVSubscriber(args []string) int {
 	ctx, stop := notifyInterrupt(context.Background())
 	defer stop()
 	emit(map[string]any{
-		"event": "ready", "address": *iface, "fixture": svFixture, "adapter": adapterName, "version": adapterVersion,
-		"role": "subscriber", "iface": *iface, "src": t.HardwareAddr().String(),
+		"event": "ready", "address": label, "fixture": svFixture, "adapter": adapterName, "version": adapterVersion,
+		"role": "subscriber", "iface": label, "src": t.HardwareAddr().String(),
 	})
 	go func() {
 		tick := time.NewTicker(time.Second)

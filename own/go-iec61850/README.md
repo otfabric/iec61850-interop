@@ -43,11 +43,31 @@ the versions (go-iec61850, its commit, and the go-mms in the image).
 | Licence | MIT; every module's licence is in the image under `/licenses` |
 | Adapter name | `otfabric` (command prefix `otfabric-`) |
 | Commands | `otfabric-mms-server`, `-mms-client` (go-mms); `-ied-server`, `-ied-client`, `-ied-controller`, `-ied-reporter`, `-goose-publisher`, `-goose-subscriber`, `-sv-publisher`, `-sv-subscriber` (go-iec61850) |
+| Transports of the GOOSE and SV commands | `ethernet` and `udp` (R-GOOSE and R-SV, go-iec61850's `rsession`; `--capabilities` says `"transports":["ethernet","udp"]`) |
 | Language | Go |
 | Protocol engine | OT Fabric's own |
 
 The GOOSE and SV commands need `NET_RAW` and a shared Docker bridge, as the
 reference images do ([docs/goose.md](../../docs/goose.md#l2-networking)).
+
+With `--transport udp` they send and receive R-GOOSE and R-SV (IEC TR
+61850-90-5 session protocol over UDP, HMAC-SHA256) instead, with the flags
+of [docs/routable.md](../../docs/routable.md): for example a subscriber on
+UDP port 102 with key 1, and a publisher that sends to it:
+
+```sh
+KEY=000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
+docker network create rgoose
+docker run -d --name sub --network rgoose --entrypoint otfabric-goose-subscriber \
+  ghcr.io/otfabric/iec61850-interop-otfabric:<tag> --transport udp --listen :102 --key-id 1 --key $KEY
+docker run -i --rm --network rgoose --entrypoint otfabric-goose-publisher \
+  ghcr.io/otfabric/iec61850-interop-otfabric:<tag> --transport udp --remote sub:102 --key-id 1 --key $KEY \
+  --gocb-ref IED/LLN0\$GO\$gcb --dataset IED/LLN0\$ds --values '[{"type":"boolean","value":true}]'
+```
+
+`scripts/interop.sh` runs the udp checks between this image and every
+reference image whose `--capabilities` lists `udp` (libiec61850 and
+dscsystems), in both directions.
 
 ## Why it is apart from the other adapters
 
@@ -103,6 +123,11 @@ no protocol itself.
   ISO 9506), so a source the server lacks gives a File-class error.
 - **MMS server, `report-trigger`**: writing `-1` aborts the association, as
   go-mms's own fixture server does; the client's `server-abort` step uses it.
+- **`from` of an R-GOOSE `goose` event**: the sender's IPv4 address without
+  the UDP port. go-iec61850's `rsession.Transport` gives the subscriber a
+  rebuilt frame whose source address encodes the sender's IPv4 address, and
+  reports the port only for refused SPDUs (the `reject` events carry
+  `address:port`). For an IPv6 sender `from` is empty.
 - **Conclude against iec61850bean**: its server never answers MMS Conclude
   (go-iec61850 INTEROP.md). The IED clients wait 5 s, then abort the
   association; the `conclude` line follows either way, as in the reference

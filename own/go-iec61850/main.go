@@ -197,6 +197,7 @@ func capabilitiesEvent() map[string]any {
 	return map[string]any{
 		"event": "capabilities", "adapterVersion": adapterVersion, "fixtureRevision": iedFixture,
 		"commands": supportedCommands(), "upstream": upstream(), "reporterTriggers": []string{"dchg", "gi"},
+		"transports": []string{"ethernet", "udp"},
 	}
 }
 

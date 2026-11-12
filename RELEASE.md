@@ -24,6 +24,22 @@ Tags are immutable. A fix is a new version.
 
 ---
 
+## v1.7.0
+
+**Date:** 2026-11-12
+**Previous release:** v1.6.1
+
+### Added
+
+- `iec61850-interop-otfabric` (OT Fabric's own stack, `own/go-iec61850`, not a reference and not in this release's `manifest.json`) implements contract 1.4 `--transport udp` in `otfabric-goose-publisher`, `-goose-subscriber`, `-sv-publisher` and `-sv-subscriber`: R-GOOSE and R-SV through go-iec61850's `rsession.Transport`, with every flag of [docs/routable.md](docs/routable.md) (`--remote`, `--listen`, `--group`, `--mcast-iface`, `--ttl`, `--key-id`, `--key`, `--mac`, `--session-version`, `--allow-unsecured`) and the `reject` event. `--capabilities` carries `"transports":["ethernet","udp"]`, so `scripts/interop.sh` runs the udp checks between it and libiec61850 and dscsystems in both directions. Third parties can now test their R-GOOSE and R-SV against go-iec61850.
+- [docs/routable.md](docs/routable.md#otfabric): what the own image does with `--transport udp`, and its one limit: the `from` of a `goose` event is the sender's IPv4 address without the UDP port, which go-iec61850's `Transport` does not report for accepted SPDUs.
+
+### Changed
+
+- `versions.yaml` records the own image's transports. The reference images are unchanged from v1.6.1.
+
+---
+
 ## v1.6.1
 
 **Date:** 2026-11-12
