@@ -123,11 +123,6 @@ no protocol itself.
   ISO 9506), so a source the server lacks gives a File-class error.
 - **MMS server, `report-trigger`**: writing `-1` aborts the association, as
   go-mms's own fixture server does; the client's `server-abort` step uses it.
-- **`from` of an R-GOOSE `goose` event**: the sender's IPv4 address without
-  the UDP port. go-iec61850's `rsession.Transport` gives the subscriber a
-  rebuilt frame whose source address encodes the sender's IPv4 address, and
-  reports the port only for refused SPDUs (the `reject` events carry
-  `address:port`). For an IPv6 sender `from` is empty.
 - **Conclude against iec61850bean**: its server never answers MMS Conclude
   (go-iec61850 INTEROP.md). The IED clients wait 5 s, then abort the
   association; the `conclude` line follows either way, as in the reference

@@ -12,7 +12,7 @@ the UDP transport changes.
 |---|---|
 | `iec61850-interop-libiec61850` | yes, through [libiec61850](https://github.com/mz-automation/libiec61850)'s `RSession`, with the limits below |
 | `iec61850-interop-dscsystems` | yes, through [dscsystems/go-iec61850](https://github.com/dscsystems/go-iec61850) `rsession` |
-| `iec61850-interop-otfabric` (OT Fabric's own stack, not a reference) | yes, through [otfabric/go-iec61850](https://github.com/otfabric/go-iec61850) `rsession`, with the limit [below](#otfabric) |
+| `iec61850-interop-otfabric` (OT Fabric's own stack, not a reference) | yes, through [otfabric/go-iec61850](https://github.com/otfabric/go-iec61850) `rsession` ([below](#otfabric)) |
 | the others | no |
 
 An image whose commands take it lists the transports in `--capabilities`:
@@ -114,11 +114,9 @@ go-iec61850's `goose` and `sv` publishers and subscribers over an
 the adapter adds only the flags and the events. Every flag above is
 implemented: both session protocol versions are sent, the three HMACs,
 unsecured SPDUs with `--key-id 0`, multicast with `--group`,
-`--mcast-iface` and `--ttl`.
-
-| | |
-|---|---|
-| `from` of a `goose` event | the sender's IPv4 address without the port: go-iec61850's `Transport` hands the subscriber a rebuilt frame whose source address is the sender's IPv4 address (`rsession.SourceMAC`), and reports the UDP port only for refused SPDUs. For an IPv6 sender `from` is empty. The `from` of a `reject` event is `address:port` |
+`--mcast-iface` and `--ttl`. The `from` of a `goose` and of a `reject`
+event is the sender's `address:port`, IPv4 or IPv6, as go-iec61850's
+`Transport` reports it (`Frame.From`, from v1.20.0).
 
 ## What this is not
 

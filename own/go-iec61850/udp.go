@@ -231,14 +231,3 @@ func emitReject(from netip.AddrPort, err error) {
 // zeroMAC is the dst and src of the events of the UDP transport: an SPDU
 // carries no Ethernet addresses.
 var zeroMAC = l2.MAC{}.String()
-
-// senderOf returns the sender of a frame the UDP transport rebuilt, from
-// its source address: rsession.SourceMAC puts the four octets of an IPv4
-// sender after 02-00. The UDP port is not available (go-iec61850's
-// Transport does not report it), and an IPv6 sender is only a hash.
-func senderOf(src l2.MAC) string {
-	if src[0] != 0x02 || src[1] != 0x00 {
-		return ""
-	}
-	return netip.AddrFrom4([4]byte(src[2:6])).String()
-}

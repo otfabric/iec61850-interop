@@ -12,11 +12,9 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/otfabric/go-iec61850/l2"
 	"github.com/otfabric/go-iec61850/rsession"
 )
 
@@ -140,19 +138,28 @@ func TestRejectReason(t *testing.T) {
 }
 
 func TestSenderOf(t *testing.T) {
-	if got := senderOf(rsession.SourceMAC(netip.MustParseAddr("172.18.0.3"))); got != "172.18.0.3" {
-		t.Errorf("IPv4: %q", got)
-	}
-	if got := senderOf(l2.MAC{0x02, 0x11, 1, 2, 3, 4}); got != "" {
-		t.Errorf("not an IPv4 sender: %q", got)
+	for in, want := range map[netip.AddrPort]string{
+		netip.MustParseAddrPort("172.18.0.3:40102"):   "172.18.0.3:40102",
+		netip.MustParseAddrPort("[2001:db8::3]:4010"): "[2001:db8::3]:4010",
+		{}: "",
+	} {
+		if got := senderOf(in); got != want {
+			t.Errorf("senderOf(%v) = %q, want %q", in, got, want)
+		}
 	}
 }
 
-// freeUDPPort returns a loopback UDP port that was free a moment ago.
-func freeUDPPort(t *testing.T) int {
+func freeUDPPort(t *testing.T) int { return freeUDPPortOn(t, netip.MustParseAddr("127.0.0.1")) }
+
+// freeUDPPortOn returns a free UDP port on the loopback address a; it
+// skips when a's family is not available.
+func freeUDPPortOn(t *testing.T, a netip.Addr) int {
 	t.Helper()
-	c, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	c, err := net.ListenUDP("udp", net.UDPAddrFromAddrPort(netip.AddrPortFrom(a, 0)))
 	if err != nil {
+		if a.Is6() {
+			t.Skipf("no IPv6 loopback: %v", err)
+		}
 		t.Fatal(err)
 	}
 	defer func() { _ = c.Close() }()
@@ -181,8 +188,16 @@ func startSubscriber(t *testing.T, out *syncBuffer, run func([]string) int, args
 // other key) is refused with reason authentication, the real one's frames
 // arrive with zero addresses and from.
 func TestRGOOSEPublisherToSubscriber(t *testing.T) {
+	for _, host := range []string{"127.0.0.1", "::1"} {
+		t.Run(host, func(t *testing.T) { testRGOOSEPublisherToSubscriber(t, netip.MustParseAddr(host)) })
+	}
+}
+
+// testRGOOSEPublisherToSubscriber runs the exchange on the loopback
+// address host: from is the publisher's address:port.
+func testRGOOSEPublisherToSubscriber(t *testing.T, host netip.Addr) {
+	addr := netip.AddrPortFrom(host, uint16(freeUDPPortOn(t, host))).String()
 	out, stdinW, _ := l2Harness(t)
-	addr := fmt.Sprintf("127.0.0.1:%d", freeUDPPort(t))
 	stop := startSubscriber(t, out, runGOOSESubscriber, []string{"--transport", "udp", "--listen", addr,
 		"--key-id", "1", "--key", testKey, "--app-id", "0x1002", "--dst", "01:0c:cd:01:00:02"})
 	pubArgs := func(key string) []string {
@@ -228,12 +243,16 @@ func TestRGOOSEPublisherToSubscriber(t *testing.T) {
 	for _, e := range out.events(t) {
 		switch e["event"] {
 		case "ready":
-			if !strings.HasPrefix(e["address"].(string), "udp:127.0.0.1:") || e["iface"] != e["address"] || e["src"] != zeroMAC {
+			if e["address"] != "udp:"+addr || e["iface"] != e["address"] || e["src"] != zeroMAC {
 				t.Errorf("ready: %v", e)
 			}
 		case "goose":
 			gooseEvents++
-			if e["dst"] != zeroMAC || e["src"] != zeroMAC || e["from"] != "127.0.0.1" || e["appID"] != "0x1002" {
+			from, err := netip.ParseAddrPort(e["from"].(string))
+			if err != nil || from.Addr() != host || from.Port() == 0 {
+				t.Fatalf("goose event from %q: %v", e["from"], err)
+			}
+			if e["dst"] != zeroMAC || e["src"] != zeroMAC || e["appID"] != "0x1002" {
 				t.Fatalf("goose event: %v", e)
 			}
 			if v := e["values"].([]any)[0].(map[string]any)["value"]; (e["stNum"] == 1.0) != (v == false) {
@@ -241,7 +260,8 @@ func TestRGOOSEPublisherToSubscriber(t *testing.T) {
 			}
 		case "reject":
 			rejects++
-			if e["reason"] != "authentication" || !strings.HasPrefix(e["from"].(string), "127.0.0.1:") {
+			from, err := netip.ParseAddrPort(e["from"].(string))
+			if e["reason"] != "authentication" || err != nil || from.Addr() != host {
 				t.Errorf("reject: %v", e)
 			}
 		case "error":
