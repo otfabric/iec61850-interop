@@ -24,6 +24,25 @@ Tags are immutable. A fix is a new version.
 
 ---
 
+## v1.7.1
+
+**Date:** 2026-11-13
+**Previous release:** v1.7.0
+
+### Fixed
+
+- `iec61850-interop-otfabric` (OT Fabric's own stack, `own/go-iec61850`, not a reference and not in this release's `manifest.json`): the `from` of an R-GOOSE `goose` event is now the sender's `address:port`, IPv4 or IPv6, as [docs/routable.md](docs/routable.md) requires. Before, it was the IPv4 address without the port, and empty for IPv6. The adapter is built on go-iec61850 v1.20.0, whose `rsession.Transport` reports the sender of accepted SPDUs (`Frame.From`). The limitation is removed from docs/routable.md and own/go-iec61850/README.md.
+
+### Testing
+
+- `own/go-iec61850` `TestRGOOSEPublisherToSubscriber` runs on IPv4 and IPv6 loopback and checks `from` as `address:port`. `TestSenderOf` covers IPv4, IPv6 and the unknown sender.
+
+### Changed
+
+- The reference images are unchanged from v1.7.0.
+
+---
+
 ## v1.7.0
 
 **Date:** 2026-11-12

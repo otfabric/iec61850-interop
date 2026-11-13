@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net/netip"
 	"os"
 	"os/signal"
 	"strconv"
@@ -537,7 +538,7 @@ func (r *gooseReporter) handle(sub int, simulated bool) func(goose.Event) {
 			r.last[f.PDU.GocbRef] = sub
 			ev := gooseEvent(f)
 			if r.udp {
-				ev["dst"], ev["src"], ev["from"] = zeroMAC, zeroMAC, senderOf(f.Src)
+				ev["dst"], ev["src"], ev["from"] = zeroMAC, zeroMAC, senderOf(f.From)
 			}
 			emit(ev)
 		case goose.EventTimeout:
@@ -548,6 +549,16 @@ func (r *gooseReporter) handle(sub int, simulated bool) func(goose.Event) {
 			emit(map[string]any{"event": "supervision", "gocbRef": gocb, "state": "timeout"})
 		}
 	}
+}
+
+// senderOf is the from of an R-GOOSE event: the sender's address:port,
+// which go-iec61850's rsession.Transport reports as Frame.From ("" when
+// it is not known).
+func senderOf(from netip.AddrPort) string {
+	if !from.IsValid() {
+		return ""
+	}
+	return from.String()
 }
 
 func gooseEvent(f *goose.Frame) map[string]any {
