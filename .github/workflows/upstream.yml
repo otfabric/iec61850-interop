@@ -36,7 +36,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-      - uses: otfabric/.github/actions/upstream-images@v3.6.0
+      - uses: otfabric/.github/actions/upstream-images@v3.8.0
 
   candidate:
     name: ${{ matrix.adapter }}
@@ -62,7 +62,7 @@ jobs:
       - name: Build the image at the latest upstream
         id: test
         if: steps.resolve.outputs.update == 'yes'
-        uses: otfabric/.github/actions/upstream-candidate@v3.6.0
+        uses: otfabric/.github/actions/upstream-candidate@v3.8.0
         with:
           name: ${{ matrix.adapter }}
           pinned: ${{ steps.resolve.outputs.pin }}
@@ -74,7 +74,7 @@ jobs:
 
       - name: Table row
         if: always()
-        uses: otfabric/.github/actions/upstream-row@v3.6.0
+        uses: otfabric/.github/actions/upstream-row@v3.8.0
         with:
           component: ${{ matrix.adapter }}
           kind: ${{ steps.resolve.outputs.kind || 'library' }}
@@ -96,7 +96,7 @@ jobs:
       contents: read
       issues: write
     steps:
-      - uses: otfabric/.github/actions/upstream-report@v3.6.0
+      - uses: otfabric/.github/actions/upstream-report@v3.8.0
         with:
           needs: ${{ toJSON(needs) }}
           notes: |
