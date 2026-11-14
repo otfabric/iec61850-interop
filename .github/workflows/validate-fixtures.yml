@@ -1,19 +1,11 @@
+# Called by pr.yml on every pull request that is not documentation only;
+# dispatch it to run it on a branch without a pull request.
 name: Validate fixtures
 
 # Run on every PR that touches fixtures, scripts or this workflow itself.
 # Also runs as part of CI/PR by calling the shared Python validator.
 on:
-  pull_request:
-    paths:
-      - 'fixtures/**'
-      - 'scripts/validate-fixtures.py'
-      - '.github/workflows/validate-fixtures.yml'
-  push:
-    branches:
-      - main
-    paths:
-      - 'fixtures/**'
-      - 'scripts/validate-fixtures.py'
+  workflow_call:
   workflow_dispatch:
 
 permissions:
