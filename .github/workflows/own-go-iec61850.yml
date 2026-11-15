@@ -108,7 +108,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - run: pip install jsonschema
+      - run: pip install jsonschema==4.26.0
 
       - name: Build from go-iec61850 ${{ needs.version.outputs.upstream }} and go-mms ${{ needs.version.outputs.mms }}
         run: |

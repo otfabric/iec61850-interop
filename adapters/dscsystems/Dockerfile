@@ -71,7 +71,7 @@ COPY fixtures/iec61850/interop.icd  /fixtures/iec61850/interop.icd
 COPY fixtures/iec61850/values.json  /fixtures/iec61850/values.json
 COPY fixtures/goose/                /fixtures/goose/
 COPY fixtures/sv/                   /fixtures/sv/
-COPY adapters/dscsystems/LICENSE adapters/dscsystems/NOTICE /usr/share/doc/iec61850-interop-dscsystems/
+COPY adapters/dscsystems/LICENSE adapters/dscsystems/NOTICE /licenses/dscsystems/
 
 USER adapter
 

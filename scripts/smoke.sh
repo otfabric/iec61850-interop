@@ -7,8 +7,9 @@
 #
 # Checks what one image can show of docs/CONTAINER_CONTRACT.md: every
 # command its --capabilities lists exists, answers --version and
-# --capabilities with the same command list, the fixtures of its roles are
-# in the image; each server command emits a valid ready event; each client
+# --capabilities with the same command list, the fixtures of its roles and
+# the licence texts of its components (/licenses/<component>/) are in the
+# image; each server command emits a valid ready event; each client
 # command runs its sequence against the same stack's server (JSON Lines; the
 # IED client's operations and CDC values); and ied-client's
 # --local-tsel/--remote-tsel against SMOKE_SERVER's ied-server (default
@@ -82,6 +83,28 @@ for f in "${FIXTURES[@]}"; do
         pass "fixture $f in ${IMAGE}"
     else
         fail "fixture $f MISSING in ${IMAGE}"
+    fi
+done
+
+info ""
+info "=== Licence texts ==="
+# THIRD_PARTY_NOTICES.md: an image carries the licence texts of its
+# components under /licenses/<component>/ (cbsigma: one directory per Go
+# module, named by its module path).
+case "$A" in
+    libiec61850)   LICENCES=(libiec61850 mbedtls iec61850-interop) ;;
+    iec61850bean)  LICENCES=(iec61850bean iec61850-interop) ;;
+    dscsystems)    LICENCES=(dscsystems) ;;
+    iec61850-rust) LICENCES=(iec61850-rust iec61850-interop) ;;
+    cbsigma)       LICENCES=(github.com/cB-Sigma/iec61850 github.com/cB-Sigma/iec61850-sim go iec61850-interop) ;;
+    *)             LICENCES=(iec61850-interop) ;;
+esac
+for c in "${LICENCES[@]}"; do
+    at "licence.$(slug "$c")" "" "$A"
+    if docker run --rm --entrypoint sh "${IMAGE}" -c "test -n \"\$(ls -A /licenses/$c 2>/dev/null)\"" >/dev/null 2>&1; then
+        pass "licence texts in /licenses/$c of ${IMAGE}"
+    else
+        fail "licence texts MISSING in /licenses/$c of ${IMAGE}"
     fi
 done
 

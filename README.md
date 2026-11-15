@@ -273,12 +273,13 @@ copied or vendored into the MIT-licensed `go-mms`, `go-iec61850` or any other
 directory of this repository. Consumers talk to every adapter only as a
 separate program, over the network and its JSON Lines, which keeps the
 consumers' own licence unaffected. Redistributing any image means keeping
-the upstream notices and meeting the source obligations of its licence. The
-dscsystems and iec61850-rust images carry their `LICENSE` and `NOTICE` files
-under `/usr/share/doc/iec61850-interop-<stack>/`; the NOTICE names the
-upstream commit the image was built from. The cbsigma image carries the
-licence and notice of every Go module it links under `/licenses`, with the
-list in `/licenses/BUNDLED-MODULES.txt`.
+the upstream notices and meeting the source obligations of its licence.
+Every release image carries the licence texts of its components under
+`/licenses/<component>/` ([THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md));
+the NOTICE of the dscsystems and iec61850-rust images names the upstream
+commit the image was built from. The cbsigma image carries the licence and
+notice of every Go module it links under `/licenses`, with the list in
+`/licenses/BUNDLED-MODULES.txt`.
 
 ## OT Fabric's own stack
 

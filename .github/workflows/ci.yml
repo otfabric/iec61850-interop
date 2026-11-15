@@ -156,7 +156,7 @@ jobs:
         if: always()
         run: |
           docker run --rm -v "$PWD:/work:ro" -w /work mirror.gcr.io/library/python:3.12-slim \
-            sh -c 'pip install -q --root-user-action=ignore jsonschema && python scripts/interop_result.py reports/results.json'
+            sh -c 'pip install -q --root-user-action=ignore jsonschema==4.26.0 && python scripts/interop_result.py reports/results.json'
 
       - name: Upload results
         if: always()
@@ -171,11 +171,16 @@ jobs:
         run: |
           LIBIEC61850_SHA=$(grep 'LIBIEC61850_SHA=' adapters/libiec61850/Dockerfile \
             | head -1 | cut -d= -f2)
-          IEC61850BEAN_VERSION=$(grep 'iec61850bean:' adapters/iec61850bean/pom.xml \
-            | head -1 | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
+          # The <version> after <artifactId>iec61850bean</artifactId>, as
+          # release.yml reads it for manifest.json; no fallback, so a pom
+          # this does not match fails the step.
+          IEC61850BEAN_VERSION=$(grep -A1 '<artifactId>iec61850bean</artifactId>' adapters/iec61850bean/pom.xml \
+            | sed -nE 's|.*<version>([^<]+)</version>.*|\1|p' | head -1)
+          [ -n "${IEC61850BEAN_VERSION}" ] \
+            || { echo "::error::no iec61850bean version in adapters/iec61850bean/pom.xml"; exit 1; }
           echo "iec61850-interop SHA : ${{ github.sha }}"
           echo "libiec61850 SHA : ${LIBIEC61850_SHA}"
-          echo "iec61850bean    : ${IEC61850BEAN_VERSION:-1.9.0}"
+          echo "iec61850bean    : ${IEC61850BEAN_VERSION}"
           echo "dscsystems      : $(grep 'ARG DSCSYSTEMS_SHA=' adapters/dscsystems/Dockerfile | cut -d= -f2)"
           echo "iec61850-rust   : $(grep 'ARG IEC61850_RUST_SHA=' adapters/iec61850-rust/Dockerfile | cut -d= -f2)"
           echo "cbsigma         : iec61850 $(grep 'ARG IEC61850_VERSION=' adapters/cbsigma/Dockerfile | cut -d= -f2), iec61850-sim $(grep 'ARG IEC61850_SIM_VERSION=' adapters/cbsigma/Dockerfile | cut -d= -f2)"

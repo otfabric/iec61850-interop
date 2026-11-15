@@ -4,7 +4,7 @@
 # Upstreams are pinned by commit or exact version; no source archive hash is
 # recorded. Which command exists in which image: fixtures/capabilities.json.
 
-interop_version: "1.7.1"
+interop_version: "1.8.0"
 contract_version: "1.4"        # docs/CONTAINER_CONTRACT.md, semver from v1.0.0
 
 protocol:
@@ -15,7 +15,9 @@ implementations:
     upstream: "MZ Automation libiec61850"
     repository: "https://github.com/mz-automation/libiec61850"
     revision: "6e265c54af66ea686453b6d31c4dcce1cf7ad2bd"
-    license: "GPL-3.0-only (or commercial)"
+    # MZ Automation also licenses libiec61850 commercially; the published
+    # image is under the GPL.
+    license: "GPL-3.0-only"
     # Built into libhal for R-GOOSE/R-SV (HMAC), the version libiec61850's
     # README names; also gives the library TLS, which no adapter configures.
     mbedtls_version: "v3.6.0"
@@ -39,7 +41,7 @@ implementations:
     repository: "https://github.com/dscsystems/go-iec61850"
     version: "v0.6.6"
     revision: "4833767caf3abbf1f205c4c49cd9432744beaf83"
-    license: "GPL-3.0"
+    license: "GPL-3.0-only"
     roles: [mms, ied, goose, sv]
     published: true
     pinned_in:

@@ -8,18 +8,12 @@ The master roadmap for the entire OTFabric IEC 61850 MMS stack is described in
 
 ---
 
-## Current release: v0.1.1
+## Current release: v1.8.0
 
-**Available adapter commands**
-
-| Image | Commands |
-|-------|----------|
-| `iec61850-interop-libiec61850` | `libiec61850-mms-server`, `libiec61850-mms-client`, `libiec61850-ied-server`, `libiec61850-ied-controller`, `libiec61850-ied-reporter` |
-| `iec61850-interop-iec61850bean` | `iec61850bean-ied-server`, `iec61850bean-ied-controller`, `iec61850bean-ied-reporter` |
-
-**Fixture revision: `iec61850-v2`**
-- Three controllable DOs: SPCSO1 (direct), SPCSO2 (SBO normal), SPCSO3 (SBO enhanced).
-- URCB `urcb01` dataset with SPS1 and Mod.
+The images, their commands and the fixture revisions are in
+[docs/CAPABILITIES.md](docs/CAPABILITIES.md), generated from
+`fixtures/capabilities.json`; the pins are in [versions.yaml](versions.yaml),
+the changes in [RELEASE.md](RELEASE.md).
 
 ---
 

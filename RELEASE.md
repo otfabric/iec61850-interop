@@ -8,7 +8,7 @@
 
 ## How a release is made
 
-1. Set `interop_version` in versions.yaml and write the notes of the version below, as the first `## vX.Y.Z` section. `make validate-fixtures` (and CI) fails when the newest section is missing, empty or not closed by `---`.
+1. Set `interop_version` in versions.yaml and `adapterVersion` in `fixtures/capabilities.json` (then `scripts/gen-coverage.sh`), and write the notes of the version below, as the first `## vX.Y.Z` section. `make validate-fixtures` (and CI) fails when the newest section is missing, empty or not closed by `---`.
 2. `make ci` on the commit to release.
 3. Publish that commit, either by tagging `vX.Y.Z` and pushing the tag, or by running **Actions → Release → Run workflow** on `main` with bump `patch` (default), `minor` or `major`. A manual run takes the highest existing `vX.Y.Z` tag, increments the chosen component, and tags the selected commit with the result (so the notes for that next version must already be in the tree). The workflow validates the fixtures and the notes of the tag before anything is built, then builds each adapter image on native `ubuntu-24.04` (linux/amd64) and `ubuntu-24.04-arm` (linux/arm64) runners in parallel — no QEMU — merges the two digests into one multi-arch manifest, pushes `<image>:vX.Y.Z`, `:X.Y.Z`, `:X.Y`, `:X` and `:latest` to GHCR, and creates the GitHub release with `manifest.json` (upstream pins and image digests) and `checksums.txt`.
 4. Consumers pin the digests from the release or from `manifest.json`.
@@ -21,6 +21,34 @@ release workflow, so: one section per version, newest first, each ending with
 a `---` line, and no `---` line inside a section.
 
 Tags are immutable. A fix is a new version.
+
+---
+
+## v1.8.0
+
+**Date:** 2026-11-16
+**Previous release:** v1.7.1
+
+### Added
+
+- [`schemas/capabilities.schema.json`](schemas/capabilities.schema.json): the JSON Schema of `fixtures/capabilities.json` as it is (schemaVersion 1), which the contract names as public surface. `scripts/validate-fixtures.py` checks the file against it with the standard library, in CI and in the release workflow, so a renamed key or a value of another type fails before a release. The contract is unchanged (still 1.4).
+- Every release image carries the licence texts of its components under `/licenses/<component>/`: libiec61850's `COPYING` and Mbed TLS's `LICENSE` (from the sources cloned at their pinned commits), the Apache License 2.0 of iec61850bean, and the MIT licence of the adapter code under `/licenses/iec61850-interop/` (THIRD_PARTY_NOTICES.md). The libiec61850 image has an `org.opencontainers.image.licenses` label.
+- `scripts/smoke.sh` checks that each image's licence directories are present and not empty.
+
+### Changed
+
+- The dscsystems and iec61850-rust images carry their `LICENSE` and `NOTICE` files under `/licenses/dscsystems/` and `/licenses/iec61850-rust/`; before, they were under `/usr/share/doc/iec61850-interop-<stack>/`.
+- `versions.yaml` names the licences of libiec61850 and dscsystems with the SPDX identifier `GPL-3.0-only`, as the dscsystems image label does; before, `"GPL-3.0-only (or commercial)"` and the deprecated `"GPL-3.0"`. The commercial option of libiec61850 is a comment.
+- `fixtures/capabilities.json` (and the generated docs/CAPABILITIES.md): `adapterVersion` is the release (it had stayed at 1.2.0), the iec61850bean upstream version is the pinned `1.9.0` instead of `1.x`, and the dscsystems licence is `GPL-3.0-only`. The shape is unchanged.
+- `scripts/check-versions.py` also fails when a licence of `versions.yaml` is not an SPDX expression or is not in its image's licence label, when `adapterVersion` is not `interop_version`, or when an upstream version, commit or licence of `capabilities.json` differs from `versions.yaml`.
+- CI and the own-stack workflow install `jsonschema==4.26.0` to validate `results.json`; before, the latest jsonschema.
+- The CI provenance step reads the iec61850bean version from `adapters/iec61850bean/pom.xml` the way the release workflow does, and fails when it finds none; before, it always printed its fallback `1.9.0`.
+- `iec61850-interop-otfabric` (OT Fabric's own stack, not a reference and not in this release's `manifest.json`): `own/go-iec61850/go.mod` requires go-cotp v1.4.2 and go-tpkt v1.2.2 (fewer allocations per packet; the wire is unchanged).
+- REQUIREMENTS.md, PLAN.md, SECURITY.md and CONTRIBUTING.md describe the repository as it is: GOOSE, Sampled Values and their routable forms are in scope, the library suites live in the libraries' repositories (R1.1), the exit codes are those of the contract, every stack's supply chain is listed, and the "When CI runs" table says what the release workflow runs.
+
+### Testing
+
+- `scripts/test_check_versions.py` and `scripts/test_validate_fixtures.py` (run by CI with the other script tests) cover the new checks on a copy of the files with one value or key changed.
 
 ---
 

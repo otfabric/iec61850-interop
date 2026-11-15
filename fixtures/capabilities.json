@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "adapterVersion": "1.2.0",
+  "adapterVersion": "1.8.0",
   "fixtureRevision": "iec61850-v3",
   "mmsFixtureRevision": "mms-v2",
   "commands": {
@@ -352,12 +352,12 @@
       "version": "1.6.2.1-89-g6e265c54"
     },
     "iec61850bean": {
-      "version": "1.x"
+      "version": "1.9.0"
     },
     "dscsystems": {
       "version": "v0.6.6",
       "commit": "4833767caf3abbf1f205c4c49cd9432744beaf83",
-      "license": "GPL-3.0"
+      "license": "GPL-3.0-only"
     },
     "iec61850-rust": {
       "version": "v0.2.0-0-gd4e8952",
