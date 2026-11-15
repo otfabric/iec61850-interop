@@ -35,7 +35,9 @@ The public surface is:
   encoding) and the exit codes,
 - the fixture revisions (`mms-v2`, `iec61850-v3`, `goose-v1`, `sv-v1`) and
   the fixture files they name,
-- the schema of `fixtures/capabilities.json` and of the release's
+- the schema of `fixtures/capabilities.json`
+  ([`schemas/capabilities.schema.json`](../schemas/capabilities.schema.json),
+  checked by `scripts/validate-fixtures.py`) and of the release's
   `manifest.json`.
 
 A **patch** release fixes an adapter so that it matches this contract, or

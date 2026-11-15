@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/otfabric/iec61850-interop/schemas/capabilities.schema.json",
+  "title": "iec61850-interop capabilities (schemaVersion 1)",
+  "description": "fixtures/capabilities.json: which command exists in which reference image, the fixture revisions, the upstream pins and the known limitations. Part of the contract's public surface (docs/CONTAINER_CONTRACT.md, Stability); checked by scripts/validate-fixtures.py.",
+  "type": "object",
+  "required": [
+    "schemaVersion", "adapterVersion", "fixtureRevision", "mmsFixtureRevision",
+    "gooseFixtureRevision", "svFixtureRevision", "commands", "knownLimitations",
+    "upstreams", "svcbOverMms", "udpTransport"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "adapterVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "The release, equal to interop_version of versions.yaml (scripts/check-versions.py)."
+    },
+    "fixtureRevision": { "$ref": "#/$defs/fixtureRevision" },
+    "mmsFixtureRevision": { "$ref": "#/$defs/fixtureRevision" },
+    "gooseFixtureRevision": { "$ref": "#/$defs/fixtureRevision" },
+    "svFixtureRevision": { "$ref": "#/$defs/fixtureRevision" },
+    "commands": {
+      "type": "object",
+      "description": "<stack>-<role>: whether the stack's image has the command.",
+      "propertyNames": {
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*-(mms-server|mms-client|ied-server|ied-client|ied-controller|ied-reporter|goose-publisher|goose-subscriber|sv-publisher|sv-subscriber)$"
+      },
+      "additionalProperties": { "type": "boolean" }
+    },
+    "knownLimitations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/limitation" }
+    },
+    "upstreams": {
+      "type": "object",
+      "description": "The stack behind each reference image, by the implementation name of versions.yaml.",
+      "propertyNames": { "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+      "additionalProperties": { "$ref": "#/$defs/upstream" }
+    },
+    "svcbOverMms": { "$ref": "#/$defs/stackFlags" },
+    "udpTransport": { "$ref": "#/$defs/stackFlags" }
+  },
+  "$defs": {
+    "fixtureRevision": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+-v\\d+$"
+    },
+    "limitation": {
+      "type": "object",
+      "required": ["stack", "version", "direction", "capability", "reason", "reproducedBy"],
+      "additionalProperties": false,
+      "properties": {
+        "stack": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "direction": { "type": "string", "minLength": 1 },
+        "capability": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 },
+        "reproducedBy": { "type": "string", "description": "The test that shows it; empty when none names it." }
+      }
+    },
+    "upstream": {
+      "type": "object",
+      "required": ["version"],
+      "additionalProperties": false,
+      "properties": {
+        "version": { "type": "string", "minLength": 1 },
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "simVersion": { "type": "string", "minLength": 1 },
+        "simCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "license": { "type": "string", "minLength": 1 }
+      }
+    },
+    "stackFlags": {
+      "type": "object",
+      "description": "A description of the feature and, per stack, whether its image has it.",
+      "required": ["description"],
+      "properties": {
+        "description": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": { "type": "boolean" }
+    }
+  }
+}

@@ -12,11 +12,14 @@ Checks:
   7. goose.json and interop-goose.cid — the GOOSE fixture: interop.icd's
      model unchanged, every control block's GSEControl, GSE address,
      dataset members and typed values agree.
+  8. capabilities.json — matches schemas/capabilities.schema.json (with
+     the JSON Schema keywords that file uses; the standard library only).
 
 Exit code: 0 if all checks pass, 1 if any check fails.
 """
 
 import json
+import re
 import sys
 from datetime import datetime
 import xml.etree.ElementTree as ET
@@ -30,6 +33,8 @@ GOOSE_JSON    = ROOT / "fixtures" / "goose" / "goose.json"
 GOOSE_SCL     = ROOT / "fixtures" / "goose" / "interop-goose.cid"
 SV_JSON       = ROOT / "fixtures" / "sv" / "sv.json"
 SV_SCL        = ROOT / "fixtures" / "sv" / "interop-sv.cid"
+CAPABILITIES  = ROOT / "fixtures" / "capabilities.json"
+CAPABILITIES_SCHEMA = ROOT / "schemas" / "capabilities.schema.json"
 
 SCL_NS = "http://www.iec.ch/61850/2003/SCL"
 
@@ -747,6 +752,78 @@ def validate_sv(icd_root: ET.Element) -> None:
             if typed and types and ranges:
                 ok(f"{where}.{key}: {len(vals)} typed values match the members")
 
+# ---------------------------------------------------------------------------
+# 8. capabilities.json against its JSON Schema
+# ---------------------------------------------------------------------------
+
+# The keywords schemas/capabilities.schema.json uses. A schema with any other
+# keyword is refused, so that nothing in it goes unchecked.
+SCHEMA_KEYWORDS = {
+    "$schema", "$id", "$defs", "$ref", "title", "description", "type", "const",
+    "pattern", "minLength", "required", "properties", "additionalProperties",
+    "propertyNames", "items",
+}
+SCHEMA_TYPES = {"object": dict, "array": list, "string": str, "boolean": bool,
+                "integer": int, "number": (int, float)}
+
+
+def schema_errors(value, schema: dict, root: dict, path: str = "$") -> list[str]:
+    """The ways value does not match schema (a subset of JSON Schema 2020-12)."""
+    unknown = set(schema) - SCHEMA_KEYWORDS
+    if unknown:
+        return [f"{path}: schema keyword(s) {sorted(unknown)} not supported by validate-fixtures.py"]
+    if "$ref" in schema:
+        node = root
+        for part in schema["$ref"].removeprefix("#/").split("/"):
+            node = node[part]
+        return schema_errors(value, node, root, path)
+    if "type" in schema:
+        want = schema["type"]
+        if not isinstance(value, SCHEMA_TYPES[want]) or (want in ("integer", "number") and isinstance(value, bool)):
+            return [f"{path}: {type(value).__name__} where the schema wants {want}"]
+    errors = []
+    if "const" in schema and (value != schema["const"] or type(value) is not type(schema["const"])):
+        errors.append(f"{path}: {value!r} is not {schema['const']!r}")
+    if isinstance(value, str):
+        if len(value) < schema.get("minLength", 0):
+            errors.append(f"{path}: shorter than {schema['minLength']}")
+        if "pattern" in schema and not re.search(schema["pattern"], value):
+            errors.append(f"{path}: {value!r} does not match {schema['pattern']}")
+    if isinstance(value, dict):
+        props = schema.get("properties", {})
+        for key in schema.get("required", []):
+            if key not in value:
+                errors.append(f"{path}: missing {key!r}")
+        for key, item in value.items():
+            where = f"{path}.{key}"
+            if "propertyNames" in schema:
+                errors += schema_errors(key, schema["propertyNames"], root, f"{where} (name)")
+            if key in props:
+                errors += schema_errors(item, props[key], root, where)
+            elif schema.get("additionalProperties") is False:
+                errors.append(f"{path}: {key!r} is not allowed")
+            elif isinstance(schema.get("additionalProperties"), dict):
+                errors += schema_errors(item, schema["additionalProperties"], root, where)
+    if isinstance(value, list) and "items" in schema:
+        for i, item in enumerate(value):
+            errors += schema_errors(item, schema["items"], root, f"{path}[{i}]")
+    return errors
+
+
+def validate_capabilities(path: Path = CAPABILITIES, schema_path: Path = CAPABILITIES_SCHEMA) -> None:
+    try:
+        schema = json.loads(schema_path.read_text())
+        data = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as e:
+        err(f"capabilities.json — cannot read it or its schema: {e}")
+        return
+    errors = schema_errors(data, schema, schema)
+    for e in errors:
+        err(f"capabilities.json — {e}")
+    if not errors:
+        ok(f"capabilities.json — matches {schema_path.relative_to(ROOT) if schema_path.is_relative_to(ROOT) else schema_path}")
+
+
 # ===========================================================================
 # Main
 # ===========================================================================
@@ -796,6 +873,10 @@ def main() -> int:
         print()
         print("--- sv.json / interop-sv.cid ---")
         validate_sv(icd_root)
+
+    print()
+    print("--- capabilities.json ---")
+    validate_capabilities()
 
     print()
     print(f"Results: {PASS} passed  {FAIL} failed")

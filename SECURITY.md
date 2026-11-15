@@ -8,7 +8,7 @@ If you discover a security vulnerability in `iec61850-interop`, please report it
 
 Instead, please email **security@otfabric.io**, or open a private advisory on GitHub (the [Security](https://github.com/otfabric/iec61850-interop/security) tab → **Advisories** → **Report a vulnerability**), with a description, steps to reproduce and the affected image tag or digest.
 
-Vulnerabilities in the bundled implementations themselves (libiec61850, IEC61850bean) belong upstream; report them there, and tell us so that the pin can be moved.
+Vulnerabilities in the bundled implementations themselves (libiec61850 with Mbed TLS, iec61850bean, dscsystems/go-iec61850, iec61850-rust, cB-Sigma iec61850 and iec61850-sim) belong upstream; report them there, and tell us so that the pin can be moved.
 
 ## Supported Versions
 
@@ -36,6 +36,10 @@ The images run **unauthenticated, unencrypted MMS and IEC 61850 servers** that a
 
 ### Supply chain
 
-- libiec61850 is cloned from GitHub during the image build and verified against the pinned commit hash
-- IEC61850bean and the adapter's other Java dependencies come from Maven Central at the versions in `adapters/iec61850bean/pom.xml`
+- libiec61850 and Mbed TLS are cloned from GitHub during the image build and verified against the pinned commit hashes (`adapters/libiec61850/Dockerfile`)
+- iec61850bean and the adapter's other Java dependencies come from Maven Central at the exact versions in `adapters/iec61850bean/pom.xml`
+- dscsystems/go-iec61850 is a Go module required at a tag in `adapters/dscsystems/go.mod`, verified by `go.sum`; the build checks that the tag is the pinned commit
+- iec61850-rust is a git dependency at a commit (`rev`) in `adapters/iec61850-rust/Cargo.toml`, locked in `Cargo.lock`; the build checks both against the pinned commit
+- cB-Sigma iec61850 and iec61850-sim are Go modules required at tags in `adapters/cbsigma/go.mod`, verified by `go.sum`; the build checks the tags against its Dockerfile
+- `versions.yaml` records every pin, and `scripts/check-versions.py` fails when it disagrees with the build inputs
 - Consumers should pin images by digest, taken from the `manifest.json` of a release

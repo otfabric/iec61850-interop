@@ -30,9 +30,9 @@ stay until that file's schema moves them out.
 
 **REQ-1.2** The repository must not become a general-purpose interoperability framework, conformance harness or compatibility-matrix product.
 
-**REQ-1.3** All assertions must be expressed in Go test files using the actual `go-mms` and `go-iec61850` libraries as test drivers.
+**REQ-1.3** *Superseded by R1.1.* The assertions about `go-mms` and `go-iec61850` are Go test files in those libraries' own repositories (their `//go:build interop` suites), which run against the images of this repository. This repository imports neither library; it tests the third-party stacks against each other (`scripts/smoke.sh`, `scripts/interop.sh`).
 
-**REQ-1.4** The scope is limited to MMS over TCP (ISO 8802/ISO 9506 transport stack). GOOSE and Sampled Values are explicitly out of scope.
+**REQ-1.4** *Updated.* The scope is MMS over TCP (ISO 8802/ISO 9506 transport stack), the IEC 61850 services mapped onto it, GOOSE and Sampled Values ([docs/goose.md](docs/goose.md), [docs/sv.md](docs/sv.md); added in v0.3.0 and v0.4.0, see RELEASE.md), and their routable forms R-GOOSE and R-SV ([docs/routable.md](docs/routable.md), contract 1.4).
 
 ---
 
@@ -86,14 +86,7 @@ Client result line format:
 
 The result schema must not grow into a protocol-neutral test specification. Permitted fields: `operation`, `target`, `ok`, `value`, `error`, `diagnostics`.
 
-**REQ-3.6 — Exit codes.** Adapters must exit with:
-
-| Code | Condition |
-|---|---|
-| 0 | Sequence completed and every emitted operation has `ok:true` |
-| 1 | Startup or configuration failure |
-| 2 | Connection failure |
-| 3 | Malformed or unreadable fixture, **or** one or more operations emitted `ok:false` |
+**REQ-3.6 — Exit codes.** *Updated.* Adapters exit with the codes of [docs/CONTAINER_CONTRACT.md](docs/CONTAINER_CONTRACT.md), which is the source of truth: `0` sequence completed, `1` argument or startup error, `2` connection failure, `3` (`*-ied-client`) at least one operation emitted `ok:false`, `4` unsupported command.
 
 Fixed-sequence clients (for example `*-ied-client`) must still attempt `conclude` after an operation failure, then exit `3` when any prior operation failed. Connection failure remains exit `2` and must not be reported as a successful conclude.
 
@@ -146,7 +139,7 @@ Fixed-sequence clients (for example `*-ied-client`) must still attempt `conclude
 
 ## 5. Test structure
 
-**REQ-5.1** Go test files are the primary test executables. The test files must import and exercise `go-mms` and `go-iec61850` directly.
+**REQ-5.1** *Superseded by R1.1* (as REQ-1.3): the Go test files that import and exercise `go-mms` and `go-iec61850` live in those libraries' repositories, not here.
 
 **REQ-5.2** Each test file must correspond to one role: client or server:
 
@@ -187,7 +180,7 @@ artifacts/<adapter>-<direction>.pcap
 
 **REQ-7.2** The repository must provide a `Makefile` that orchestrates building adapters, running tests and collecting artifacts.
 
-**REQ-7.3** No additional top-level directories (`schemas/`, `capabilities/`, `profiles/`, `matrix/`, `manifests/`, `overlays/`, `generated/`) may be created at the start. They may be introduced only if a concrete, recurring maintenance problem requires them.
+**REQ-7.3** No additional top-level directories (`capabilities/`, `profiles/`, `matrix/`, `manifests/`, `overlays/`, `generated/`) may be created at the start. They may be introduced only if a concrete, recurring maintenance problem requires them. *Updated:* `schemas/` exists, for the organisation's result schema (`interop-result-v1.schema.json`) and the schema of `fixtures/capabilities.json` (`capabilities.schema.json`), which the contract makes public surface.
 
 **REQ-7.4** A JSON Schema for the MMS fixture may be added later if malformed fixtures become a demonstrated maintenance problem. It must not be created speculatively.
 
@@ -216,9 +209,7 @@ MMS_INTEROP_PORT      default: 1102
 
 **REQ-8.3** Reports (buffered and unbuffered) and controls (direct and select-before-operate) must not be included in Phase 2A. They are deferred to Phase 2B.
 
-**REQ-8.4** The following are permanently out of scope unless a separate decision explicitly reverses the exclusion:
-  - GOOSE
-  - Sampled Values
+**REQ-8.4** The following are permanently out of scope unless a separate decision explicitly reverses the exclusion (GOOSE and Sampled Values were on this list until v0.3.0 and v0.4.0 brought them into scope, REQ-1.4):
   - Broad vendor compatibility matrix
   - Metadata overlays or per-adapter fixture variants
   - Generalised test orchestration framework

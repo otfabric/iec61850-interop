@@ -6,7 +6,7 @@ The `otfabric` image (`iec61850-interop-otfabric`, [`own/`](../own/)) is not in 
 
 This file is generated from `fixtures/capabilities.json`; do not edit manually. Run `./scripts/gen-coverage.sh`.
 
-Adapter version: `1.2.0` · Fixture revisions: `mms-v2`, `iec61850-v3`, `goose-v1`, `sv-v1`
+Adapter version: `1.8.0` · Fixture revisions: `mms-v2`, `iec61850-v3`, `goose-v1`, `sv-v1`
 
 ## Stack × capability
 

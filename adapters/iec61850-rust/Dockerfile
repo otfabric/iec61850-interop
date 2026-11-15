@@ -71,7 +71,8 @@ COPY fixtures/iec61850/values.json  /fixtures/iec61850/values.json
 COPY fixtures/goose/                /fixtures/goose/
 COPY fixtures/sv/                   /fixtures/sv/
 COPY adapters/iec61850-rust/LICENSE-MIT adapters/iec61850-rust/LICENSE-APACHE adapters/iec61850-rust/NOTICE \
-     /usr/share/doc/iec61850-interop-iec61850-rust/
+     /licenses/iec61850-rust/
+COPY LICENSE /licenses/iec61850-interop/LICENSE
 
 USER adapter
 

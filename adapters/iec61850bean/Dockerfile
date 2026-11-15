@@ -49,6 +49,12 @@ COPY --from=build /build/target/iec61850bean-adapter.jar .
 COPY fixtures/iec61850/interop.icd  /fixtures/iec61850/interop.icd
 COPY fixtures/iec61850/values.json  /fixtures/iec61850/values.json
 
+# Licence texts (THIRD_PARTY_NOTICES.md): the Apache License 2.0 of
+# iec61850bean (upstream ships it as LICENSE.txt, and no NOTICE), and the MIT
+# licence of the adapter code.
+COPY adapters/iec61850bean/LICENSE-APACHE /licenses/iec61850bean/LICENSE-APACHE
+COPY LICENSE /licenses/iec61850-interop/LICENSE
+
 # Entry point scripts — each passes its subcommand to Main.java.
 RUN printf '#!/bin/sh\nexec java -jar /app/iec61850bean-adapter.jar server "$@"\n' \
       > /usr/local/bin/iec61850bean-ied-server \

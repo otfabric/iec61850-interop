@@ -17,8 +17,9 @@ make build smoke interop        # the images, their smoke tests and the cross-st
 - **A contract change** bumps `contract_version` in versions.yaml, reaches every
   adapter and [docs/CONTAINER_CONTRACT.md](docs/CONTAINER_CONTRACT.md) in the
   same change, and follows its semantic versioning.
-- **A release** has its notes in [RELEASE.md](RELEASE.md) and `interop_version`
-  in the same pull request.
+- **A release** has its notes in [RELEASE.md](RELEASE.md), `interop_version`
+  in versions.yaml and `adapterVersion` in `fixtures/capabilities.json` (then
+  `scripts/gen-coverage.sh`) in the same pull request.
 - **OT Fabric's own stack** (`own/go-iec61850/`) is built and tested only by the
   manual **Own stack (go-iec61850)** workflow and
   `make -f own/go-iec61850/Makefile image smoke interop`; it is not in
@@ -32,6 +33,6 @@ make build smoke interop        # the images, their smoke tests and the cross-st
 | Push to a branch | none | nothing; dispatch `ci.yml`, `validate-fixtures.yml` to test a branch without a pull request |
 | Push to `main` | `policy.yml` | the light checks; the merged commit was tested as the pull request's merge commit |
 | Schedule | `upstream.yml` | the scheduled runs, on `main` |
-| Release | `release.yml` | the release workflow tests the release commit again |
+| Release | `release.yml` | checks that `versions.yaml` and RELEASE.md name the version and runs `scripts/validate-fixtures.py`, then builds and publishes the images by digest; it runs no image smoke test or cross-stack self-test (those ran on the pull request) |
 
 Documentation means an added or modified `*.md` file outside `.github/`, `testdata/` and `vendor/`, other than `AGENTS.md` and `CLAUDE.md`. A deleted or renamed document, or any other file, runs everything. `OT Fabric Required Checks` fails unless every job that applies succeeded; its summary lists them.

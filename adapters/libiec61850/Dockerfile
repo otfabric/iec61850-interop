@@ -129,7 +129,8 @@ RUN cmake .. \
 FROM debian:bookworm-slim@${DEBIAN_DIGEST} AS runtime
 
 LABEL org.opencontainers.image.source="https://github.com/otfabric/iec61850-interop" \
-      org.opencontainers.image.description="iec61850-interop adapter on libiec61850 (MMS, IEC 61850, GOOSE, Sampled Values)"
+      org.opencontainers.image.description="iec61850-interop adapter on libiec61850 (MMS, IEC 61850, GOOSE, Sampled Values)" \
+      org.opencontainers.image.licenses="MIT AND GPL-3.0-only AND (Apache-2.0 OR GPL-2.0-or-later)"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libjson-c5 \
@@ -164,6 +165,13 @@ COPY fixtures/iec61850/interop.icd  /fixtures/iec61850/interop.icd
 COPY fixtures/iec61850/values.json  /fixtures/iec61850/values.json
 COPY fixtures/goose/                /fixtures/goose/
 COPY fixtures/sv/                   /fixtures/sv/
+
+# Licence texts (THIRD_PARTY_NOTICES.md): libiec61850 and Mbed TLS from the
+# sources the build stage cloned at their pinned commits, and the MIT licence
+# of the adapter code.
+COPY --from=libiec61850-build /src/libiec61850/COPYING /licenses/libiec61850/COPYING
+COPY --from=libiec61850-build /src/libiec61850/third_party/mbedtls/mbedtls-3.6.0/LICENSE /licenses/mbedtls/LICENSE
+COPY LICENSE /licenses/iec61850-interop/LICENSE
 
 USER adapter
 

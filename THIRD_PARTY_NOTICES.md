@@ -4,9 +4,9 @@ The repository's own code and documentation are MIT ([LICENSE](LICENSE)) unless 
 
 | Image | Adapter code | Upstream | Pin | Upstream licence | Image as distributed |
 |---|---|---|---|---|---|
-| `iec61850-interop-libiec61850` | MIT | [libiec61850](https://github.com/mz-automation/libiec61850), with [Mbed TLS](https://github.com/Mbed-TLS/mbedtls) | `6e265c5`, Mbed TLS `v3.6.0` (`2ca6c28`) | GPL-3.0 (or commercial); Mbed TLS Apache-2.0 OR GPL-2.0-or-later | contains GPL-3.0 code |
+| `iec61850-interop-libiec61850` | MIT | [libiec61850](https://github.com/mz-automation/libiec61850), with [Mbed TLS](https://github.com/Mbed-TLS/mbedtls) | `6e265c5`, Mbed TLS `v3.6.0` (`2ca6c28`) | GPL-3.0-only (also offered commercially; the image is under the GPL); Mbed TLS Apache-2.0 OR GPL-2.0-or-later | contains GPL-3.0 code |
 | `iec61850-interop-iec61850bean` | MIT | [iec61850bean](https://github.com/beanit/iec61850bean) | 1.9.0 | Apache-2.0 | MIT + Apache-2.0 |
-| `iec61850-interop-dscsystems` | GPL-3.0 | dscsystems/go-iec61850 | `v0.6.6` (`4833767`) | GPL-3.0 | GPL-3.0 |
+| `iec61850-interop-dscsystems` | GPL-3.0 | dscsystems/go-iec61850 | `v0.6.6` (`4833767`) | GPL-3.0-only | GPL-3.0-only |
 | `iec61850-interop-iec61850-rust` | MIT | [iec61850-rust](https://github.com/csp0924/iec61850-rust) | `d4e8952` | MIT OR Apache-2.0 | MIT + (MIT OR Apache-2.0) |
 | `iec61850-interop-cbsigma` | MIT | [cB-Sigma/iec61850](https://github.com/cB-Sigma/iec61850) and [iec61850-sim](https://github.com/cB-Sigma/iec61850-sim) | `v0.1.0` (`f121ba3`), `v0.1.0` (`92530d8`) | Apache-2.0 | MIT + Apache-2.0 + BSD-3-Clause |
 
@@ -14,4 +14,4 @@ The repository's own code and documentation are MIT ([LICENSE](LICENSE)) unless 
 
 `iec61850-interop-otfabric` ([own/go-iec61850](own/go-iec61850/README.md)) is not a release image: its adapter code and its upstreams, go-iec61850 and go-mms (and their Go module dependencies), are MIT or BSD-3-Clause; the licence of every module it contains is in the image under `/licenses`, with the list in `/licenses/BUNDLED-MODULES.txt`.
 
-Consumers talk to every adapter as a separate program, over the network and its JSON Lines, which keeps their own licence unaffected. Redistributing an image means keeping the upstream notices and meeting the source obligations of its licence. The dscsystems and iec61850-rust images carry their `LICENSE` and `NOTICE` under `/usr/share/doc/iec61850-interop-<stack>/`. The libiec61850 and iec61850bean images do not yet carry licence texts.
+Consumers talk to every adapter as a separate program, over the network and its JSON Lines, which keeps their own licence unaffected. Redistributing an image means keeping the upstream notices and meeting the source obligations of its licence. Every release image carries the licence texts of its components under `/licenses/<component>/`: libiec61850's `COPYING` (GPL-3.0) and Mbed TLS's `LICENSE` under `/licenses/libiec61850/` and `/licenses/mbedtls/`, taken from the sources the build clones at their pinned commits; the Apache License 2.0 of iec61850bean under `/licenses/iec61850bean/` (upstream has no NOTICE); [adapters/dscsystems/LICENSE](adapters/dscsystems/LICENSE) and [NOTICE](adapters/dscsystems/NOTICE) under `/licenses/dscsystems/`; iec61850-rust's `LICENSE-MIT`, `LICENSE-APACHE` and [NOTICE](adapters/iec61850-rust/NOTICE) under `/licenses/iec61850-rust/`; and, except in the dscsystems image, the MIT licence of the adapter code under `/licenses/iec61850-interop/`. `scripts/smoke.sh` checks that each of these directories is present and not empty.
