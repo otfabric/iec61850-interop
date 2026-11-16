@@ -3,8 +3,8 @@ module github.com/otfabric/iec61850-interop/own/go-iec61850
 go 1.26.0
 
 require (
-	github.com/otfabric/go-iec61850 v1.23.0
-	github.com/otfabric/go-mms v1.11.0
+	github.com/otfabric/go-iec61850 v1.23.1
+	github.com/otfabric/go-mms v1.11.1
 )
 
 require (
