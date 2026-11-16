@@ -1,9 +1,9 @@
 github.com/otfabric/go-cotp v1.4.2 h1:IKTBA1vZ/EkEdpE/JtLt3DjHSxyyyhw/i9kDJqmWCoc=
 github.com/otfabric/go-cotp v1.4.2/go.mod h1:i5HSjrovB4iUUYbsLag6H18vaJOdVu3YD9Z6E7FO/I0=
-github.com/otfabric/go-iec61850 v1.23.0 h1:6NlkgN2RcrWxebV8TFIE+FQoe7rexgzJ7iNq39t2W7U=
-github.com/otfabric/go-iec61850 v1.23.0/go.mod h1:cj9ZORHIgxfBzt8k90Mtcq2d2jLkC3o4c7d6JvXJ8cY=
-github.com/otfabric/go-mms v1.11.0 h1:h5LJYgtgWFqfRHTOTIwPSZQfhy9AYhmu8KoAQY5hv4Q=
-github.com/otfabric/go-mms v1.11.0/go.mod h1:ksAff/tc7DdyOkHV76+gaRSuz1yoUpCIPpKz2ukkOOs=
+github.com/otfabric/go-iec61850 v1.23.1 h1:bI9LltkrUB7K5T0w4nUSAGco3a9gNIv/zVuQjOzFp94=
+github.com/otfabric/go-iec61850 v1.23.1/go.mod h1:zTJMfnVFzS2jm34NUf0AQnLhZLYFGnenxSPxjdRLToM=
+github.com/otfabric/go-mms v1.11.1 h1:I8293Au+93aMCmv7LaA04Qw+crtStiQF0mcAjybHCKQ=
+github.com/otfabric/go-mms v1.11.1/go.mod h1:R8GOI+vmd2aTFVmf2DzpU7Rstu8zudXXDLOmaLiPFYk=
 github.com/otfabric/go-tpkt v1.2.2 h1:E4n2M4t8wI92sspi7ZjgnwC43eb8paTRLOW8HlkKMRw=
 github.com/otfabric/go-tpkt v1.2.2/go.mod h1:qGkrTZ03mIwhCQZCL9S3OaOAVyw9TVdZXJf1lSYRLog=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
